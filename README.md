@@ -39,17 +39,57 @@ logged to a trace store and scorable against committed golden answer keys.
 
 ## Quickstart
 
-The agent itself ships with #2 / #3. What's reproducible today:
+The agent CLI lands with #3 (the planner). Today, the **tool registry** is
+runnable against the committed PR fixtures — that's the interface the planner
+will drive. Install and exercise it:
 
 ```bash
-# Inspect the locked use-case + sample inputs the agent will consume.
-cat docs/use-case.md
-ls fixtures/sample-prs/
-jq '{title: .pr.title, files: (.files | length), additions: .pr.additions}' \
-  fixtures/sample-prs/vector-search-at-scale_pr6_terraform_infra.json
+npm install
+npm test                  # 34 tests across the registry, 5 tools, parser, and MCP server
+npm run typecheck
 ```
 
-A runnable agent CLI lands with #2 + #3.
+Use the registry from your own script:
+
+```ts
+import { buildDefaultRegistry } from "./src/index.js";
+import path from "node:path";
+
+const registry = buildDefaultRegistry();
+const ctx = { mode: "replay" as const, fixturesDir: path.resolve("fixtures/sample-prs") };
+
+const pr = await registry.invoke(
+  "fetch_pr",
+  { owner: "jt-mchorse", repo: "vector-search-at-scale", number: 6 },
+  ctx,
+);
+
+const hits = await registry.invoke(
+  "search_repo",
+  { owner: "jt-mchorse", repo: "vector-search-at-scale", query: "terraform", maxResults: 5 },
+  ctx,
+);
+
+// Fifth tool: queries the local portfolio-context MCP server for the
+// target repo's recorded core decisions, so the planner can flag PRs that
+// conflict with non-superseded decisions. Requires PORTFOLIO_ROOT in env.
+process.env.PORTFOLIO_ROOT = path.resolve("../..");
+const decisions = await registry.invoke(
+  "get_portfolio_context",
+  { repo: "agent-orchestration-platform" },
+  ctx,
+);
+```
+
+All five tools from `docs/use-case.md` are wired: `fetch_pr`,
+`read_file_at_ref`, `search_repo`, `run_check`, and `get_portfolio_context`.
+The fifth tool dispatches through a **custom MCP server**
+(`mcp-server/portfolio-context/`) which exposes
+`get_repo_core_decisions(repo)` over the standard MCP protocol — the agent
+talks to it the same way Claude Desktop would talk to any third-party
+server. The server is also runnable as a standalone stdio binary
+(`dist/mcp-server/portfolio-context/bin.js`) after `npm run build`, with
+`PORTFOLIO_ROOT` set in its environment.
 
 ## Benchmarks / Results
 
