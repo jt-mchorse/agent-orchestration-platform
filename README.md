@@ -45,7 +45,7 @@ will drive. Install and exercise it:
 
 ```bash
 npm install
-npm test                  # 34 tests across the registry, 5 tools, parser, and MCP server
+npm test                  # 44 tests across the registry, 6 tools, parser, MCP server, and HITL
 npm run typecheck
 ```
 
@@ -90,6 +90,48 @@ talks to it the same way Claude Desktop would talk to any third-party
 server. The server is also runnable as a standalone stdio binary
 (`dist/mcp-server/portfolio-context/bin.js`) after `npm run build`, with
 `PORTFOLIO_ROOT` set in its environment.
+
+A sixth tool, `post_review_comment`, is the one **destructive** surface in
+the registry (it would post a public review comment on someone else's PR
+in live mode). The registry blocks destructive tools unless the
+`ToolContext` carries an `approvals` provider that returns `approved:
+true`:
+
+```ts
+import {
+  buildDefaultRegistry,
+  createCliApprovalProvider,
+  autoApproveProvider,
+} from "./src/index.js";
+
+const registry = buildDefaultRegistry();
+
+// Interactive: print the rendered comment to stderr, read y/n on stdin.
+const approvals = createCliApprovalProvider();
+
+await registry.invoke(
+  "post_review_comment",
+  {
+    owner: "jt-mchorse",
+    repo: "rag-production-kit",
+    number: 9,
+    summary: "Adds hybrid retrieval with reasonable defaults.",
+    findings: [
+      { severity: "concern", file: "src/retrieve.py", line_start: 14, line_end: 22,
+        message: "RRF k constant deserves a comment." },
+    ],
+    recommendation: "approve with comments",
+  },
+  { mode: "replay", fixturesDir: "fixtures/sample-prs", approvals },
+);
+
+// Replay / test runs: skip the prompt with the auto-approve provider.
+// (The live-mode posting path is stubbed until the planner (#3) wires it.)
+```
+
+If a destructive tool is invoked without an `approvals` provider, the
+registry throws `ToolError` with `kind: "approval_missing"` — failing
+closed rather than open.
 
 ## Benchmarks / Results
 

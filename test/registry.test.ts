@@ -25,7 +25,9 @@ describe("ToolRegistry", () => {
     reg.register(echoTool);
 
     expect(reg.has("echo")).toBe(true);
-    expect(reg.list()).toEqual([{ name: "echo", description: "echo input.text" }]);
+    expect(reg.list()).toEqual([
+      { name: "echo", description: "echo input.text", destructive: false },
+    ]);
 
     const result = await reg.invoke("echo", { text: "hello" }, ctx);
     expect(result).toEqual({ echoed: "hello" });
