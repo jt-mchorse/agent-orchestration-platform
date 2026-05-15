@@ -45,7 +45,7 @@ will drive. Install and exercise it:
 
 ```bash
 npm install
-npm test                  # 17 tests across the registry + 4 tools
+npm test                  # 34 tests across the registry, 5 tools, parser, and MCP server
 npm run typecheck
 ```
 
@@ -69,11 +69,27 @@ const hits = await registry.invoke(
   { owner: "jt-mchorse", repo: "vector-search-at-scale", query: "terraform", maxResults: 5 },
   ctx,
 );
+
+// Fifth tool: queries the local portfolio-context MCP server for the
+// target repo's recorded core decisions, so the planner can flag PRs that
+// conflict with non-superseded decisions. Requires PORTFOLIO_ROOT in env.
+process.env.PORTFOLIO_ROOT = path.resolve("../..");
+const decisions = await registry.invoke(
+  "get_portfolio_context",
+  { repo: "agent-orchestration-platform" },
+  ctx,
+);
 ```
 
-Four of the five tools are wired (`fetch_pr`, `read_file_at_ref`,
-`search_repo`, `run_check`); the custom MCP server `portfolio-context` lands
-in a follow-up session and will register the same way.
+All five tools from `docs/use-case.md` are wired: `fetch_pr`,
+`read_file_at_ref`, `search_repo`, `run_check`, and `get_portfolio_context`.
+The fifth tool dispatches through a **custom MCP server**
+(`mcp-server/portfolio-context/`) which exposes
+`get_repo_core_decisions(repo)` over the standard MCP protocol — the agent
+talks to it the same way Claude Desktop would talk to any third-party
+server. The server is also runnable as a standalone stdio binary
+(`dist/mcp-server/portfolio-context/bin.js`) after `npm run build`, with
+`PORTFOLIO_ROOT` set in its environment.
 
 ## Benchmarks / Results
 

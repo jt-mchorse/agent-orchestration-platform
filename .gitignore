@@ -13,3 +13,4 @@ logs/
 .pytest_cache/
 *.tsbuildinfo
 coverage/
+.tmp-*/

@@ -7,6 +7,9 @@
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "portfolio-context-mcp": "dist/mcp-server/portfolio-context/bin.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -14,7 +17,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

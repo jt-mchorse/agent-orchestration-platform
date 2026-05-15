@@ -19,6 +19,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*", "test/**/*", "mcp-server/**/*"],
   "exclude": ["node_modules", "dist"]
 }
