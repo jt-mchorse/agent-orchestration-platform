@@ -1,26 +1,75 @@
 # agent-orchestration-platform
-> A real single-purpose agent (research brief OR PR-review): tool registry, MCP integration, HITL checkpoints, retry/fallback, full trace observability.
+> A real single-purpose agent: reads a GitHub PR, calls tools, pauses for human approval, posts a structured review. Tool registry + custom MCP server + HITL checkpoints + full trace observability + eval suite.
 
 ![CI](https://github.com/jt-mchorse/agent-orchestration-platform/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## What this is
-*[2–3 paragraphs framing the problem and the approach. Filled by repo's first feature work.]*
+
+A **PR review agent**. You hand it `owner/repo#N`, it loads the diff, calls
+its tool registry to gather context (file content at the base ref, related
+code via repo search, CI status, the target repo's recorded core decisions
+via a custom MCP server), pauses for explicit operator approval before
+posting anything publicly, and on approval emits a single structured review
+comment: a plain-English summary, a list of findings tagged by severity
+(`blocker` / `concern` / `nit` / `praise`) and anchored to file + line, and
+a final recommendation. In replay mode (against committed fixtures), the
+checkpoint is a no-op and the output goes to stdout.
+
+The agent is one agent, deliberately. The point of this repo isn't
+multi-agent orchestration; it's *single-agent depth* — visible planning,
+real tools (including one custom MCP server), real human-in-the-loop on the
+one destructive surface (posting on someone else's PR), and a real trace
+store so you can replay any run and see every decision the agent made.
+
+The choice between this framing and "research brief" is locked as **D-002**
+(PR review wins on real input corpus, scorable output, real HITL motivation,
+demo strength, and dogfooding into the portfolio — see
+[`docs/use-case.md`](docs/use-case.md) for the full table). Two real PR
+fixtures from `jt-mchorse/*` are committed under
+[`fixtures/sample-prs/`](fixtures/sample-prs/) so subsequent issues (#2 tool
+registry, #3 planner loop, #6 trace UI, #7 eval) have hermetic local inputs.
 
 ## Architecture
-*See [docs/architecture.md](docs/architecture.md). Diagram pending issue #1.*
+
+See [`docs/architecture.md`](docs/architecture.md) for the full diagram. In
+short: **input → planner → executor (with tool calls) → re-planner on
+unexpected output → HITL checkpoint → posted review**, with every step
+logged to a trace store and scorable against committed golden answer keys.
 
 ## Quickstart
-*Pending — see open issues.*
+
+The agent itself ships with #2 / #3. What's reproducible today:
+
+```bash
+# Inspect the locked use-case + sample inputs the agent will consume.
+cat docs/use-case.md
+ls fixtures/sample-prs/
+jq '{title: .pr.title, files: (.files | length), additions: .pr.additions}' \
+  fixtures/sample-prs/vector-search-at-scale_pr6_terraform_infra.json
+```
+
+A runnable agent CLI lands with #2 + #3.
 
 ## Benchmarks / Results
-*Pending — see [docs/benchmarks.md](docs/benchmarks.md).*
+
+Pending the eval suite (#7). Per the project's no-fabricated-benchmarks
+rule, this section will populate with real numbers when #7 ships — recall
+on golden findings and LLM-as-judge calibration against human-labeled
+samples.
 
 ## Demo
-*60-second demo pending.*
+
+60-second demo pending — meaningful only once #2/#3/#4 land so the agent
+actually produces output to demo.
 
 ## Why these decisions
-See [MEMORY/core_decisions_human.md](MEMORY/core_decisions_human.md).
+
+See [`MEMORY/core_decisions_human.md`](MEMORY/core_decisions_human.md). Notable:
+
+- **D-002.** PR review agent (not research brief). Reversibility:
+  **expensive** — every downstream issue targets this concrete shape.
 
 ## License
+
 MIT
