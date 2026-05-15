@@ -39,17 +39,41 @@ logged to a trace store and scorable against committed golden answer keys.
 
 ## Quickstart
 
-The agent itself ships with #2 / #3. What's reproducible today:
+The agent CLI lands with #3 (the planner). Today, the **tool registry** is
+runnable against the committed PR fixtures — that's the interface the planner
+will drive. Install and exercise it:
 
 ```bash
-# Inspect the locked use-case + sample inputs the agent will consume.
-cat docs/use-case.md
-ls fixtures/sample-prs/
-jq '{title: .pr.title, files: (.files | length), additions: .pr.additions}' \
-  fixtures/sample-prs/vector-search-at-scale_pr6_terraform_infra.json
+npm install
+npm test                  # 17 tests across the registry + 4 tools
+npm run typecheck
 ```
 
-A runnable agent CLI lands with #2 + #3.
+Use the registry from your own script:
+
+```ts
+import { buildDefaultRegistry } from "./src/index.js";
+import path from "node:path";
+
+const registry = buildDefaultRegistry();
+const ctx = { mode: "replay" as const, fixturesDir: path.resolve("fixtures/sample-prs") };
+
+const pr = await registry.invoke(
+  "fetch_pr",
+  { owner: "jt-mchorse", repo: "vector-search-at-scale", number: 6 },
+  ctx,
+);
+
+const hits = await registry.invoke(
+  "search_repo",
+  { owner: "jt-mchorse", repo: "vector-search-at-scale", query: "terraform", maxResults: 5 },
+  ctx,
+);
+```
+
+Four of the five tools are wired (`fetch_pr`, `read_file_at_ref`,
+`search_repo`, `run_check`); the custom MCP server `portfolio-context` lands
+in a follow-up session and will register the same way.
 
 ## Benchmarks / Results
 

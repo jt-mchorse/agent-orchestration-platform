@@ -11,3 +11,5 @@ build/
 *.log
 logs/
 .pytest_cache/
+*.tsbuildinfo
+coverage/
