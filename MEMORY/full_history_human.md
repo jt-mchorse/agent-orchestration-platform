@@ -31,3 +31,18 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** Custom MCP server `portfolio-context` remains open on issue #2 — it's a sizeable deliverable on its own (exposes the target repo's `MEMORY/core_decisions_*.md` to the agent) and benefits from focused time. Will also land in `mcp-server-cookbook` per use-case doc.
 
 **Next session:** Build `portfolio-context` MCP server to close out #2, OR move to #3 (planner) and circle back to the MCP server when its consumers exist.
+
+---
+
+## 2026-05-15 — Issue #2 (continued): portfolio-context MCP server + 5th tool
+**Duration:** ~55 min · **Branch:** `session/2026-05-15-1908-issue-2` (continuation)
+
+- Built the custom MCP server under `mcp-server/portfolio-context/`, split into a pure parser (`decisions.ts`, with explicit handling for `null` / `[]` / inline arrays / `#`-prefixed issue refs), an in-process server factory (`server.ts` registering `get_repo_core_decisions`), and a thin stdio bin (`bin.ts`) wired into `package.json`'s `bin` field as `portfolio-context-mcp` for Claude-Desktop-style use. The server validates the requested repo slug against `[A-Za-z0-9_.\-]` before joining to `PORTFOLIO_ROOT` so requests cannot escape the root.
+- Added the fifth tool `get_portfolio_context` in `src/tools/`. It uses an injectable `connect` factory; the default embeds the server in-process via `InMemoryTransport` so the agent doesn't need to manage a subprocess. The protocol exchange is real MCP — only the transport differs from production stdio.
+- 17 new tests across parser, server (end-to-end via `InMemoryTransport`, including the missing-file and path-escape paths), and registry tool. Total now 34/34 green; typecheck clean; build emits a runnable `dist/mcp-server/portfolio-context/bin.js`. Bumped `zod` minimum to `^3.25` to satisfy the MCP SDK's peer-dep range.
+
+**Why this work, this session:** It was the one acceptance criterion still open on #2 ("MCP server runs locally and is invokable from the agent"). The planner (#3) and eval suite (#7) both benefit from being able to ask "what's the recorded decision context for *this* repo?" against the standard MCP protocol rather than reaching into the filesystem directly.
+
+**Open questions / blockers:** None for #2. Considered mirroring `portfolio-context` into `mcp-server-cookbook` per the use-case doc's aside, but on re-reading the cookbook's §2 spec (4 generic production-pattern servers: Postgres, filesystem-sandbox, API-wrapper, internal-tools-bridge) the portfolio-context server is too repo-specific to belong there — it stays in this repo where its consumer lives.
+
+**Next session:** #3 (planner→executor→re-planner loop) — full tool surface is now available; or #4 (HITL checkpoints), which is independent of the planner shape.

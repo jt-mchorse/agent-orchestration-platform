@@ -41,3 +41,27 @@ decisions_made: []
 followups: []
 ---
 
+---
+session: 2026-05-15T23:15Z
+duration_min: 55
+issue: 2
+focus: portfolio_context_mcp_server_and_fifth_tool
+delta:
+  files_added: 8
+  files_changed: 6
+  tests_added: 17
+  total_tests: 34
+context_for_next_session:
+  - mcp_server_portfolio_context_lives_at_mcp_server_portfolio_context_split_into_decisions_ts_server_ts_bin_ts
+  - fifth_tool_get_portfolio_context_in_src_tools_dispatches_via_in_memory_transport_to_in_process_server
+  - bin_runnable_for_real_stdio_use_via_dist_mcp_server_portfolio_context_bin_js_exposed_as_portfolio_context_mcp
+  - tool_factory_pattern_create_get_portfolio_context_tool_accepts_injected_connect_fn_default_uses_in_process_in_memory_pair
+  - repo_slug_validated_against_a_z_0_9_underscore_dot_dash_before_join_to_portfolio_root_no_path_escape
+  - zod_minimum_bumped_to_3_25_to_satisfy_mcp_sdk_peer_dep
+  - issue_2_now_fully_complete_pr_9_ready_for_merge
+  - mirror_to_mcp_server_cookbook_explicitly_scoped_out_cookbook_is_for_generic_patterns_portfolio_context_is_portfolio_specific
+  - planner_3_now_unblocked_on_full_tool_surface
+decisions_made: []
+followups: []
+---
+
