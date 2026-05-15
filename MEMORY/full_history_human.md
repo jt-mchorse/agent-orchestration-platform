@@ -46,3 +46,18 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None for #2. Considered mirroring `portfolio-context` into `mcp-server-cookbook` per the use-case doc's aside, but on re-reading the cookbook's §2 spec (4 generic production-pattern servers: Postgres, filesystem-sandbox, API-wrapper, internal-tools-bridge) the portfolio-context server is too repo-specific to belong there — it stays in this repo where its consumer lives.
 
 **Next session:** #3 (planner→executor→re-planner loop) — full tool surface is now available; or #4 (HITL checkpoints), which is independent of the planner shape.
+
+---
+
+## 2026-05-15 — Issue #4: HITL checkpoints for destructive tools
+**Duration:** ~35 min · **Branch:** `session/2026-05-15-2322-issue-4`
+
+- Added a `Tool.annotations.destructive` flag (with a required `destructiveReason` enforced at registration) and an `approvals` provider on `ToolContext`. The registry intercepts destructive invocations and throws a typed `ToolError` (`approval_missing` if no provider, `approval_denied` if the provider returned `approved: false`) before the underlying tool runs. The underlying tool only executes on `approved: true`, so a CLI/UI can't accidentally skip the gate.
+- Shipped the first real destructive consumer: a `post_review_comment` tool that renders the structured review (summary + findings + recommendation) and returns the preview in replay mode, with live mode stubbed for the planner (#3). This makes the destructive flag a real feature rather than dead config.
+- CLI approval helper (`src/agent/cli-approval.ts`) implements the provider contract via stderr prompt + stdin y/n, with two convenience singletons — `autoApproveProvider` (for replay/test paths) and `denyAllProvider` (safe-by-default). 10 new vitest tests across the registry gate, the destructive tool's preview rendering, and the CLI prompt's y / empty paths. Total now 44/44 green.
+
+**Why this work, this session:** With ~100 min left after #2 and a #3-or-#4 fork, taking #4 first means the planner (#3) lands into a registry that already enforces destructive approvals — no follow-up needed to thread the gate through. The strict "lowest unblocked priority:high" selection rule would have chosen #3 (90 min estimated, tight for remaining budget); the deviation is documented in the issue plan comment and noted here.
+
+**Open questions / blockers:** AC2 says "Pause-and-resume mechanic works in CLI + UI." The CLI half is done; the UI half belongs in #6 (trace UI) where the React surface lives. Captured in the issue close comment, not a separate blocker.
+
+**Next session:** #3 (planner→executor→re-planner loop). The registry now enforces approvals; the planner just routes `post_review_comment` through it like any other tool.

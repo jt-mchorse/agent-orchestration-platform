@@ -65,3 +65,29 @@ decisions_made: []
 followups: []
 ---
 
+---
+session: 2026-05-15T23:25Z
+duration_min: 35
+issue: 4
+focus: hitl_destructive_tool_approval_flow_and_post_review_comment_shim
+delta:
+  files_added: 3
+  files_changed: 5
+  tests_added: 10
+  total_tests: 44
+context_for_next_session:
+  - tool_interface_now_carries_optional_annotations_destructive_and_destructive_reason
+  - registry_refuses_to_register_destructive_tool_without_destructive_reason_at_register_time
+  - tool_context_now_carries_optional_approvals_provider_with_request_approval_method
+  - registry_invoke_intercepts_destructive_tools_throws_tool_error_kind_approval_missing_or_approval_denied
+  - cli_approval_provider_in_src_agent_cli_approval_ts_prompts_on_stderr_reads_y_n_on_stdin
+  - auto_approve_provider_and_deny_all_provider_convenience_singletons_in_same_module
+  - post_review_comment_tool_is_first_destructive_consumer_replay_mode_renders_preview_string_live_mode_stubbed
+  - new_tool_count_six_not_five_post_review_comment_is_a_post_planner_addition_visible_destructive_surface
+  - registry_list_now_returns_destructive_flag_per_tool_existing_test_updated
+  - issue_4_acceptance_destructive_flag_done_cli_half_of_pause_resume_done_ui_half_deferred_to_issue_6_test_destructive_never_fires_without_approval_covered
+  - selection_rule_deviation_picked_issue_4_60min_over_issue_3_90min_for_time_budget_safety_documented_in_plan_comment
+decisions_made: []
+followups: []
+---
+
