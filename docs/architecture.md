@@ -33,9 +33,9 @@ flowchart TD
     UI[React-via-CDN viewer]
   end
 
-  subgraph EVAL["Eval suite (issue #7)"]
+  subgraph EVAL["Eval suite (issue #7 — shipped)"]
     GOLDEN[(Golden answer keys)]
-    JUDGE[Score vs. golden]
+    JUDGE[scoreReview → ReviewScore]
   end
 
   IN --> P
@@ -68,8 +68,35 @@ flowchart TD
 
 ## Pending downstream (open issues)
 
-- **#7** — Eval suite that scores agent findings against golden answer keys
-  on the committed fixtures, importing `llm-eval-harness`.
+_(All v0.1 issues shipped.)_
+
+## Eval suite (this PR — issue #7)
+
+`src/eval/` ships three modules:
+
+- **`score.ts`** — `scoreReview(actual, golden)` returns a
+  `ReviewScore` with three sub-metrics: exact-class recommendation
+  match (0/1), findings F1 against a severity-keyed 1:1 fuzzy match
+  (D-011), and a summary length-ratio. Composite is
+  `0.5×rec + 0.4×f1 + 0.1×length`.
+- **`runner.ts`** — `discoverCases(fixturesDir)` finds every
+  fixture/golden pair; `evaluateAll(cases)` runs the agent (with the
+  ScriptedPlanner placeholder; `AnthropicPlanner` swaps in here) and
+  scores each.
+- **`comment.ts`** — `renderEvalMarkdown(run)` produces a sticky-marker
+  markdown table; `upsertStickyComment(repo, pr, body)` finds + edits
+  the prior comment by hidden marker (`<!-- agent-eval:sticky-comment -->`)
+  or POSTs a new one.
+
+The `agent-eval` GitHub Action wires these together: on every PR it
+runs the eval against the committed fixtures, prints the markdown to
+the action log, and upserts the sticky comment.
+
+**TS-only, not Python (D-010).** llm-eval-harness's `comment` CLI is
+Python; replicating the same pattern in TS keeps the agent's CI
+dep-light. The sticky-marker idea is borrowed; the two repos use
+distinct markers so a downstream consumer importing both doesn't
+collide.
 
 ## Trace persistence + viewer (this PR — issue #6)
 

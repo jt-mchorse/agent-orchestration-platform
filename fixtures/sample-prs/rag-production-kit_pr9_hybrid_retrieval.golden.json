@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "fixture_id": "rag-production-kit_pr9_hybrid_retrieval",
+  "provenance": "hand-labeled by JT for issue #7's eval suite",
+  "golden_review": {
+    "summary": "Implements hybrid retrieval via BM25 + pgvector with reciprocal rank fusion. RRF math is correct and the index DDL is sensible; one concern about chunk-id collision handling on re-index and a nit about test coverage of the per-method ranks payload.",
+    "findings": [
+      {
+        "severity": "concern",
+        "message": "Re-index path doesn't clear stale rows before inserting new vectors; chunk-id collisions silently overwrite without a warning.",
+        "file": "rag_kit/indexer.py"
+      },
+      {
+        "severity": "nit",
+        "message": "RetrievalResult.ranks dict surfaces per-method ranks but no test asserts on its keys; a downstream consumer that misspells 'lexical' would silently get None.",
+        "file": "tests/test_retriever.py"
+      },
+      {
+        "severity": "praise",
+        "message": "RRF k=60 default matches Cormack et al. SIGIR 2009 and is documented in the docstring with the citation. Good provenance hygiene."
+      }
+    ],
+    "recommendation": "approve_with_comments"
+  }
+}

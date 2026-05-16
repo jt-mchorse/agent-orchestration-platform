@@ -1,0 +1,26 @@
+{
+  "schema_version": "1",
+  "fixture_id": "vector-search-at-scale_pr6_terraform_infra",
+  "provenance": "hand-labeled by JT for issue #7's eval suite",
+  "golden_review": {
+    "summary": "Provisions the benchmark infrastructure (Terraform for the three vector DBs, shell scripts, Makefile targets, CI workflow). IAM scope is broader than the workload requires; the open CIDR on the load generator is a blast-radius concern; cost-impact disclosure is missing from the Makefile target descriptions.",
+    "findings": [
+      {
+        "severity": "blocker",
+        "message": "IAM role granted on the load-generator host is *:* — drop to least-privilege for just the EC2 + S3 operations the benchmark actually needs.",
+        "file": "infra/terraform/iam.tf"
+      },
+      {
+        "severity": "concern",
+        "message": "Security group ingress rule on 0.0.0.0/0 for the load-generator port. Restrict to the VPC CIDR or the operator's office IP.",
+        "file": "infra/terraform/network.tf"
+      },
+      {
+        "severity": "nit",
+        "message": "Makefile `make bench-all` doesn't print the estimated cost before launching. Operators new to the harness may not realize a full run is ~$15 in EC2 + traffic.",
+        "file": "Makefile"
+      }
+    ],
+    "recommendation": "request_changes"
+  }
+}

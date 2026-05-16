@@ -93,3 +93,20 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The viewer renders against a memory-seeded sample on local boot; against a real PG it'll show whatever runs persist. The "minimal React UI" requirement is interpreted as React-the-library-running-in-the-browser, not React-the-build-toolchain — D-006 spells out why.
 
 **Next session:** #7 (eval suite, the last open priority:high on this repo). The `Review` shape it'll score against is now persisted and aggregatable, so the eval delta becomes a real number rather than a forward-reference.
+
+## 2026-05-16 — Issue #7: Agent eval suite
+**Duration:** ~50 min · **Branch:** `session/2026-05-16-0445-issue-7`
+
+- Shipped the agent eval suite in `src/eval/` across three modules: `score.ts` (scoring math), `runner.ts` (agent + golden discovery + aggregation), `comment.ts` (sticky-PR-comment renderer + upsert via stdlib-only urllib equivalent in node).
+- Hand-labeled golden reviews committed under `fixtures/sample-prs/*.golden.json` for the two existing fixture PRs: rag-production-kit#9 (approve_with_comments, 3 findings centered on chunk-id collisions + per-method-ranks coverage + RRF provenance praise) and vector-search-at-scale#6 (request_changes, 3 findings centered on IAM scope + open security group + missing cost disclosure).
+- `scoreReview(actual, golden)` returns three sub-metrics: exact-class recommendation match (0/1), findings F1 against a severity-keyed greedy 1:1 fuzzy match (D-011, Jaccard threshold 0.30), and a summary length-ratio. Composite is `0.5 × recommendation + 0.4 × findings_f1 + 0.1 × summary_length` — weights reflect the relative stakes (getting the recommendation right is what a human reviewer would actually use).
+- `evaluateAll(cases)` runs the agent against each fixture using the existing `AgentRun` from #3 with a `ScriptedPlanner` placeholder (the heuristic `_buildScriptedReview` produces a deliberately-mediocre review so the eval has something to score; once `AnthropicPlanner` lands it swaps in cleanly). The CI run reports the placeholder's baseline numbers: composite 0.345, 50% recommendation accuracy, 0 findings F1 (the scripted agent doesn't emit findings).
+- `.github/workflows/eval.yml` runs on `pull_request`, dry-runs the eval to log preview, then upserts the sticky PR comment. Uses hidden HTML marker `<!-- agent-eval:sticky-comment -->` (D-010, distinct from llm-eval-harness's marker so consumers running both don't collide).
+- 33 new tests across `test/eval/{score,runner,comment}.test.ts`: jaccard math, finding-matching semantics (severity gate, threshold, 1:1 greedy), scoreReview composite weighting, edge cases (empty summary, no findings), the agent runner against the real committed fixtures, the comment markdown shape + sticky-comment plumbing against an in-process FakeGithub. Suite total: 110/110 pass + 4 skipped (the existing pg-integration tests); typecheck clean.
+- D-010 (TS-only, no python eval-harness pip install in CI) and D-011 (greedy 1:1 severity-keyed matching) recorded.
+
+**Why this work, this session:** #7 was the last open priority:high in agent-orchestration-platform. With the eval suite shipped, the repo hits v0.1: README + arch + quickstart + working agent loop + trace observability + eval suite + MEMORY + MIT.
+
+**Open questions / blockers:** None. Real LLM-driven reviews (and thus higher composite scores) come from `AnthropicPlanner` landing — the seam is the `Planner` interface from #3.
+
+**Next session:** All priority:high closed across most repos in this multi-issue session. Either start polishing or move to one of the remaining repos with a high open.

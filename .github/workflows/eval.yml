@@ -1,0 +1,43 @@
+# Agent eval suite (issue #7).
+#
+# Runs the agent against every committed fixture / golden pair, scores
+# each `Review` against its golden answer key, and upserts a sticky
+# comment on the PR with the delta table. Uses a hidden HTML marker
+# (`<!-- agent-eval:sticky-comment -->`) to find + edit its prior
+# comment so the PR doesn't accumulate stacks across pushes.
+#
+# Why TS-only and not the cross-language `eval-harness comment` CLI:
+# the comparison shape (`Review` with structured findings) is
+# TypeScript-side already, and shipping a Python install step here
+# would add minutes to every PR's eval pass without unlocking any new
+# capability — the sticky-marker pattern is identical in both repos.
+
+name: agent-eval
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Dry-run eval (preview in logs)
+        run: npm run eval -- --dry-run
+      - name: Upsert sticky PR comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run eval -- \
+            --comment \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }}

@@ -81,3 +81,31 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. A switch to a bundled React app is a one-time config job; the viewer's logic in `src/ui/app.js` would carry over with minor tweaks.
 
 **Related issues:** #6
+
+## D-010 — Agent eval suite ships in TypeScript, not Python (2026-05-16)
+**Decision:** The agent eval suite (`src/eval/`) is entirely TypeScript. It does not `pip install eval-harness` in the GitHub Action. The sticky-PR-comment pattern is borrowed from `llm-eval-harness` D-009 (hidden HTML marker, `findStickyCommentId` + `upsertStickyComment`), but the two repos use distinct markers (`<!-- agent-eval:sticky-comment -->` vs `<!-- eval-harness:sticky-comment -->`) so a downstream consumer running both actions doesn't collide.
+
+**Why:** The `Review` shape (summary + structured findings + recommendation) lives in TypeScript already. Adding a Python install step to the agent's CI workflow would add ~30 s per PR for `pip install -e .[eval]`, plus another tens of seconds for cross-language IPC (the agent writes JSON, Python reads + scores it, posts the comment). All of that for *the same sticky-comment shape* eval-harness already implements. The cleaner choice: re-implement the pattern in TS once (~150 lines), keep the action dep-graph at "node 20 + npm ci", and accept that the two repos own parallel implementations of the same idea. If a third repo adopts the pattern, the right move is to extract a shared package, not bridge to Python.
+
+**Alternatives considered:**
+- `pip install eval-harness` in the action — rejected: adds dep + minutes per PR for no capability unlock.
+- Cross-language subprocess call (TS spawns Python `eval-harness comment`) — rejected: same install cost + brittle IPC + harder debugging.
+- Run eval-harness as a separate workflow after the agent writes results — rejected: doubles the CI fan-out (two workflows on every PR) for the same end result.
+
+**Reversibility:** Cheap. The TS module is ~150 lines; a future shared-package extraction is a clean refactor.
+
+**Related issues:** #7
+
+## D-011 — Findings precision/recall uses 1:1 fuzzy matching keyed by severity (2026-05-16)
+**Decision:** `matchFindings(actuals, goldens)` builds a greedy 1:1 mapping between the agent's findings and the golden's, where two findings match iff (a) their `severity` is equal *and* (b) their token-level Jaccard similarity ≥ 0.30. The matching is greedy by best similarity: highest-scoring pair wins first, then both endpoints are removed, repeat.
+
+**Why:** Without 1:1, a single agent finding that token-overlaps three golden findings would inflate recall to 3/N. Without the severity gate, a "praise" finding could match a "blocker" — clearly wrong. The Jaccard threshold of 0.30 is calibrated against the hand-labeled fixtures: lower lets unrelated findings match, higher misses genuinely-equivalent re-phrasings. The greedy approach is `O(|A| × |G|)` which is fine at the ~10-findings-per-fixture scale; an optimal Hungarian assignment would be `O(n³)` and not visibly better at this scale.
+
+**Alternatives considered:**
+- Unrestricted many-to-one matching — rejected: double-counts.
+- Cosine similarity over embeddings — rejected: adds an embedder dep for short-text comparisons where Jaccard works fine.
+- No severity check — rejected: lets semantically-incompatible findings match.
+
+**Reversibility:** Cheap. The matching is one function; the Jaccard threshold is a single constant.
+
+**Related issues:** #7
