@@ -143,3 +143,29 @@ decisions_made: [D-005, D-006]
 followups: []
 ---
 
+
+---
+session: 2026-05-16T04:45Z
+duration_min: 50
+issue: 7
+focus: agent_eval_suite_score_runner_comment_workflow
+delta:
+  files_added: 9
+  files_changed: 4
+  tests_added: 33
+  total_tests: 110
+context_for_next_session:
+  - eval_suite_lives_in_src_eval_split_into_score_runner_comment_ts
+  - scorereview_returns_recommendation_match_findings_f1_summary_length_ratio_composite_weighted_avg
+  - matchfindings_greedy_1_to_1_severity_keyed_jaccard_threshold_0_3_d_011
+  - sticky_comment_marker_is_agent_eval_sticky_comment_distinct_from_eval_harness_marker_d_010
+  - upsertstickycomment_uses_global_fetch_test_doubles_via_fetchimpl_override_no_msw_dep
+  - runner_uses_scriptedplanner_with_heuristic_review_for_fixture_anthropic_planner_swaps_in_later
+  - golden_fixtures_are_two_hand_labeled_jsons_one_per_committed_pr_fixture
+  - eval_yml_workflow_runs_on_pull_request_against_main_pull_requests_write_permission_uses_secrets_github_token
+  - npm_run_eval_bin_supports_dry_run_and_comment_writes_results_json_per_run
+  - smoke_tested_locally_baseline_composite_0_345_50pct_recommendation_accuracy_with_scripted_agent
+  - issue_7_acceptance_eval_yml_wired_done_golden_traces_in_fixtures_done_pr_comment_with_deltas_done
+decisions_made: [D-010, D-011]
+followups: []
+---

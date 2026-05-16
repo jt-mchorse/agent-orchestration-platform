@@ -54,3 +54,21 @@
   reversibility: cheap
   related_issues: [#6]
   superseded_by: null
+
+- id: D-010
+  date: 2026-05-16
+  decision: agent_eval_suite_ships_in_typescript_does_not_pip_install_eval_harness
+  rationale: review_shape_is_typescript_side_already_python_install_in_action_costs_minutes_per_pr_with_no_capability_unlock_sticky_marker_pattern_borrowed_idea_not_impl
+  alternatives_rejected: [python_eval_harness_via_pip_install_in_workflow, cross_language_subprocess_call, run_eval_harness_as_separate_workflow_after_agent_writes_results]
+  reversibility: cheap
+  related_issues: [#7]
+  superseded_by: null
+
+- id: D-011
+  date: 2026-05-16
+  decision: findings_precision_recall_uses_greedy_1_to_1_matching_keyed_by_severity_jaccard_threshold_0_3
+  rationale: prevents_double_counting_a_single_finding_against_multiple_goldens_severity_lock_avoids_blocker_matching_praise_jaccard_works_well_on_short_review_findings
+  alternatives_rejected: [unrestricted_many_to_one_matching_double_counts, cosine_over_embeddings_dep_for_short_text_overkill, no_severity_check_lets_unrelated_findings_match]
+  reversibility: cheap
+  related_issues: [#7]
+  superseded_by: null
