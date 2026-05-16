@@ -44,6 +44,18 @@ export {
   DEFAULT_MAX_REPLANS,
   type ExecutorOptions,
 } from "./agent/executor.js";
+export {
+  aggregateCost,
+  MemoryStore,
+  type AggregatedCost,
+  type RunDetail,
+  type RunSummary,
+  type TraceStore,
+  type WriteRunInput,
+} from "./trace/store.js";
+export { PgStore, type PgStoreOptions } from "./trace/pg-store.js";
+export { createTraceServer, type TraceServerOptions } from "./ui/server.js";
+export type { StepCost } from "./agent/types.js";
 
 import { ToolRegistry } from "./tools/registry.js";
 import { fetchPrTool } from "./tools/fetch-pr.js";

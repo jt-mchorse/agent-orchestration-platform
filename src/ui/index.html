@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agent-orchestration-platform — trace viewer</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --fg: #e8edf2;
+      --muted: #8a93a6;
+      --card: #151922;
+      --border: #232938;
+      --accent: #6ee7b7;
+      --warn: #fcd34d;
+      --err: #fca5a5;
+      --info: #93c5fd;
+      --plan: #c4b5fd;
+    }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--fg);
+      font: 14px/1.45 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    main { max-width: 980px; margin: 32px auto; padding: 0 20px; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+    h2 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: var(--muted); }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+    .nav { margin: 12px 0 18px; }
+    .nav a, .nav .crumb {
+      color: var(--info); text-decoration: none; cursor: pointer;
+      font-family: ui-monospace, "SFMono-Regular", monospace; font-size: 12px;
+    }
+    .nav a:hover { text-decoration: underline; }
+    .runs-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .runs-table th, .runs-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px; text-align: left;
+    }
+    .runs-table th { color: var(--muted); font-weight: 500; }
+    .runs-table td.cost, .runs-table td.tokens {
+      font-variant-numeric: tabular-nums; text-align: right;
+    }
+    .runs-table tbody tr { cursor: pointer; }
+    .runs-table tbody tr:hover { background: var(--card); }
+    .status-finalized { color: var(--accent); }
+    .status-aborted   { color: var(--err); }
+    .status-running   { color: var(--warn); }
+    .review {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; margin: 14px 0 20px;
+    }
+    .review .summary { font-size: 14px; }
+    .review .reco {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      margin-top: 8px;
+    }
+    .reco-approve { background: rgba(110,231,183,0.16); color: var(--accent); }
+    .reco-approve_with_comments { background: rgba(252,211,77,0.16); color: var(--warn); }
+    .reco-request_changes { background: rgba(252,165,165,0.16); color: var(--err); }
+    .timeline {
+      border-left: 2px solid var(--border); padding-left: 14px; margin-left: 6px;
+    }
+    .event {
+      position: relative; margin-bottom: 10px;
+    }
+    .event::before {
+      content: ""; position: absolute; left: -19px; top: 4px;
+      width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+    }
+    .event.run_started::before    { background: var(--info); }
+    .event.plan_emitted::before   { background: var(--plan); }
+    .event.step_started::before   { background: var(--info); }
+    .event.observation.ok::before { background: var(--accent); }
+    .event.observation.err::before{ background: var(--err); }
+    .event.re_plan_triggered::before { background: var(--warn); }
+    .event.finalized::before      { background: var(--accent); }
+    .event.aborted::before        { background: var(--err); }
+    .event .head { font-size: 13px; }
+    .event .head .kind { font-family: ui-monospace, "SFMono-Regular", monospace; }
+    .event .head .ts {
+      color: var(--muted); font-size: 11px; margin-left: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .event .body {
+      font-size: 12px; color: var(--muted); margin-top: 2px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .event .body code {
+      font-family: ui-monospace, "SFMono-Regular", monospace; color: var(--fg);
+    }
+    .footer { color: var(--muted); font-size: 12px; margin-top: 32px; }
+    .footer a { color: var(--muted); }
+    .empty { color: var(--muted); font-style: italic; padding: 20px 0; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.3.1",
+      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+      "htm": "https://esm.sh/htm@3.1.1"
+    }
+  }
+  </script>
+</head>
+<body>
+  <main>
+    <h1>agent-orchestration-platform — trace viewer</h1>
+    <p class="sub">React-via-ESM-CDN. Reads <code>/api/runs</code> and <code>/api/runs/&lt;id&gt;</code>. Issue
+      <a href="https://github.com/jt-mchorse/agent-orchestration-platform/issues/6" style="color: var(--muted);">#6</a>.</p>
+    <div id="root"></div>
+    <p class="footer">
+      <a href="https://github.com/jt-mchorse/agent-orchestration-platform">jt-mchorse/agent-orchestration-platform</a>
+    </p>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

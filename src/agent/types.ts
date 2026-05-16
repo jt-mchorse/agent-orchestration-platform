@@ -32,15 +32,32 @@ export interface Plan {
 }
 
 /**
+ * Per-step cost (#6). Optional everywhere: tools that don't know their
+ * cost simply omit it; the aggregator skips missing values rather than
+ * inferring zero. Real-LLM-driven planners (e.g., the future
+ * `AnthropicPlanner`) populate it from the SDK's usage block.
+ */
+export interface StepCost {
+  input_tokens?: number;
+  output_tokens?: number;
+  /** Dollars (USD). Float; the trace store rounds to NUMERIC(12,6). */
+  dollars?: number;
+}
+
+/**
  * What the executor observed when it ran a step.
  *
  * `kind: "ok"` carries the tool's parsed output (the registry already ran
  * the tool's `outputSchema` against it before returning). `kind: "error"`
  * carries the `ToolError` — this is what the planner gets to react to.
+ *
+ * `cost` is optional and reported by the tool itself (when known) or by
+ * the planner (when the cost is the LLM call, not the tool call). The
+ * executor doesn't synthesize it.
  */
 export type Observation =
-  | { step: PlannedStep; outcome: { kind: "ok"; value: unknown } }
-  | { step: PlannedStep; outcome: { kind: "error"; error: ToolError } };
+  | { step: PlannedStep; outcome: { kind: "ok"; value: unknown }; cost?: StepCost }
+  | { step: PlannedStep; outcome: { kind: "error"; error: ToolError }; cost?: StepCost };
 
 /**
  * Why the executor asked the planner to revise.

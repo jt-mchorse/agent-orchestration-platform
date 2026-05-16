@@ -1,0 +1,28 @@
+# Single-container Postgres for the agent trace store (#6).
+#
+# Same shape as rag-production-kit's compose file: one service, an
+# init.sql mount that runs on first bring-up, a healthcheck so `npm test
+# -- --integration` waits for readiness before connecting.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agent-trace-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent
+      POSTGRES_DB: agent_trace
+    ports:
+      - "5433:5432"   # 5433 host-side to avoid collision with rag-production-kit's 5432
+    volumes:
+      - agent-trace-pg-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent_trace"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  agent-trace-pg-data:
