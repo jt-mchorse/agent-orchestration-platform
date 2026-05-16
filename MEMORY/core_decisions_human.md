@@ -25,3 +25,31 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Expensive. Five downstream issues (#2 tool registry, #3 planner loop, #4 HITL, #6 trace UI, #7 evals) target this concrete shape; switching after this decision would force a re-scoping of all five.
 
 **Related issues:** #1, #2, #3, #4, #6, #7
+
+## D-003 — `Planner` is a three-method TypeScript interface, not a single-method one (2026-05-16)
+**Decision:** The agent loop talks to its decision-maker through a `Planner` interface with three async methods: `initialPlan(input)`, `revise(state, reason)`, and `finalize(state)`. Each maps to one distinct phase of the run (start, error-handling, end). The portfolio's "one-method-Protocol per backend" pattern (Tool, Reranker, Embedder, Backend) is followed *per phase*, not collapsed into a single `step()` method that switches internally on what's needed.
+
+**Why:** The three operations are semantically different — `initialPlan` produces a plan from nothing, `revise` consumes an error reason, `finalize` produces a `Review` shape (not a plan). Collapsing them into one method would force discriminated-union inputs that's harder to implement correctly for a future `AnthropicPlanner` (each method maps to a different system-prompt shape) and harder to test (the `ScriptedPlanner` would need to inspect the call kind every time). Three small methods are the right amount of structure here.
+
+**Alternatives considered:**
+- Single-method `step(state) → next` Protocol — rejected: collapses three different operations into one, makes the LLM-driven implementation harder because each call shape wants different prompting.
+- React-style "one function per decision point" — rejected: not idiomatic for TypeScript, harder to compose with async + dependency injection.
+- Class hierarchy with `BasePlanner` — rejected: same complaint as in `llm-eval-harness` (D-005 there); one interface, two concrete implementations, no ABC needed.
+
+**Reversibility:** Cheap. The three methods are small; collapsing or splitting later is a one-PR refactor.
+
+**Related issues:** #3, #6, #7
+
+## D-004 — Re-plan budget defaults to 5, configurable per run (2026-05-16)
+**Decision:** `AgentRun` accepts an `ExecutorOptions.maxReplans` override; default is `DEFAULT_MAX_REPLANS = 5`. When the budget is exhausted, the executor emits an `aborted` trace event with `reason: max_replans_exceeded:N` and proceeds to `finalize()` with the observations gathered so far. The planner still gets a chance to assemble a partial review.
+
+**Why:** Without an upper bound, a misbehaving planner (or a deterministic tool-error + revise-to-same-plan loop) could run forever and burn dollars on a real LLM-driven planner. 5 is loose enough for legitimate paths (fetch fails → planner adapts to a different repo handle → succeeds in two replans, with margin) and tight enough that runaway loops surface as test failures within seconds. Per-run override matters because eval suites that intentionally test recovery paths may want a higher budget, and production guardrails may want a lower one.
+
+**Alternatives considered:**
+- Unbounded loop + external kill switch — rejected: makes test-side determinism harder; the kill switch would still need a bound.
+- Hardcoded 3 replans — rejected: too tight for normal paths.
+- Dollar/token budget — deferred: meaningful only once `AnthropicPlanner` lands; cost-budget is a #6/#7 concern, not #3's.
+
+**Reversibility:** Cheap. The constant and option live in one file; the abort path is a single trace event the UI (#6) already needs to render.
+
+**Related issues:** #3

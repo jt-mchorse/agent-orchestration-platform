@@ -61,3 +61,18 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** AC2 says "Pause-and-resume mechanic works in CLI + UI." The CLI half is done; the UI half belongs in #6 (trace UI) where the React surface lives. Captured in the issue close comment, not a separate blocker.
 
 **Next session:** #3 (planner→executor→re-planner loop). The registry now enforces approvals; the planner just routes `post_review_comment` through it like any other tool.
+
+## 2026-05-16 — Issue #3: Planner → Executor → Re-planner loop
+**Duration:** ~50 min · **Branch:** `session/2026-05-16-0322-issue-3`
+
+- Shipped the agent loop as three small modules under `src/agent/`: `types.ts` (the `Plan`/`PlannedStep`/`Observation`/`PlannerState`/`ReplanReason`/`Review`/`Finding` shapes matching the `docs/use-case.md` contract), `planner.ts` (`Planner` interface and `ScriptedPlanner` test utility — D-003), `trace.ts` (append-only `TraceEvent` log with a pluggable clock, distributed-Omit type to keep the discriminated union sound), and `executor.ts` (`AgentRun` with `DEFAULT_MAX_REPLANS = 5` — D-004).
+- The executor walks `plan.steps` in order; on a `ToolError` it asks the planner to `revise(state, reason)` with a `ReplanReason` variant that distinguishes `tool_error` from `approval_denied` so the planner can branch on intent. The trace logs every decision (every `PlannedStep.rationale`) plus `re_plan_triggered` between a failing observation and the next plan, and ends in either `finalized` or `aborted` (`max_replans_exceeded:N`).
+- 13 new hermetic tests covering happy path (multi-step plan, rationale-in-trace, empty plan), re-plan (tool error → revise → resume, approval_denied → distinct trigger, budget exhaustion → abort + still finalize), non-`ToolError` re-throw, `PlannerState` accumulation in `revise()` and `finalize()`, `Trace` clock + defensive copy + `ofKind` filtering, and a wired-up integration test that runs `buildDefaultRegistry()` against the committed `rag-production-kit#9` fixture and asserts the executor produced a single plan, no replans, and a real summary derived from the fetched PR. Suite total now 57/57 green.
+- `docs/architecture.md` mermaid relabels #3 as shipped and the agent box names `initialPlan / revise / finalize`. New "Agent loop (this PR — issue #3)" subsection documents the interface and the two re-plan triggers. The "Pending downstream" list shrinks to just #6 and #7.
+- D-003 (three-method `Planner` interface) and D-004 (replan-budget default 5, configurable) recorded with full alternatives and reasoning.
+
+**Why this work, this session:** #3 is the last *agent-core* piece — #6 and #7 are persistence and evals layered on top. The LLM-driven `AnthropicPlanner` is deliberately deferred (per the plan comment): the loop's contract is testable end-to-end with `ScriptedPlanner` today, and the LLM implementation is much easier to build once #6 gives it traces to learn from and #7 gives it eval gates.
+
+**Open questions / blockers:** None for the loop itself. `AnthropicPlanner` lands alongside #6/#7 (filed separately). PR posting via `post_review_comment` already routes through the registry's destructive gate from #4; the planner just calls the tool like any other one.
+
+**Next session:** Either #6 (Postgres trace persistence + minimal React UI — the `Trace` here is the in-memory shape #6 mirrors) or #7 (eval suite importing `llm-eval-harness`). Both are unblocked.

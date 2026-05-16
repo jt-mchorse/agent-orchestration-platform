@@ -18,3 +18,21 @@
   reversibility: expensive
   related_issues: [#1, #2, #3, #4, #6, #7]
   superseded_by: null
+
+- id: D-003
+  date: 2026-05-16
+  decision: planner_is_a_three_method_typescript_interface_initialplan_revise_finalize
+  rationale: matches_portfolio_protocol_pattern_tool_reranker_embedder_single_seam_per_phase_lets_scriptedplanner_drive_tests_without_an_llm
+  alternatives_rejected: [single_method_step_protocol, react_style_function_per_decision, class_hierarchy_with_baseplanner]
+  reversibility: cheap
+  related_issues: [#3, #6, #7]
+  superseded_by: null
+
+- id: D-004
+  date: 2026-05-16
+  decision: replan_budget_defaults_to_5_configurable_per_run_bounded_by_max_replans
+  rationale: prevents_runaway_loops_on_misbehaving_planners_loose_enough_for_normal_tool_error_revise_continue_paths_tight_enough_to_surface_bugs_in_seconds
+  alternatives_rejected: [unbounded_loop_with_external_kill_switch, hardcoded_3_replans_too_tight, dollar_budget_instead_of_step_budget_not_known_until_llm_planner_lands]
+  reversibility: cheap
+  related_issues: [#3]
+  superseded_by: null
