@@ -91,3 +91,29 @@ decisions_made: []
 followups: []
 ---
 
+---
+session: 2026-05-16T03:22Z
+duration_min: 50
+issue: 3
+focus: agent_loop_planner_executor_replanner
+delta:
+  files_added: 5
+  files_changed: 2
+  tests_added: 13
+  total_tests: 57
+context_for_next_session:
+  - agent_loop_lives_in_src_agent_split_into_types_planner_trace_executor_ts
+  - planner_interface_has_three_methods_initialplan_revise_finalize_d_003
+  - scriptedplanner_is_the_test_utility_takes_canned_initial_plus_revision_callbacks
+  - anthropicplanner_deliberately_deferred_until_issue_6_traces_and_issue_7_evals_exist_no_dead_seam
+  - agentrun_walks_plan_steps_on_toolerror_calls_planner_revise_resumes_from_new_plan_step_0
+  - replan_budget_default_5_configurable_via_executoroptions_d_004_aborts_emit_aborted_event_then_finalize_still_runs
+  - replanreason_distinguishes_tool_error_from_approval_denied_so_planner_can_branch_on_intent
+  - non_toolerror_throws_are_re_raised_not_converted_to_replan_to_avoid_swallowing_programmer_bugs
+  - trace_uses_distributed_omit_type_to_keep_discriminated_union_sound_under_pluggable_clock
+  - integration_test_wires_builddefaultregistry_against_committed_rag_production_kit_pr9_fixture_no_real_network
+  - issue_3_acceptance_planner_executor_replanner_loop_done_decisions_visible_in_trace_unit_tests_with_mock_tools_done
+decisions_made: [D-003, D-004]
+followups: []
+---
+

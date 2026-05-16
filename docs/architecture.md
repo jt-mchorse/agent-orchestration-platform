@@ -9,10 +9,10 @@ flowchart TD
   IN[(PR identifier:<br/>owner/repo#N or fixture path)]
   OP[operator]
 
-  subgraph AGENT["Agent (issue #3)"]
-    P[Planner]
-    E[Executor]
-    R[Re-planner on unexpected output]
+  subgraph AGENT["Agent loop (issue #3 — shipped)"]
+    P[Planner.initialPlan / revise / finalize]
+    E[AgentRun executor]
+    R[Re-plan trigger<br/>tool_error | approval_denied]
   end
 
   subgraph TOOLS["Tool registry (issue #2)"]
@@ -68,15 +68,54 @@ flowchart TD
 
 ## Pending downstream (open issues)
 
-- **#2** — Implement the five tools. Custom MCP server (`portfolio-context`)
-  also lands in `mcp-server-cookbook` for cross-repo reuse.
-- **#3** — Planner → Executor → Re-planner loop with explicit decision points
-  visible in the trace.
-- **#4** — HITL checkpoint before posting any comment to a real PR. Replay
-  mode no-ops the checkpoint.
 - **#6** — Postgres trace schema + minimal React UI for run inspection.
+  (`Trace` already mirrors the schema this issue will persist.)
 - **#7** — Eval suite that scores agent findings against golden answer keys
   on the committed fixtures, importing `llm-eval-harness`.
+
+## Agent loop (this PR — issue #3)
+
+The loop is three TS modules under `src/agent/`:
+
+```ts
+interface Planner {
+  initialPlan(input: PlannerState["pr"]): Promise<Plan>;
+  revise(state: PlannerState, reason: ReplanReason): Promise<Plan>;
+  finalize(state: PlannerState): Promise<Review>;
+}
+
+class AgentRun {
+  // Walks plan.steps in order; on a thrown ToolError, asks the planner
+  // to revise and resumes from the new plan's first step. Bounded by a
+  // configurable max-replan budget (default 5).
+  async run(pr: { owner; repo; number }): Promise<Review>;
+}
+
+class Trace {
+  // Append-only event log: run_started · plan_emitted ·
+  // step_started · observation · re_plan_triggered · finalized | aborted.
+  // Pluggable clock for deterministic tests; the same shape #6 will
+  // persist to Postgres.
+}
+```
+
+Two re-plan triggers ship today: `tool_error` (input/output validation,
+`internal`, `not_found`, `unsupported_in_replay`) and `approval_denied`
+(destructive-tool path from #4). They're modeled as distinct `ReplanReason`
+variants so a planner can branch on them — e.g., revise the input shape
+on validation failure but skip a posting step entirely on a denial.
+
+`ScriptedPlanner` is the test-utility planner: a canned initial plan, an
+optional list of revision callbacks, and a final-review callback. Tests
+prove that the loop's decisions (every `PlannedStep.rationale`) show up in
+the trace, that re-plan kicks in on errors and approval denials, that the
+budget bounds runaway loops, and that an end-to-end run wires up the real
+`buildDefaultRegistry()` against the committed PR fixture.
+
+The LLM-driven `AnthropicPlanner` is deliberately not in this PR — it
+needs the trace persistence from #6 and the eval coverage from #7 to be
+worth landing; ScriptedPlanner is sufficient to exercise the loop and
+verify its contract.
 
 ## Stack
 
