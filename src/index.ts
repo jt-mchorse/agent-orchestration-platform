@@ -27,6 +27,23 @@ export {
   denyAllProvider,
   type CliApprovalOptions,
 } from "./agent/cli-approval.js";
+export {
+  type Finding,
+  type FindingSeverity,
+  type Observation,
+  type Plan,
+  type PlannedStep,
+  type PlannerState,
+  type ReplanReason,
+  type Review,
+} from "./agent/types.js";
+export { type Planner, ScriptedPlanner } from "./agent/planner.js";
+export { Trace, type TraceEvent, type Clock } from "./agent/trace.js";
+export {
+  AgentRun,
+  DEFAULT_MAX_REPLANS,
+  type ExecutorOptions,
+} from "./agent/executor.js";
 
 import { ToolRegistry } from "./tools/registry.js";
 import { fetchPrTool } from "./tools/fetch-pr.js";
