@@ -53,3 +53,31 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The constant and option live in one file; the abort path is a single trace event the UI (#6) already needs to render.
 
 **Related issues:** #3
+
+## D-005 — `TraceStore` writes at finalize-time; cost aggregator skips missing fields (2026-05-16)
+**Decision:** `TraceStore.writeRun(input)` persists the entire run (summary + all events) once at finalize-time, not per-event. `aggregateCost(events)` sums each `Observation.cost` field across the run, skipping values that are absent rather than treating them as zero.
+
+**Why:** The in-memory `Trace` is already the streaming surface — the executor accumulates events as the run unfolds. Persisting per-event would multiply Postgres round-trips by ~10× per run for no real benefit; the viewer doesn't need live updates today. On the cost side, observations that don't report a cost are "unknown", not "$0.00" — a partial cost report should show as a partial total so the operator can tell whether the gap is a missing instrumentation or a genuinely-free call. Treating absent as zero would hide bugs in tools that should be reporting cost.
+
+**Alternatives considered:**
+- Stream per-event inserts to Postgres — rejected: more round-trips, no live-UI use case today.
+- Treat missing cost as zero — rejected: hides missing instrumentation.
+- Fail on partial cost — rejected: too brittle, especially while tools are landing piecemeal.
+
+**Reversibility:** Cheap. A streaming `writeEvent(runId, event)` method can be added later without changing the existing contract.
+
+**Related issues:** #6, #7
+
+## D-006 — Trace viewer is React via ESM CDN + `htm`, no bundler (2026-05-16)
+**Decision:** The trace viewer in `src/ui/` loads React 18 via an ESM import map pointing at `esm.sh`, and uses `htm` for JSX-free templating. No bundler. No `react`/`react-dom` package in the npm-side dep graph.
+
+**Why:** The issue requires a "minimal React UI". Vite or webpack would multiply the repo's surface (config files, build steps, transitive deps) for a viewer that's three files of code total. The CDN + `htm` path keeps the React requirement satisfied with zero npm-side React surface — same dep-discipline reasoning as the stdlib `http.server` in the demo (D-011 in `rag-production-kit`). The downside is that the viewer needs a network on first load to hit `esm.sh`; that's acceptable for a debug surface.
+
+**Alternatives considered:**
+- Vite/webpack bundler — rejected: too much infra for a debug-only viewer.
+- Plain HTML/JS, no React — rejected: violates the issue's "React UI" wording, and a future contributor would have to re-implement state with vanilla event handlers.
+- Preact swap — rejected: portfolio repos that use a frontend (`nextjs-streaming-ai-patterns`) use React proper; standardizing on Preact here would diverge.
+
+**Reversibility:** Cheap. A switch to a bundled React app is a one-time config job; the viewer's logic in `src/ui/app.js` would carry over with minor tweaks.
+
+**Related issues:** #6

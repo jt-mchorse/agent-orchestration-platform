@@ -117,3 +117,29 @@ decisions_made: [D-003, D-004]
 followups: []
 ---
 
+---
+session: 2026-05-16T03:33Z
+duration_min: 65
+issue: 6
+focus: trace_observability_pg_schema_plus_tracestore_plus_react_via_cdn_viewer
+delta:
+  files_added: 10
+  files_changed: 5
+  tests_added: 20
+  total_tests: 77
+context_for_next_session:
+  - infra_postgres_init_sql_two_tables_runs_and_trace_events_jsonb_payload_indexed_on_run_id_seq
+  - docker_compose_yml_at_repo_root_runs_pg_on_host_port_5433_to_avoid_collision_with_rag_kit_5432
+  - tracestore_interface_in_src_trace_store_ts_with_memorystore_and_pgstore_implementations
+  - pgstore_lazy_imports_pg_package_listed_as_optional_dependency
+  - observation_type_extended_with_optional_stepcost_input_tokens_output_tokens_dollars
+  - aggregatecost_skips_missing_fields_per_d_005_not_treated_as_zero
+  - ui_in_src_ui_server_ts_plus_index_html_plus_app_js_react_via_esm_cdn_d_006_no_bundler
+  - trace_server_bin_script_npm_run_trace_server_memory_or_against_database_url
+  - ci_pg_integration_job_added_brings_up_pg_service_container_applies_init_sql_runs_marked_tests
+  - 13_hermetic_store_tests_9_server_endpoint_tests_4_pg_integration_tests_skipped_unless_database_url_set
+  - acceptance_pg_schema_committed_done_ui_lists_runs_opens_run_with_timeline_done_costs_aggregated_per_run_done
+decisions_made: [D-005, D-006]
+followups: []
+---
+

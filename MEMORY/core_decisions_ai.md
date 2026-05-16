@@ -36,3 +36,21 @@
   reversibility: cheap
   related_issues: [#3]
   superseded_by: null
+
+- id: D-005
+  date: 2026-05-16
+  decision: tracestore_writes_at_finalize_time_aggregatecost_skips_missing_fields
+  rationale: in_memory_trace_is_streaming_surface_pg_is_at_rest_surface_partial_costs_should_show_partial_totals_not_misleading_zero
+  alternatives_rejected: [stream_per_event_inserts_extra_round_trips, treat_missing_cost_as_zero_misleading, fail_on_partial_cost_too_brittle]
+  reversibility: cheap
+  related_issues: [#6, #7]
+  superseded_by: null
+
+- id: D-006
+  date: 2026-05-16
+  decision: trace_viewer_is_react_via_esm_cdn_plus_htm_no_bundler
+  rationale: minimal_react_ui_requirement_met_with_zero_npm_react_surface_consistent_with_rag_production_kit_d011_stdlib_http_server_pattern
+  alternatives_rejected: [vite_or_webpack_bundler_chain_too_much_infra_for_a_debug_viewer, plain_html_no_react_violates_issue_acceptance, preact_swap_diverges_from_repo_stack]
+  reversibility: cheap
+  related_issues: [#6]
+  superseded_by: null
