@@ -29,6 +29,38 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  pg-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agent
+          POSTGRES_PASSWORD: agent
+          POSTGRES_DB: agent_trace
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U agent -d agent_trace"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Apply schema
+        env:
+          PGPASSWORD: agent
+        run: psql -h localhost -p 5433 -U agent -d agent_trace -f infra/postgres/init.sql
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://agent:agent@localhost:5433/agent_trace
+        run: npm test -- test/trace/pg-store.test.ts
+
   memory-check:
     runs-on: ubuntu-latest
     steps:

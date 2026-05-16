@@ -14,14 +14,20 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "trace:server": "node --import tsx/esm src/bin/trace-server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.25.0"
   },
+  "optionalDependencies": {
+    "pg": "^8.13.0"
+  },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "pg": "^8.13.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.5.2",
     "vitest": "^1.6.0"
   }

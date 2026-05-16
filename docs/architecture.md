@@ -28,9 +28,9 @@ flowchart TD
     APPROVE{operator approves?}
   end
 
-  subgraph TRACE["Trace store (issue #6)"]
-    DB[(Postgres traces)]
-    UI[Run timeline UI]
+  subgraph TRACE["Trace store (issue #6 — shipped)"]
+    DB[(Postgres: runs + trace_events)]
+    UI[React-via-CDN viewer]
   end
 
   subgraph EVAL["Eval suite (issue #7)"]
@@ -68,10 +68,41 @@ flowchart TD
 
 ## Pending downstream (open issues)
 
-- **#6** — Postgres trace schema + minimal React UI for run inspection.
-  (`Trace` already mirrors the schema this issue will persist.)
 - **#7** — Eval suite that scores agent findings against golden answer keys
   on the committed fixtures, importing `llm-eval-harness`.
+
+## Trace persistence + viewer (this PR — issue #6)
+
+Two tables in `infra/postgres/init.sql`:
+
+- `runs` — one row per agent invocation. PR coordinates, started_at /
+  finalized_at, `status ∈ {running, finalized, aborted}`, aggregated
+  cost (`total_cost_dollars` NUMERIC + token totals), plus the
+  finalized review's recommendation and summary so the list endpoint
+  is a single index scan.
+- `trace_events` — one row per `TraceEvent`. Payload lands in `jsonb`
+  rather than columns-per-variant; the union has nine variants and
+  payload shapes change frequently as new tools land.
+
+`TraceStore` is the seam: `MemoryStore` for hermetic tests, `PgStore`
+for real persistence (`pg` is lazy-imported, kept in
+`optionalDependencies`). Both implement `writeRun`/`listRuns`/`getRun`
+identically. `aggregateCost(events)` sums each `Observation.cost`
+field across the run, skipping missing values rather than treating
+them as zero so a partial cost report shows as a partial total — D-005.
+
+The viewer (`src/ui/`) is React 18 loaded via ESM CDN + `htm` for
+JSX-free templating. No bundler, no npm-side React dep — same
+dep-discipline reasoning as the stdlib `http.server` for the SSE demo
+in `rag-production-kit` (D-006). One list screen, one run-detail
+screen with a chronological timeline keyed off the event `kind`. Run
+locally with `npm run trace:server -- --memory` (seeds two sample runs)
+or against `DATABASE_URL` (Postgres).
+
+The CI `pg-integration` job brings up a Postgres service container,
+applies `init.sql`, and runs `test/trace/pg-store.test.ts` against
+real Postgres. Local unit tests stay hermetic (skip when
+`DATABASE_URL` isn't set).
 
 ## Agent loop (this PR — issue #3)
 
