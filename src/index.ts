@@ -56,6 +56,22 @@ export {
 export { PgStore, type PgStoreOptions } from "./trace/pg-store.js";
 export { createTraceServer, type TraceServerOptions } from "./ui/server.js";
 export type { StepCost } from "./agent/types.js";
+export {
+  STICKY_MARKER as EVAL_STICKY_MARKER,
+  findStickyCommentId,
+  renderEvalMarkdown,
+  upsertStickyComment,
+  type UpsertOptions,
+} from "./eval/comment.js";
+export {
+  discoverCases,
+  evaluateAll,
+  runAgentOnFixture,
+  type EvalCase,
+  type EvalCaseResult,
+  type EvalRun,
+} from "./eval/runner.js";
+export { scoreReview, matchFindings, jaccard, type ReviewScore } from "./eval/score.js";
 
 import { ToolRegistry } from "./tools/registry.js";
 import { fetchPrTool } from "./tools/fetch-pr.js";

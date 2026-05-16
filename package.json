@@ -15,7 +15,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "trace:server": "node --import tsx/esm src/bin/trace-server.ts"
+    "trace:server": "tsx src/bin/trace-server.ts",
+    "eval": "tsx src/bin/eval-runner.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
