@@ -72,3 +72,12 @@
   reversibility: cheap
   related_issues: [#7]
   superseded_by: null
+
+- id: D-012
+  date: 2026-05-17
+  decision: retry_policy_and_fallback_to_live_on_tool_annotations_not_in_an_executor_side_policy_map
+  rationale: tool_author_knows_their_tool_is_transiently_flaky_and_which_alternative_shares_io_contract_keeping_policy_with_the_tool_keeps_registry_list_self_describing_and_policy_cannot_silently_drift_from_tool_changes_data_with_the_tool_d_005_pattern_consistency
+  alternatives_rejected: [executor_side_retry_policy_map_lets_policy_drift_from_tools, per_run_dynamic_override_only_overkill_for_acceptance_criteria, expose_callback_per_event_overkill_dataclass_surface_is_simpler]
+  reversibility: cheap
+  related_issues: [#5]
+  superseded_by: null

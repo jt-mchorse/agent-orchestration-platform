@@ -357,6 +357,291 @@ describe("Trace", () => {
 });
 
 // ---------------------------------------------------------------------
+// Retry + fallback
+// ---------------------------------------------------------------------
+
+describe("AgentRun — retry and fallback", () => {
+  const noSleep = async (_ms: number): Promise<void> => undefined;
+
+  function makeFlakyTool(name: string, failuresBeforeSuccess: number): Tool<typeof pingIn, typeof pingOut> {
+    let calls = 0;
+    return {
+      name,
+      description: "fails N times then succeeds",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: { retry: { maxAttempts: 5, backoffMs: 1 } },
+      async run(input) {
+        calls += 1;
+        if (calls <= failuresBeforeSuccess) {
+          throw new ToolError(name, "internal", `transient failure ${calls}`);
+        }
+        return { pong: `${input.msg}-after-${calls}` };
+      },
+    };
+  }
+
+  it("retries on internal ToolError and surfaces the eventual success", async () => {
+    const flaky = makeFlakyTool("flaky", 2);
+    const registry = new ToolRegistry();
+    registry.register(flaky);
+    const plan: Plan = {
+      goal: "use the flaky tool",
+      steps: [{ rationale: "try once, retries cover the rest", tool: "flaky", input: { msg: "hi" } }],
+    };
+    const planner = new ScriptedPlanner(plan);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    const retries = trace.ofKind("retry_attempted");
+    expect(retries).toHaveLength(2);
+    expect(retries[0]?.attempt).toBe(1);
+    expect(retries[0]?.backoffMs).toBe(1);
+    expect(retries[1]?.attempt).toBe(2);
+    expect(retries[1]?.backoffMs).toBe(2);
+    const observations = trace.ofKind("observation");
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.observation.outcome.kind).toBe("ok");
+    expect(trace.ofKind("re_plan_triggered")).toHaveLength(0);
+  });
+
+  it("falls back to the declared alternative when the primary's retries are exhausted", async () => {
+    const alwaysFails: Tool<typeof pingIn, typeof pingOut> = {
+      name: "primary",
+      description: "never succeeds",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: {
+        retry: { maxAttempts: 2, backoffMs: 1 },
+        fallbackTo: "alternate",
+      },
+      async run() {
+        throw new ToolError("primary", "internal", "down");
+      },
+    };
+    const alternate: Tool<typeof pingIn, typeof pingOut> = {
+      name: "alternate",
+      description: "the standby",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      async run(input) {
+        return { pong: `alt-${input.msg}` };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(alwaysFails);
+    registry.register(alternate);
+
+    const plan: Plan = {
+      goal: "primary first, fallback transparent to planner",
+      steps: [{ rationale: "use the down service", tool: "primary", input: { msg: "x" } }],
+    };
+    const planner = new ScriptedPlanner(plan);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(trace.ofKind("retry_attempted")).toHaveLength(1);
+    const fb = trace.ofKind("fallback_used");
+    expect(fb).toHaveLength(1);
+    expect(fb[0]?.from).toBe("primary");
+    expect(fb[0]?.to).toBe("alternate");
+    const obs = trace.ofKind("observation");
+    expect(obs).toHaveLength(1);
+    expect(obs[0]?.observation.outcome.kind).toBe("ok");
+    // No replan should have fired — the fallback covered for the primary.
+    expect(trace.ofKind("re_plan_triggered")).toHaveLength(0);
+  });
+
+  it("only emits one observation per step even when retry + fallback both fire", async () => {
+    const flakyA = makeFlakyTool("flakyA", 10); // never succeeds within attempts
+    const annotatedA: Tool<typeof pingIn, typeof pingOut> = {
+      ...flakyA,
+      annotations: { retry: { maxAttempts: 2, backoffMs: 1 }, fallbackTo: "flakyB" },
+    };
+    const flakyB = makeFlakyTool("flakyB", 1); // succeeds on retry
+    const registry = new ToolRegistry();
+    registry.register(annotatedA);
+    registry.register(flakyB);
+
+    const plan: Plan = {
+      goal: "exercise both layers",
+      steps: [{ rationale: "see the full recovery stack", tool: "flakyA", input: { msg: "z" } }],
+    };
+    const planner = new ScriptedPlanner(plan);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    // Exactly one observation makes it to the planner: the final success
+    // from flakyB's retry. Retries + fallback are visible in the trace
+    // for human/UI consumption but don't pollute the planner's input.
+    expect(trace.ofKind("observation")).toHaveLength(1);
+    expect(trace.ofKind("observation")[0]?.observation.outcome.kind).toBe("ok");
+    // 1 retry on flakyA before fallback + 1 retry on flakyB before success.
+    expect(trace.ofKind("retry_attempted")).toHaveLength(2);
+    expect(trace.ofKind("fallback_used")).toHaveLength(1);
+  });
+
+  it("triggers a replan when retry + fallback both exhaust", async () => {
+    const allDown: Tool<typeof pingIn, typeof pingOut> = {
+      name: "down",
+      description: "everything is on fire",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: {
+        retry: { maxAttempts: 2, backoffMs: 1 },
+        fallbackTo: "downStandby",
+      },
+      async run() {
+        throw new ToolError("down", "internal", "primary out");
+      },
+    };
+    const standby: Tool<typeof pingIn, typeof pingOut> = {
+      name: "downStandby",
+      description: "also out",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      // Standby itself has no retry/fallback — single attempt, then surface.
+      async run() {
+        throw new ToolError("downStandby", "internal", "secondary out");
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(allDown);
+    registry.register(standby);
+    registry.register(pingTool);
+
+    const initial: Plan = {
+      goal: "primary path",
+      steps: [{ rationale: "primary then standby", tool: "down", input: { msg: "x" } }],
+    };
+    const revised: Plan = {
+      goal: "give up and ping",
+      steps: [{ rationale: "safe", tool: "ping", input: { msg: "fallback" } }],
+    };
+    const planner = new ScriptedPlanner(initial, [() => revised]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    // 1 retry on `down`, then the executor falls back to `downStandby`
+    // (no retry annotation → single attempt). Both exhaust → replan fires.
+    expect(trace.ofKind("retry_attempted")).toHaveLength(1);
+    expect(trace.ofKind("fallback_used")).toHaveLength(1);
+    const replans = trace.ofKind("re_plan_triggered");
+    expect(replans).toHaveLength(1);
+    expect(replans[0]?.reason.kind).toBe("tool_error");
+    if (replans[0]?.reason.kind === "tool_error") {
+      // The replan reports the *fallback*'s failure, since that's the
+      // final outcome the planner sees on the observation.
+      expect(replans[0].reason.toolName).toBe("downStandby");
+    }
+  });
+
+  it("surfaces an internal ToolError when fallbackTo points at a missing tool", async () => {
+    const orphan: Tool<typeof pingIn, typeof pingOut> = {
+      name: "orphan",
+      description: "fallback points nowhere",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: {
+        retry: { maxAttempts: 1, backoffMs: 1 },
+        fallbackTo: "ghost",
+      },
+      async run() {
+        throw new ToolError("orphan", "internal", "down");
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(orphan);
+
+    const plan: Plan = {
+      goal: "trigger misconfig",
+      steps: [{ rationale: "primary down", tool: "orphan", input: { msg: "x" } }],
+    };
+    const planner = new ScriptedPlanner(plan, [() => ({ goal: "noop", steps: [] })]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    // Misconfig surfaces as a ToolError observation, not a crash.
+    const obs = trace.ofKind("observation");
+    expect(obs).toHaveLength(1);
+    expect(obs[0]?.observation.outcome.kind).toBe("error");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.message).toMatch(/ghost/);
+    }
+  });
+
+  it("does not follow the fallback's own fallbackTo — one hop only", async () => {
+    let standbyCalls = 0;
+    const primaryFail: Tool<typeof pingIn, typeof pingOut> = {
+      name: "primaryFail",
+      description: "always down",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: {
+        retry: { maxAttempts: 1, backoffMs: 1 },
+        fallbackTo: "secondary",
+      },
+      async run() {
+        throw new ToolError("primaryFail", "internal", "down");
+      },
+    };
+    const secondaryFail: Tool<typeof pingIn, typeof pingOut> = {
+      name: "secondary",
+      description: "also down, with its own fallback declared",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      // This fallbackTo MUST NOT be followed by the executor.
+      annotations: { fallbackTo: "tertiary" },
+      async run() {
+        throw new ToolError("secondary", "internal", "also down");
+      },
+    };
+    const tertiary: Tool<typeof pingIn, typeof pingOut> = {
+      name: "tertiary",
+      description: "would succeed if reached",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      async run(input) {
+        standbyCalls += 1;
+        return { pong: input.msg };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(primaryFail);
+    registry.register(secondaryFail);
+    registry.register(tertiary);
+
+    const plan: Plan = {
+      goal: "ensure single-hop",
+      steps: [{ rationale: "x", tool: "primaryFail", input: { msg: "z" } }],
+    };
+    const planner = new ScriptedPlanner(plan, [() => ({ goal: "noop", steps: [] })]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(standbyCalls).toBe(0);
+    expect(trace.ofKind("fallback_used")).toHaveLength(1);
+    // Observation reports the *secondary*'s failure (the last attempt).
+    const obs = trace.ofKind("observation");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.toolName).toBe("secondary");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------
 // Integration: real ToolRegistry + buildDefaultRegistry tools on a fixture
 // ---------------------------------------------------------------------
 

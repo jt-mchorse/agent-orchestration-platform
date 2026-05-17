@@ -109,3 +109,18 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The matching is one function; the Jaccard threshold is a single constant.
 
 **Related issues:** #7
+
+
+## D-012 — Retry policy and `fallbackTo` live on tool annotations, not in an executor-side policy map (2026-05-17)
+**Decision:** Per-tool retry config (`RetryPolicy`) and one-hop fallback (`fallbackTo: string`) live on `Tool.annotations`. The executor reads them off the tool at invocation time. There is no separate "retry policy map" passed to `AgentRun`.
+
+**Why:** Three forces compose. (1) **The tool author is the one who knows.** Whether a tool's failures are transient (retry-eligible) or deterministic (not), and which alternative tool shares the same input contract, are properties of the tool definition — not of the runtime. Keeping the policy alongside the tool means a registry consumer can call `registry.list()` and see the full operational picture without consulting a side-table. (2) **Drift prevention.** If a tool's input schema changes, an annotation on that tool will be reviewed in the same PR; a separate policy map can silently drift out of sync, and the test that catches the drift might not even be in the same package. (3) **Pattern consistency.** Destructive-tool annotations (D-005's general pattern of data-with-the-tool) already live in `ToolAnnotations`; putting retry and fallback in the same place keeps the registry's mental model uniform — "everything operationally relevant about a tool is on the tool".
+
+**Alternatives considered:**
+- Executor-side `RetryPolicyMap` (Map<toolName, RetryPolicy>) passed at `AgentRun` construction — rejected: lets policy drift from tool changes silently and splits "what the tool is" from "how it's run" in a way that hurts readability when tools evolve.
+- Per-run dynamic retry policy only (no annotation) — rejected: too thin for the issue's acceptance criteria, which call for *per-tool* policy. A dynamic override can land later as a non-breaking executor-option; the annotation is the floor.
+- Per-event callback API for retry observability (`onRetry`/`onFallback` on `AgentRun`) instead of trace events — rejected: harder to reason about callback timing relative to `queue.put`-style boundaries; trace events compose naturally with the existing #6 Postgres persistence.
+
+**Reversibility:** Cheap. The annotation → policy-map refactor is mechanical (one new `Map`, one new constructor argument, one read-site change in `invokeWithRetry`); if a future requirement demands runtime-overridable policy, both can coexist (annotation as default, map as override).
+
+**Related issues:** #5

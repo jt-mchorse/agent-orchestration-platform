@@ -1,3 +1,4 @@
+import type { ToolError } from "../tools/types.js";
 import type { Observation, Plan, PlannedStep, PlannerState, ReplanReason, Review } from "./types.js";
 
 /**
@@ -18,6 +19,21 @@ export type TraceEvent =
   | { ts: number; kind: "plan_emitted"; plan: Plan; version: number }
   | { ts: number; kind: "step_started"; step: PlannedStep; index: number }
   | { ts: number; kind: "observation"; observation: Observation }
+  | {
+      ts: number;
+      kind: "retry_attempted";
+      toolName: string;
+      attempt: number;
+      backoffMs: number;
+      error: ToolError;
+    }
+  | {
+      ts: number;
+      kind: "fallback_used";
+      from: string;
+      to: string;
+      error: ToolError;
+    }
   | { ts: number; kind: "re_plan_triggered"; reason: ReplanReason }
   | { ts: number; kind: "finalized"; review: Review }
   | { ts: number; kind: "aborted"; reason: string };

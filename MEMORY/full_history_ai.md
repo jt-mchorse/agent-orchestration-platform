@@ -143,6 +143,32 @@ decisions_made: [D-005, D-006]
 followups: []
 ---
 
+---
+session: 2026-05-17T19:15Z
+duration_min: 50
+issue: 5
+focus: per_tool_retry_and_one_hop_fallback_with_trace_events
+delta:
+  files_added: 2  # src/agent/retry.ts, test/agent/retry.test.ts
+  files_changed: 5  # tools/types.ts, agent/trace.ts, agent/executor.ts, test/agent/executor.test.ts, README.md, docs/architecture.md
+  tests_added: 15  # 9 retry unit + 6 executor retry/fallback
+  total_tests: 125
+context_for_next_session:
+  - retry_policy_lives_on_tool_annotations_retry_with_maxattempts_backoffms_backoff_multiplier_retryable_kinds_d_012
+  - fallback_to_string_on_tool_annotations_one_hop_only_fallbacks_own_fallback_to_not_followed_so_no_cycles
+  - default_retryable_kinds_is_just_internal_validation_kinds_never_retried_by_default
+  - retry_helper_in_src_agent_retry_ts_pure_no_knowledge_of_trace_registry_planner_sleep_pluggable_for_tests
+  - executor_run_step_with_retry_and_fallback_wraps_primary_then_fallback_then_replan_in_that_order
+  - replan_reason_tool_name_now_uses_error_tool_name_not_step_tool_so_fallback_failures_report_the_fallback_name
+  - fallback_to_pointing_at_unregistered_tool_surfaces_as_internal_toolerror_observation_not_a_crash
+  - trace_event_retry_attempted_tool_name_attempt_backoff_ms_error_one_per_failed_attempt_that_will_be_retried
+  - trace_event_fallback_used_from_to_error_one_when_retries_exhaust_and_fallback_declared
+  - planner_sees_exactly_one_observation_per_step_regardless_of_retry_or_fallback_count
+  - issue_5_acceptance_per_tool_retry_policy_done_fallback_chains_testable_done_trace_shows_every_retry_done
+decisions_made: [D-012]
+followups: []
+---
+
 
 ---
 session: 2026-05-16T04:45Z

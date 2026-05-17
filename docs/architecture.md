@@ -175,6 +175,51 @@ needs the trace persistence from #6 and the eval coverage from #7 to be
 worth landing; ScriptedPlanner is sufficient to exercise the loop and
 verify its contract.
 
+## Recovery layers (this PR — issue #5)
+
+`AgentRun.runStepWithRetryAndFallback` wraps every step in three
+recovery layers, executed in order. The planner sees exactly one
+`Observation` per step; retries and fallbacks land in the trace as
+their own events.
+
+```
+step
+  └─ withRetry(primary)            ← layer 1: retry on transient ToolError
+       └─ on exhaustion, if primary.annotations.fallbackTo:
+            └─ withRetry(fallback) ← layer 2: one-hop alternative
+                 └─ on exhaustion: replan layer (existing)
+```
+
+Configuration lives on the tool itself (D-012):
+
+```ts
+{
+  retry: {
+    maxAttempts: 3,
+    backoffMs: 100,
+    backoffMultiplier: 2,                 // default 2.0
+    retryableErrorKinds: ["internal"],    // default; override per-tool
+  },
+  fallbackTo: "alternative_tool_name",    // must be in the same registry
+}
+```
+
+Trace events surfaced by this layer:
+- `retry_attempted` — `{ toolName, attempt, backoffMs, error }`. One per
+  failed attempt that will be retried.
+- `fallback_used` — `{ from, to, error }`. One when retries on the
+  primary exhaust and a `fallbackTo` is declared.
+
+Only one hop of fallback is followed. The fallback's *own* `fallbackTo`
+is ignored — that makes cycles impossible by construction and keeps the
+recovery tree shallow enough that humans can reason about a misbehaving
+agent without reading the trace twice.
+
+When a `fallbackTo` points at an unregistered tool, the executor
+surfaces it as an `internal` `ToolError` on the step's observation
+(naming the orphan) rather than crashing the run — misconfiguration is
+visible, and the planner can replan around it.
+
 ## Stack
 
 - **TypeScript / Node** for the agent core (per portfolio handoff §2 stack).

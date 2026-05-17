@@ -133,6 +133,40 @@ If a destructive tool is invoked without an `approvals` provider, the
 registry throws `ToolError` with `kind: "approval_missing"` — failing
 closed rather than open.
 
+### Retry and fallback (#5)
+
+Tool annotations carry an optional `retry: RetryPolicy` and `fallbackTo:
+string`. `AgentRun` wraps every step in three recovery layers, in this
+order: retry on the primary → one-hop fallback to an alternative tool →
+planner replan. Each retry attempt emits a `retry_attempted` trace event;
+the fallback emits a `fallback_used` event. The planner sees exactly one
+observation per step regardless of how many retries or fallbacks fired —
+the recovery details live in the trace, not in the planner's input.
+
+```ts
+const flakyApi: Tool<typeof inputSchema, typeof outputSchema> = {
+  name: "flaky_api",
+  description: "third-party API that occasionally 502s",
+  inputSchema,
+  outputSchema,
+  annotations: {
+    retry: { maxAttempts: 3, backoffMs: 100, backoffMultiplier: 2 },
+    fallbackTo: "cached_api",  // a registered alternative with the same input shape
+  },
+  async run(input) { /* ... */ },
+};
+```
+
+Defaults: one attempt (no retry), default `backoffMultiplier` of 2.0,
+and only `kind: "internal"` errors are retried — `input_validation`,
+`output_validation`, `approval_*`, and `not_found` short-circuit
+immediately because retrying them with the same input can't help.
+Override via `RetryPolicy.retryableErrorKinds` when a specific tool's
+transient failures surface as a different kind. See
+[`docs/architecture.md`](docs/architecture.md) for the recovery-layer
+diagram and [D-012](MEMORY/core_decisions_human.md) for the rationale on
+annotation-vs-policy-map.
+
 ## Benchmarks / Results
 
 Pending the eval suite (#7). Per the project's no-fabricated-benchmarks
