@@ -1,8 +1,9 @@
 import type { ToolRegistry } from "../tools/registry.js";
 import { ToolError, type ToolContext } from "../tools/types.js";
 import type { Planner } from "./planner.js";
+import { type SleepFn, withRetry } from "./retry.js";
 import type { Trace } from "./trace.js";
-import type { Observation, PlannerState, ReplanReason, Review } from "./types.js";
+import type { Observation, PlannerState, PlannedStep, ReplanReason, Review } from "./types.js";
 
 /**
  * Hard upper bound on how many times the planner can re-plan in one run.
@@ -18,6 +19,12 @@ export const DEFAULT_MAX_REPLANS = 5;
 export interface ExecutorOptions {
   /** Override the default replan budget for one run. */
   maxReplans?: number;
+  /**
+   * Sleep implementation forwarded to the retry helper. Tests pass a
+   * recorded-no-op so the suite stays fast; production paths get
+   * `setTimeout`-based backoff by default.
+   */
+  sleep?: SleepFn;
 }
 
 export class AgentRun {
@@ -54,30 +61,24 @@ export class AgentRun {
       if (!step) break; // unreachable under the loop guard; satisfies noUncheckedIndexedAccess
       this.trace.emit({ kind: "step_started", step, index: stepIndex });
 
-      let observation: Observation;
-      try {
-        const value = await this.registry.invoke(step.tool, step.input, this.ctx);
-        observation = { step, outcome: { kind: "ok", value } };
-      } catch (err) {
-        if (err instanceof ToolError) {
-          observation = { step, outcome: { kind: "error", error: err } };
-        } else {
-          // A non-ToolError leak from the registry is a programmer error,
-          // not a re-plannable agent decision — surface it instead of
-          // converting to a re-plan trigger.
-          throw err;
-        }
-      }
+      const observation = await this.runStepWithRetryAndFallback(step);
 
       state.observations.push(observation);
       this.trace.emit({ kind: "observation", observation });
 
       if (observation.outcome.kind === "error") {
         const error = observation.outcome.error;
+        // Report the tool that actually errored (which may be the
+        // fallback, not the step's primary). The trace's
+        // `fallback_used` event tells the planner where the recovery
+        // came from; the replan reason should name the failing tool so
+        // the planner can decide whether to skip that tool entirely on
+        // its next plan.
+        const failingTool = error.toolName;
         const reason: ReplanReason =
           error.kind === "approval_denied"
-            ? { kind: "approval_denied", toolName: step.tool, error }
-            : { kind: "tool_error", toolName: step.tool, error };
+            ? { kind: "approval_denied", toolName: failingTool, error }
+            : { kind: "tool_error", toolName: failingTool, error };
         this.trace.emit({ kind: "re_plan_triggered", reason });
 
         if (replans >= maxReplans) {
@@ -108,5 +109,110 @@ export class AgentRun {
     const review = await this.planner.finalize(state);
     this.trace.emit({ kind: "finalized", review });
     return review;
+  }
+
+  /**
+   * Run one planned step through the recovery stack — retry on the
+   * primary tool first, then one level of fallback to an alternative
+   * tool if the primary tool's annotations declared one. The returned
+   * `Observation` is the final outcome the planner will see; retry and
+   * fallback details land in the trace as their own events so the
+   * planner's view of the run stays at one observation per step.
+   */
+  private async runStepWithRetryAndFallback(step: PlannedStep): Promise<Observation> {
+    // 1) Try the primary tool with its retry policy, if any.
+    const primaryName = step.tool;
+    try {
+      const value = await this.invokeWithRetry(primaryName, step.input);
+      return { step, outcome: { kind: "ok", value } };
+    } catch (err) {
+      if (!(err instanceof ToolError)) {
+        // Programmer bug — re-raise per the existing contract.
+        throw err;
+      }
+      let fallbackName: string | undefined;
+      try {
+        fallbackName = this.fallbackFor(primaryName);
+      } catch (configErr) {
+        // Misconfiguration (e.g., fallbackTo points at an unregistered
+        // tool). Surface it as the step's observation so the planner
+        // can react via replan instead of crashing the run.
+        if (configErr instanceof ToolError) {
+          return { step, outcome: { kind: "error", error: configErr } };
+        }
+        throw configErr;
+      }
+      if (!fallbackName) {
+        return { step, outcome: { kind: "error", error: err } };
+      }
+      // 2) Try the declared fallback tool. We don't follow the fallback's
+      //    own fallbackTo — one hop only, so cycles are impossible by
+      //    construction.
+      this.trace.emit({
+        kind: "fallback_used",
+        from: primaryName,
+        to: fallbackName,
+        error: err,
+      });
+      try {
+        const value = await this.invokeWithRetry(fallbackName, step.input);
+        return { step, outcome: { kind: "ok", value } };
+      } catch (fallbackErr) {
+        if (!(fallbackErr instanceof ToolError)) {
+          throw fallbackErr;
+        }
+        return { step, outcome: { kind: "error", error: fallbackErr } };
+      }
+    }
+  }
+
+  /**
+   * Resolve a primary tool's fallback target. Returns `undefined` if no
+   * fallback is configured. If a fallback is configured but the target
+   * isn't registered, raises a `ToolError(kind="internal")` so the
+   * caller can surface it through the existing observation path; this
+   * keeps misconfiguration visible in the trace rather than crashing
+   * the run.
+   */
+  private fallbackFor(toolName: string): string | undefined {
+    const tool = this.registry.get(toolName);
+    const fallback = tool.annotations?.fallbackTo;
+    if (!fallback) return undefined;
+    if (!this.registry.has(fallback)) {
+      throw new ToolError(
+        toolName,
+        "internal",
+        `fallbackTo=${fallback} but no tool with that name is registered`,
+      );
+    }
+    return fallback;
+  }
+
+  /**
+   * Invoke a tool with its retry policy applied. The retry policy lives
+   * on the tool's annotations — see D-012 for why data-on-the-tool
+   * instead of an executor-side policy map. If the tool has no retry
+   * annotation, the call is a single attempt (existing behavior).
+   */
+  private async invokeWithRetry(toolName: string, input: unknown): Promise<unknown> {
+    const tool = this.registry.get(toolName);
+    const policy = tool.annotations?.retry;
+    if (!policy) {
+      return this.registry.invoke(toolName, input, this.ctx);
+    }
+    return withRetry(
+      () => this.registry.invoke(toolName, input, this.ctx),
+      policy,
+      (attempt) => {
+        this.trace.emit({
+          kind: "retry_attempted",
+          toolName,
+          attempt: attempt.attempt,
+          backoffMs: attempt.backoffMs,
+          error: attempt.error,
+        });
+      },
+      this.opts.sleep,
+    );
   }
 }
