@@ -39,14 +39,32 @@ logged to a trace store and scorable against committed golden answer keys.
 
 ## Quickstart
 
-The agent CLI lands with #3 (the planner). Today, the **tool registry** is
-runnable against the committed PR fixtures — that's the interface the planner
-will drive. Install and exercise it:
+Three runnable surfaces ship today: the tool registry, the agent
+executor + planner loop, and the eval suite. Install once:
 
 ```bash
 npm install
-npm test                  # 44 tests across the registry, 6 tools, parser, MCP server, and HITL
+npm test                  # full hermetic suite (no API key, no Postgres)
 npm run typecheck
+```
+
+Run the deterministic eval against the two committed PR fixtures —
+no API key, no network, no GitHub auth:
+
+```bash
+npm run eval -- --dry-run                # rendered markdown to stdout
+npx tsx scripts/render-eval-snapshot.ts  # writes docs/eval_snapshot.md
+```
+
+The composite + per-fixture scores in [`docs/eval_snapshot.md`](docs/eval_snapshot.md)
+are byte-locked to the renderer by `test/readme-snapshot.test.ts`, so a
+silent change in `renderEvalMarkdown` or `scoreReview` fails CI.
+
+Browse a recorded run in the trace viewer (after a real run produces a
+`results/eval-*.json`):
+
+```bash
+npm run trace:server      # → http://localhost:5180/  (React via ESM CDN, D-006)
 ```
 
 Use the registry from your own script:
@@ -169,15 +187,39 @@ annotation-vs-policy-map.
 
 ## Benchmarks / Results
 
-Pending the eval suite (#7). Per the project's no-fabricated-benchmarks
-rule, this section will populate with real numbers when #7 ships — recall
-on golden findings and LLM-as-judge calibration against human-labeled
-samples.
+Today's eval numbers from the committed scripted planner against the two
+hand-labeled fixtures under `fixtures/sample-prs/`. These are the real
+outputs of `evaluateAll(discoverCases(...))`, not placeholders. The
+current scripted planner is deliberately a baseline (it deduces a
+recommendation from the diff's `request_changes` keyword count and emits
+zero structured findings), so the composite is **honest-low**, not aspirational:
+
+| metric | value |
+| --- | --- |
+| composite mean | **0.345** |
+| recommendation accuracy | **50%** (1 / 2) |
+| findings F1 mean | **0.000** |
+
+| fixture | rec match | findings F1 | composite |
+| --- | :---: | ---: | ---: |
+| `rag-production-kit_pr9_hybrid_retrieval` | ✗ | 0.000 | 0.093 |
+| `vector-search-at-scale_pr6_terraform_infra` | ✓ | 0.000 | 0.597 |
+
+Source: [`docs/eval_snapshot.md`](docs/eval_snapshot.md), regenerable with
+`npx tsx scripts/render-eval-snapshot.ts`. The snapshot file is locked to
+the live renderer in `test/readme-snapshot.test.ts` so the table and the
+code can't silently diverge. When the planner is upgraded to a real
+LLM-backed implementation, regenerating the snapshot will move these
+numbers and the test will fail loudly until the README is updated.
 
 ## Demo
 
-60-second demo pending — meaningful only once #2/#3/#4 land so the agent
-actually produces output to demo.
+A captured 60-second walkthrough (GIF or video) is **pending** —
+tracked in [#16](https://github.com/jt-mchorse/agent-orchestration-platform/issues/16).
+Today the live demo is two commands: `npm run eval -- --dry-run` (the
+rendered sticky-comment markdown printed to stdout) and `npm run trace:server`
+(the React + ESM-CDN trace viewer, D-006). Both run on a fresh clone
+without an API key or Postgres.
 
 ## Why these decisions
 

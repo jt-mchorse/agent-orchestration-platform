@@ -195,3 +195,28 @@ context_for_next_session:
 decisions_made: [D-010, D-011]
 followups: []
 ---
+
+---
+session: 2026-05-18T23:18Z
+duration_min: 30
+issue: 15
+focus: readme_truth_pass_real_eval_numbers_published_plus_snapshot_test
+delta:
+  files_changed: 1   # README.md
+  files_added: 3     # docs/eval_snapshot.md, scripts/render-eval-snapshot.ts, test/readme-snapshot.test.ts
+  tests_added: 11
+  test_pass_rate: "136/136 + 4 skipped"
+  typecheck_pass: true
+  build_pass: true
+context_for_next_session:
+  - readme_quickstart_now_covers_all_three_runnable_surfaces_registry_eval_dry_run_trace_server_dropped_hardcoded_test_count
+  - benchmarks_results_publishes_real_numbers_from_scripted_planner_composite_0_345_rec_acc_50pct_f1_0_000_honest_low_disclosure_for_baseline_planner_state
+  - docs_eval_snapshot_md_committed_as_source_of_truth_byte_locked_to_render_eval_markdown_evaluate_all_discover_cases
+  - new_script_render_eval_snapshot_ts_writes_the_file_no_timestamp_no_npm_header
+  - new_test_readme_snapshot_test_ts_eleven_tests_three_layers_snapshot_byte_lock_readme_table_numerics_lock_npm_scripts_locked_to_package_json
+  - failure_path_verified_tamper_composite_0_345_to_0_999_test_fired_then_regen_restored
+  - demo_capture_60s_filed_as_followup_16_low_priority_no_capture_today
+  - pattern_parallels_today_snapshot_tests_in_cost_optimizer_prompt_regression_rag_kit_nextjs_streaming
+decisions_made: []
+followups: [#16]
+---

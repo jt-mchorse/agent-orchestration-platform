@@ -128,3 +128,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None on this issue. Per-run dynamic retry policy override (executor-side knob) is deferred — the annotation-only path covers the acceptance criteria and a follow-up issue can land it cleanly if a real workload needs it. Exponential backoff with jitter is similarly a knob, not a capability gap, and the deterministic schedule keeps tests readable.
 
 **Next session:** The repo now has no `priority:high` and no `priority:med` open. Either move on to the next 36h+-untouched repo (`nextjs-streaming-ai-patterns`), or file polishing issues (e.g., the `AnthropicPlanner` swap-in that #3's exit context flags, or a follow-up `bench_recovery.py` that demonstrates the trace events under a realistic flaky-tool workload).
+
+## 2026-05-18 — Issue #15: README truth pass — real eval numbers published
+
+**Duration:** ~30 min · **Branch:** `session/2026-05-18-2318-issue-15`
+
+- Repaired README drift. All seven feature issues are closed, but Quickstart, Benchmarks/Results, and Demo sections all framed substantial work as "pending #N" with #N already closed. Rewrote each: Quickstart now covers all three runnable surfaces (registry, `npm run eval -- --dry-run`, `npm run trace:server`); Benchmarks/Results publishes the real composite (0.345), recommendation accuracy (50%), and findings F1 (0.000) from the scripted planner against the two hand-labeled fixtures, with honest disclosure that the composite is deliberately low because the current planner is a baseline; Demo describes today's state and tracks the captured GIF/video as low-priority follow-up #16.
+- Added `scripts/render-eval-snapshot.ts` (calls `renderEvalMarkdown(evaluateAll(discoverCases(...)))` and writes `docs/eval_snapshot.md` — no npm header, no per-run timestamp) and committed the resulting `docs/eval_snapshot.md` as the source of truth. `test/readme-snapshot.test.ts` (11 tests) locks three layers: the committed snapshot byte-matches the live renderer; the README's composite / accuracy / F1 / per-fixture rows match the renderer's numbers; every `npm run <name>` and bare `npm <verb>` in the README maps to a real script in `package.json`. Verified the failure path by tampering the snapshot's composite — test fired with regen hint, regenerating restored.
+- 125 → 136 tests. `npm test`, `npm run typecheck`, `npm run build` all clean. Same hygiene pattern as today's sister-repo snapshot PRs (`llm-cost-optimizer`, `prompt-regression-suite`, `rag-production-kit`, `nextjs-streaming-ai-patterns`).
+
+**Why this work, this session:** Two of three "pending" sections in the README pointed at issues that closed weeks ago. With a deterministic scripted planner already producing real numbers via `npm run eval -- --dry-run`, the right move was to publish them (with honest disclosure of the baseline state) and lock the table to the renderer so the next planner upgrade can't silently desync the docs.
+
+**Open questions / blockers:** Real (LLM-backed) planner numbers are still operator action (requires `ANTHROPIC_API_KEY`); scripted planner numbers are the published baseline. Captured 60s GIF/video remains unbuilt — owned by #16.
+
+**Next session:** All open issues except the new low-priority demo capture (#16) are closed. Substantive feature work for this repo is done.
