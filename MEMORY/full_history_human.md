@@ -142,3 +142,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** Real (LLM-backed) planner numbers are still operator action (requires `ANTHROPIC_API_KEY`); scripted planner numbers are the published baseline. Captured 60s GIF/video remains unbuilt — owned by #16.
 
 **Next session:** All open issues except the new low-priority demo capture (#16) are closed. Substantive feature work for this repo is done.
+
+## 2026-05-20 — Issue #18: lock src/index.ts public surface (TS variant)
+**Duration:** ~30 min · **Branch:** `session/2026-05-20-0342-issue-18`
+
+- Added `test/public-surface.test.ts` (vitest, 4 test definitions, 6 test items after `it.each` expansion). First TypeScript translation of the portfolio-wide public-surface hygiene pattern (eight Python predecessors). Four axes adapted from the Python `tests/test_public_surface.py` template: `package.json#version` semver (TS analog of `__version__`); `Object.keys(import * as Index)` defined-and-non-null (analog of `__all__`); README's three quoted import names resolve (`buildDefaultRegistry`, `createCliApprovalProvider`, `autoApproveProvider`); `package.json#bin.portfolio-context-mcp` maps via tsconfig `rootDir`/`outDir` back to `mcp-server/portfolio-context/bin.ts` as the pre-build source-of-truth (CI's test job doesn't run `tsc` first, so verifying `dist/` would need a build step).
+- Type-only exports (`export type { ... }`) are intentionally out of scope — they don't exist at runtime, so `Object.keys` can't see them; future iteration if drift in type exports proves to be a real failure mode.
+- Tamper-verified three axes: bad `package.json#version`, rename `export function buildDefaultRegistry` so it's no longer exported, bad bin target. All fire with the regen hint and the dropped name.
+- Full suite 142/142 (was 136; +6 new). `npm run typecheck` clean.
+
+**Why this work, this session:** Tenth strike of the portfolio-wide public-surface hygiene pattern, but the FIRST TypeScript one. Sets the template the remaining two pure-TS repos (`nextjs-streaming-ai-patterns`, `ai-app-integration-tests`) can copy.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Apply the same TS template to `nextjs-streaming-ai-patterns` and `ai-app-integration-tests`. Both are pure-TS portfolio repos with public-surface entry points that haven't been locked yet.
