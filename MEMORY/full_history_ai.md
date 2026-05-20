@@ -220,3 +220,26 @@ context_for_next_session:
 decisions_made: []
 followups: [#16]
 ---
+
+---
+session: 2026-05-20T03:42Z
+duration_min: 30
+issue: 18
+focus: ts_public_surface_pattern_first_typescript_translation_locks_src_index_ts
+delta:
+  files_added: 1   # test/public-surface.test.ts (vitest)
+  files_changed: 0
+  tests_added: 6   # 4 standalone, 1 of which is it.each over 3 README names → 6 test items total
+  test_pass_rate: "142/142 + 4 skipped"
+  typecheck_pass: true
+context_for_next_session:
+  - first_typescript_variant_of_portfolio_wide_public_surface_pattern_uses_vitest_imports_star_as_index_object_keys_for_all_analog
+  - four_axes_pkg_version_semver_value_exports_defined_readme_quoted_imports_resolve_bin_source_exists
+  - bin_test_resolves_dist_path_back_to_source_via_tsconfig_rootdir_outdir_no_build_step_in_ci_test_job
+  - type_only_exports_intentionally_out_of_scope_object_keys_doesnt_see_them
+  - tamper_verified_three_axes_bad_version_rename_buildDefaultRegistry_bad_bin_target
+  - portable_to_remaining_two_ts_repos_nextjs_streaming_ai_patterns_ai_app_integration_tests
+  - readme_quotes_two_import_snippets_lines_73_and_119_123_union_three_names_buildDefaultRegistry_createCliApprovalProvider_autoApproveProvider
+decisions_made: []
+followups: []
+---
