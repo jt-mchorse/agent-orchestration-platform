@@ -214,12 +214,28 @@ numbers and the test will fail loudly until the README is updated.
 
 ## Demo
 
-A captured 60-second walkthrough (GIF or video) is **pending** —
-tracked in [#16](https://github.com/jt-mchorse/agent-orchestration-platform/issues/16).
-Today the live demo is two commands: `npm run eval -- --dry-run` (the
-rendered sticky-comment markdown printed to stdout) and `npm run trace:server`
-(the React + ESM-CDN trace viewer, D-006). Both run on a fresh clone
-without an API key or Postgres.
+```bash
+bash scripts/capture_demo.sh
+```
+
+The capture script ([#16], `scripts/capture_demo.sh`) drives two
+surfaces end-to-end on a fresh clone with no API key and no Postgres:
+`npm run eval -- --dry-run` prints the rendered sticky-comment
+markdown plus the composite/per-fixture table to stdout, then `npm
+run trace:server -- --memory` is spawned in the background (D-006:
+React + ESM-CDN viewer, no bundler) seeded with two synthetic runs so
+the empty-state UI doesn't ship, and `curl /api/runs` shows the exact
+JSON shape the React UI consumes. JT records the 60-second GIF/video
+over the script's stdout plus a manual browser tour during the
+trace-server section; CI runs it with `CAPTURE_PACE_SECONDS=0` (and
+pins each surface in `test/capture-demo-smoke.test.ts`) so the demo
+can't bitrot.
+
+Real-PR runs swap to `PgStore` via `DATABASE_URL`; the demo uses
+`--memory` and the committed `fixtures/sample-prs/` so it stays
+hermetic.
+
+[#16]: https://github.com/jt-mchorse/agent-orchestration-platform/issues/16
 
 ## Why these decisions
 

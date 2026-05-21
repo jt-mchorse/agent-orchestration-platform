@@ -156,3 +156,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Apply the same TS template to `nextjs-streaming-ai-patterns` and `ai-app-integration-tests`. Both are pure-TS portfolio repos with public-surface entry points that haven't been locked yet.
+
+## 2026-05-21 — Issue #16: 60-second demo capture script
+**Duration:** ~25 min · **Branch:** `session/2026-05-21-1940-issue-16` · **PR:** #20
+
+- Added `scripts/capture_demo.sh` driving the two surfaces from the README's Demo section: `npm run eval -- --dry-run` (prints the rendered sticky-comment markdown + composite/per-fixture table; fixtures committed under `fixtures/sample-prs/` so hermetic), then `npm run trace:server -- --memory` spawned in the background, `curl /api/runs` to show the two seeded synthetic runs (sample-finalized, sample-aborted) the React UI consumes, then SIGTERM via EXIT trap so the demo can't leave a port-holder behind. Port-poll loop (250ms × 25 attempts) before curl so slower CI machines don't race.
+- Added `test/capture-demo-smoke.test.ts` (vitest, 4 tests) that spawns the script with `PACE=0` and asserts: exit 0; the `<!-- agent-eval:sticky-comment -->` marker is present (load-bearing for the GH Action's in-place comment edit); the composite + per-fixture table headers are present; both seeded runs appear in the /api/runs JSON; the response envelope shape (`runs`/`limit`/`offset`) the React UI binds against is locked from the capture path too; script exists and is executable.
+- Deliberate design choice documented inline in the script: the browser tour stays *out* of the script. Driving a browser would need Playwright/Puppeteer (heavy new dep). The /api/runs JSON is what the React UI consumes; curl-then-assert gives the same protection from a different angle. JT records the browser portion separately during the trace-server section of the recording.
+- README "Demo" section: "**pending**" line replaced with the real invocation, the PgStore-vs-MemoryStore distinction, and a pointer to the smoke test as the bitrot guard. 146/146 tests pass, `tsc --noEmit` clean.
+
+**Why this work, this session:** Ninth repo to land the `scripts/capture_demo.sh` pattern this week, and the first TypeScript-flavored one in the run. Issue #16 was the explicit owner of the README's pending demo claim and was sitting at `priority:low` — closing it cleanly closes the last quality-bar gap in this repo's v0.1 story.
+
+**Open questions / blockers:** None. The browser tour is JT's separate recording step; the script's epilogue tells the operator how to open the UI manually for that purpose.
+
+**Next session:** Continue the multi-issue loop if time. nextjs-streaming-ai-patterns #12 is the next stale repo in §8 build order.
