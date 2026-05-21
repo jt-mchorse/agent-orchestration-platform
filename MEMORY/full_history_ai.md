@@ -243,3 +243,26 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-21T19:40Z
+duration_min: 25
+issue: 16
+focus: scripts_capture_demo_sh_two_surface_60s_driver_plus_vitest_smoke_test
+delta:
+  files_added: 2   # scripts/capture_demo.sh, test/capture-demo-smoke.test.ts
+  files_changed: 1 # README.md (Demo section pending → real invocation)
+  tests_added: 4
+  test_pass_rate: "146 passed / 4 skipped / 1 file skipped"
+context_for_next_session:
+  - ninth_repo_to_land_capture_demo_sh_pattern_this_week_first_typescript_repo_in_the_run
+  - two_surfaces_npm_run_eval_dry_run_then_npm_run_trace_server_memory_background_plus_curl_api_runs
+  - browser_tour_deliberately_not_in_the_script_would_need_playwright_puppeteer_heavy_dep_curl_api_runs_locks_same_json_shape_react_ui_consumes
+  - sticky_comment_marker_html_comment_agent_eval_sticky_comment_is_load_bearing_for_gh_actions_in_place_comment_edit_smoke_test_pins_it
+  - memory_store_seeded_runs_sample_finalized_and_sample_aborted_test_pins_both_names
+  - background_server_reaped_via_exit_int_term_trap_port_poll_loop_250ms_x_25_before_curl
+  - capture_demo_port_overridable_via_capture_trace_port_env_default_8766
+  - no_new_d_entry_pure_glue_leveraging_existing_dry_run_and_memory_paths
+decisions_made: []
+followups: []
+---
