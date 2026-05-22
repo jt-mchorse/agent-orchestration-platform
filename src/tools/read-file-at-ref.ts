@@ -102,7 +102,7 @@ export const readFileAtRefTool: Tool<typeof inputSchema, typeof outputSchema> = 
     if (ctx.mode !== "replay") {
       throw new ToolError(
         "read_file_at_ref",
-        "unsupported_in_replay",
+        "unsupported_in_live",
         "live mode is stubbed until the planner (#3) wires the GitHub client",
       );
     }

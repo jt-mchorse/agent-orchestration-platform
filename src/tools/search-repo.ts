@@ -56,7 +56,7 @@ export const searchRepoTool: Tool<typeof inputSchema, typeof outputSchema> = {
     if (ctx.mode !== "replay") {
       throw new ToolError(
         "search_repo",
-        "unsupported_in_replay",
+        "unsupported_in_live",
         "live mode is stubbed until the planner (#3) wires the GitHub client",
       );
     }

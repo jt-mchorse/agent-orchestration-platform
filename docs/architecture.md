@@ -158,7 +158,7 @@ class Trace {
 ```
 
 Two re-plan triggers ship today: `tool_error` (input/output validation,
-`internal`, `not_found`, `unsupported_in_replay`) and `approval_denied`
+`internal`, `not_found`, `unsupported_in_live`) and `approval_denied`
 (destructive-tool path from #4). They're modeled as distinct `ReplanReason`
 variants so a planner can branch on them — e.g., revise the input shape
 on validation failure but skip a posting step entirely on a denial.

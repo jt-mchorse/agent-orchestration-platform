@@ -64,7 +64,7 @@ export type Observation =
  *
  * The two concrete reasons today are:
  * - `tool_error` — the registry surfaced a `ToolError` (input/output
- *   validation, not_found, unsupported_in_replay, internal).
+ *   validation, not_found, unsupported_in_live, internal).
  * - `approval_denied` — a destructive tool's approval provider returned
  *   `approved: false`. Modeled separately from `tool_error` so the
  *   planner can choose a totally different strategy (e.g., skip posting

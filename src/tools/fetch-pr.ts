@@ -81,7 +81,7 @@ export const fetchPrTool: Tool<typeof inputSchema, typeof outputSchema> = {
     }
     throw new ToolError(
       "fetch_pr",
-      "unsupported_in_replay",
+      "unsupported_in_live",
       "live mode is stubbed until the planner (#3) wires the GitHub client",
     );
   },

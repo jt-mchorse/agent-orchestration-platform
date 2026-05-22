@@ -72,7 +72,7 @@ export const postReviewCommentTool: Tool<typeof inputSchema, typeof outputSchema
     }
     throw new ToolError(
       "post_review_comment",
-      "unsupported_in_replay",
+      "unsupported_in_live",
       "live mode is stubbed until the planner (#3) wires the GitHub client; the destructive flag is real and tested via the approval flow",
     );
   },
