@@ -98,7 +98,7 @@ export type ToolErrorKind =
   | "input_validation"
   | "output_validation"
   | "not_found"
-  | "unsupported_in_replay"
+  | "unsupported_in_live"
   | "approval_denied"
   | "approval_missing"
   | "internal";

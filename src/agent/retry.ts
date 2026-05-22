@@ -12,7 +12,8 @@ import { ToolError, type RetryPolicy, type ToolErrorKind } from "../tools/types.
  * - `input_validation`, `output_validation`: deterministic per input; a
  *   second attempt with the same input is guaranteed to fail.
  * - `not_found`: a missing tool isn't going to appear on a retry.
- * - `unsupported_in_replay`: a fixture gap, not a transient failure.
+ * - `unsupported_in_live`: live-mode stub, not a transient failure
+ *   (wiring isn't going to materialize on a retry).
  * - `approval_denied`, `approval_missing`: human/runtime decision; not
  *   for the retry layer to second-guess.
  *
