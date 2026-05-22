@@ -170,3 +170,15 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The browser tour is JT's separate recording step; the script's epilogue tells the operator how to open the UI manually for that purpose.
 
 **Next session:** Continue the multi-issue loop if time. nextjs-streaming-ai-patterns #12 is the next stale repo in §8 build order.
+
+## 2026-05-22 — Rename `unsupported_in_replay` → `unsupported_in_live` (#21)
+
+**Duration:** ~30 min. **Issue:** [#21](https://github.com/jt-mchorse/agent-orchestration-platform/issues/21). **PR:** TBD.
+
+`ToolErrorKind` carried a literal called `unsupported_in_replay`. Reading the five throw sites (`fetch-pr`, `read-file-at-ref`, `run-check`, `search-repo`, `post-review-comment`), every one of them threw the kind when `ctx.mode === "live"` — i.e. the opposite of what the name said. The retry helper's docstring further reinforced the mislabel by calling the kind "a fixture gap, not a transient failure" — fixture gaps are actually surfaced via `not_found`, not via the misnamed kind. Caller code that branches on `ToolError.kind` was reading a label that pointed the wrong way.
+
+Renamed the literal to `unsupported_in_live` and updated the seven touch points (the type, five throw sites, retry.ts docstring, agent/types.ts docstring, and `docs/architecture.md`'s replan-trigger taxonomy). Regenerated `dist/` via `npm run build`. Retry semantics unchanged — the kind was non-retryable by default before (only `internal` is default-retryable), and it's still non-retryable now; only the label moved.
+
+Two lock tests ship alongside, in different layers: `test/tools/live-mode-error-kind.test.ts` calls every tool with a live-mode stub and pins `error.kind === "unsupported_in_live"` at the runtime layer (`post_review_comment` routes through `autoApproveProvider` so the destructive gate clears before the stub fires); `test/tools/error-kind-source-snapshot.test.ts` reads `src/tools/types.ts`, `src/agent/retry.ts`, and `docs/architecture.md` and asserts the new name is present and the legacy name is gone, so a future copy-paste can't reintroduce the misnamed literal even if no test happens to exercise a live-mode path. That's the same belt-and-braces pattern this portfolio's other read-snapshot tests use.
+
+Why prioritized: this is the fifth post-v0.1 silent-drift fix landing tonight (after `embedding-model-shootout` #17, `chunking-strategies-lab` #19, `vector-search-at-scale` #19, `python-async-llm-pipelines` #21). All five are different shapes of the same family — labels/docs/contracts that drift from code behavior. Closing them as a batch braces the portfolio against handoff §10's longest rule ("do not invent benchmark numbers" generalizes to "do not let labels lie about what they label"). Open questions / followups: actually wiring live mode for any tool is a separate scope; #3's planner GitHub-client seam is where that work would land. The kind rename doesn't unblock or block that — both directions remain reachable.

@@ -266,3 +266,26 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-22T03:40Z
+duration_min: 30
+issue: 21
+focus: rename_tool_error_kind_unsupported_in_replay_to_unsupported_in_live_kind_was_thrown_in_live_mode_not_replay
+delta:
+  files_changed: 7   # types.ts, fetch-pr.ts, read-file-at-ref.ts, run-check.ts, search-repo.ts, post-review-comment.ts, retry.ts, agent/types.ts, docs/architecture.md
+  files_added: 2     # test/tools/live-mode-error-kind.test.ts, test/tools/error-kind-source-snapshot.test.ts
+  tests_added: 9
+  test_pass_rate: "155/155 (passed) + 4 skipped"
+  build_regenerated: true
+decisions_made: []
+context_for_next_session:
+  - toolerrorkind_literal_unsupported_in_replay_was_thrown_in_5_places_all_when_ctx_mode_was_live_not_replay_name_lied_about_trigger
+  - retry_helper_docstring_called_it_a_fixture_gap_but_fixture_gaps_are_actually_not_found
+  - rename_to_unsupported_in_live_propagates_to_types_ts_5_throw_sites_retry_ts_docstring_agent_types_ts_docstring_docs_architecture_md_dist_regenerated
+  - runtime_lock_in_test_tools_live_mode_error_kind_test_ts_one_test_per_tool_with_live_mode_stub_post_review_comment_needs_auto_approve_provider_to_clear_the_destructive_gate_before_the_kind_fires
+  - source_snapshot_lock_in_test_tools_error_kind_source_snapshot_test_ts_four_tests_types_ts_includes_unsupported_in_live_and_excludes_unsupported_in_replay_retry_ts_and_architecture_md_likewise
+  - retry_semantics_unchanged_kind_was_non_retryable_default_now_still_non_retryable_just_with_truthful_name
+  - fifth_post_v0_1_drift_fix_today_after_emb_shootout_chunking_lab_vector_search_at_scale_python_async_llm_pipelines
+followups: []
+---
