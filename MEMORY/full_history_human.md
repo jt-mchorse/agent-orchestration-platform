@@ -182,3 +182,17 @@ Renamed the literal to `unsupported_in_live` and updated the seven touch points 
 Two lock tests ship alongside, in different layers: `test/tools/live-mode-error-kind.test.ts` calls every tool with a live-mode stub and pins `error.kind === "unsupported_in_live"` at the runtime layer (`post_review_comment` routes through `autoApproveProvider` so the destructive gate clears before the stub fires); `test/tools/error-kind-source-snapshot.test.ts` reads `src/tools/types.ts`, `src/agent/retry.ts`, and `docs/architecture.md` and asserts the new name is present and the legacy name is gone, so a future copy-paste can't reintroduce the misnamed literal even if no test happens to exercise a live-mode path. That's the same belt-and-braces pattern this portfolio's other read-snapshot tests use.
 
 Why prioritized: this is the fifth post-v0.1 silent-drift fix landing tonight (after `embedding-model-shootout` #17, `chunking-strategies-lab` #19, `vector-search-at-scale` #19, `python-async-llm-pipelines` #21). All five are different shapes of the same family — labels/docs/contracts that drift from code behavior. Closing them as a batch braces the portfolio against handoff §10's longest rule ("do not invent benchmark numbers" generalizes to "do not let labels lie about what they label"). Open questions / followups: actually wiring live mode for any tool is a separate scope; #3's planner GitHub-client seam is where that work would land. The kind rename doesn't unblock or block that — both directions remain reachable.
+
+## 2026-05-23 — Architecture-doc steady-state rewrite + lock (#23)
+
+**Duration:** ~40 min. **Issue:** [#23](https://github.com/jt-mchorse/agent-orchestration-platform/issues/23). **PR:** [#24](https://github.com/jt-mchorse/agent-orchestration-platform/pull/24).
+
+This was the **only repo with real drift** in the night's five-sister-issue sweep. The doc was committed alongside the substrate PR (issue #1) and never reframed; six section headers + two paragraphs carried pre-shipping `this PR — issue #N` / `deliberately not in this PR` framing for surfaces that had since shipped.
+
+Rewrote each: per-layer headers are now `## <Layer> (#N)`; the empty "Pending downstream" section is gone; the `AnthropicPlanner` framing is restated as the *operator-driven* posture it actually is (same shape as the live-API integration tests in `llm-cost-optimizer` and `llm-eval-harness`); the TS-scaffolding framing is restated as a fact about what's in the tree today.
+
+Also added D-003 (`Planner` three-method interface) and D-004 (replan budget default = 5) bullets to the §Agent loop "Why these decisions" list — both decisions were active per `MEMORY/core_decisions_ai.md` but the doc never cited them.
+
+Vitest lock with 12 tests, four invariants pinned, tamper-verified each. TypeScript-side needed `undefined` guards on regex captures for strict-null typecheck.
+
+**Why this work, this session:** Final of five sister issues in the night sweep. **Open questions / blockers:** none. **Next session:** portfolio-wide architecture-doc lock pattern now has 12-of-12 coverage; sweep complete.

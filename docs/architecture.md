@@ -9,13 +9,13 @@ flowchart TD
   IN[(PR identifier:<br/>owner/repo#N or fixture path)]
   OP[operator]
 
-  subgraph AGENT["Agent loop (issue #3 — shipped)"]
+  subgraph AGENT["Agent loop (#3)"]
     P[Planner.initialPlan / revise / finalize]
     E[AgentRun executor]
     R[Re-plan trigger<br/>tool_error | approval_denied]
   end
 
-  subgraph TOOLS["Tool registry (issue #2)"]
+  subgraph TOOLS["Tool registry (#2)"]
     T1[fetch_pr]
     T2[read_file_at_ref]
     T3[search_repo]
@@ -23,17 +23,17 @@ flowchart TD
     T5[(MCP: portfolio-context)]
   end
 
-  subgraph CHECKPOINT["HITL checkpoint (issue #4)"]
+  subgraph CHECKPOINT["HITL checkpoint (#4)"]
     C[Pause + render comment]
     APPROVE{operator approves?}
   end
 
-  subgraph TRACE["Trace store (issue #6 — shipped)"]
+  subgraph TRACE["Trace store (#6)"]
     DB[(Postgres: runs + trace_events)]
     UI[React-via-CDN viewer]
   end
 
-  subgraph EVAL["Eval suite (issue #7 — shipped)"]
+  subgraph EVAL["Eval suite (#7)"]
     GOLDEN[(Golden answer keys)]
     JUDGE[scoreReview → ReviewScore]
   end
@@ -56,7 +56,7 @@ flowchart TD
   DB --> JUDGE
 ```
 
-## Locked by this PR (issue #1)
+## Locked-in shape (#1)
 
 - **Use case** — PR review agent, not research brief. (D-002.)
 - **Input shape** — `fixtures/sample-prs/<slug>.json` with the v1 schema
@@ -66,11 +66,7 @@ flowchart TD
 - **Tool contract** — five named tools (one of them a custom MCP server)
   with knowable signatures listed in `use-case.md`.
 
-## Pending downstream (open issues)
-
-_(All v0.1 issues shipped.)_
-
-## Eval suite (this PR — issue #7)
+## Eval suite (#7)
 
 `src/eval/` ships three modules:
 
@@ -98,7 +94,7 @@ dep-light. The sticky-marker idea is borrowed; the two repos use
 distinct markers so a downstream consumer importing both doesn't
 collide.
 
-## Trace persistence + viewer (this PR — issue #6)
+## Trace persistence + viewer (#6)
 
 Two tables in `infra/postgres/init.sql`:
 
@@ -131,7 +127,7 @@ applies `init.sql`, and runs `test/trace/pg-store.test.ts` against
 real Postgres. Local unit tests stay hermetic (skip when
 `DATABASE_URL` isn't set).
 
-## Agent loop (this PR — issue #3)
+## Agent loop (#3)
 
 The loop is three TS modules under `src/agent/`:
 
@@ -170,12 +166,29 @@ the trace, that re-plan kicks in on errors and approval denials, that the
 budget bounds runaway loops, and that an end-to-end run wires up the real
 `buildDefaultRegistry()` against the committed PR fixture.
 
-The LLM-driven `AnthropicPlanner` is deliberately not in this PR — it
-needs the trace persistence from #6 and the eval coverage from #7 to be
-worth landing; ScriptedPlanner is sufficient to exercise the loop and
-verify its contract.
+The LLM-driven `AnthropicPlanner` is operator-driven: the loop's contract
+is verified by `ScriptedPlanner` end-to-end against the committed PR
+fixture, so live-API runs are an *operator* concern (carrying a real key
+and a budget) rather than a CI concern. Same posture as the
+budget-bounded live-API integration tests in `llm-cost-optimizer` and
+`llm-eval-harness`.
 
-## Recovery layers (this PR — issue #5)
+**Why these decisions.**
+
+- **D-003.** `Planner` is a three-method interface (`initialPlan` /
+  `revise` / `finalize`) rather than a single-method step protocol, a
+  React-style function-per-decision, or a class hierarchy. Matches the
+  portfolio's seam pattern (`Tool`, `Reranker`, `Embedder` — one
+  Protocol per phase) and lets `ScriptedPlanner` drive tests without an
+  LLM.
+- **D-004.** Re-plan budget defaults to **5** per run, configurable
+  per-run via `maxReplans`. Loose enough that normal tool-error → revise
+  → continue paths don't false-positive, tight enough that a misbehaving
+  planner surfaces in seconds. Step-budget (not dollar-budget) is the
+  bounded axis because LLM-spend isn't known until `AnthropicPlanner`
+  lands; revisit when it does.
+
+## Recovery layers (#5)
 
 `AgentRun.runStepWithRetryAndFallback` wraps every step in three
 recovery layers, executed in order. The planner sees exactly one
@@ -228,6 +241,10 @@ visible, and the planner can replan around it.
 - **Postgres** for trace persistence (single container).
 - **React** (minimal) for the trace inspection UI.
 
-The TS scaffolding (`package.json`, `tsconfig.json`, vitest, eslint) is
-deliberately not added in this PR — it lands with #2 where the first real
-code arrives. Adding empty scaffolding now would create dead surface.
+The TS scaffolding (`package.json`, `tsconfig.json`, `vitest.config.ts`)
+lives at the repo root and was added with #2 alongside the first real
+code, not earlier — adding empty scaffolding before there was anything
+to compile would have been dead surface. The MCP server's runtime
+contract (`@modelcontextprotocol/sdk`) and Postgres bindings (`pg`,
+declared as an `optionalDependency` so hermetic CI doesn't pull it)
+are the only required deps; everything else is dev-tooling.

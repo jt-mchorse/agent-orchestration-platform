@@ -289,3 +289,25 @@ context_for_next_session:
   - fifth_post_v0_1_drift_fix_today_after_emb_shootout_chunking_lab_vector_search_at_scale_python_async_llm_pipelines
 followups: []
 ---
+
+---
+session: 2026-05-23T03:55Z
+duration_min: 40
+issue: 23
+focus: architecture_doc_steady_state_rewrite_plus_lock_real_drift_caught_six_section_headers
+decisions_made: []
+delta:
+  files_changed: 1   # docs/architecture.md (rewritten section headers, dropped pending downstream block, restated two pre-shipping framings, added D-003/D-004 bullets)
+  files_added: 1     # test/architecture-doc.test.ts
+  tests_added: 12
+  test_pass_rate: "167/167 + 4 pre-existing skips"
+context_for_next_session:
+  - real_drift_rewrite_six_section_headers_lost_this_pr_framing_dropped_pending_downstream_empty_section
+  - anthropic_planner_framing_restated_as_operator_driven_posture_same_shape_as_llm_eval_harness_live_api_tests
+  - ts_scaffolding_framing_restated_as_fact_about_what_is_in_tree_today
+  - d_003_and_d_004_added_to_agent_loop_why_these_decisions_bullets_were_active_per_memory_but_not_cited
+  - ts_vitest_test_lock_with_typecheck_clean_after_undefined_guards_added
+  - five_of_five_sister_issues_in_this_night_sweep_complete_portfolio_pattern_now_at_full_coverage
+  - eleven_arch_doc_locks_total_across_portfolio_at_session_end
+followups: []
+---
