@@ -214,3 +214,19 @@ Six new tests pin the contract: cap clamps a runaway compute (`backoffMs=100, mu
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue to build-sequence #10 (`mcp-server-cookbook`).
+
+## 2026-05-24 — Issue #27: `registry.list()` surfaces `destructiveReason`
+
+**Duration:** ~15 min. **Issue:** [#27](https://github.com/jt-mchorse/agent-orchestration-platform/issues/27). **Branch:** `session/2026-05-24-1541-issue-27`.
+
+`src/tools/types.ts` line 46-47 already documents the intent: `registry.list()` is the self-describing surface, configured this way so policy can't silently drift from tool changes (the same reason D-012 places `retry` on the annotation rather than on an executor-side side-table). But the implementation only returned `{name, description, destructive}` — `destructiveReason`, which `register()` enforces non-null for destructive tools, was hidden behind a `get(name)` round-trip. Callers wanting an "all destructive tools and their effect" view (the approval UI's natural surface, or an MCP-style `list_tools` projection) had to crawl annotations themselves.
+
+Same shape of half-implemented capability as today's `mcp-server-cookbook` #31 — the rich data was populated, the public projection just didn't expose it. The fix is additive: `list()` now returns `{name, description, destructive, destructiveReason: string | null}`. Destructive tools render the registered reason (non-null by register-time guarantee at registry.ts:11-14); non-destructive tools render `null` rather than the invoke-path's `"tool is marked destructive"` fallback, since `list()` describes the tool's intent, not how the invoke path handles missing reasons.
+
+The existing "registers, lists, and invokes tools" test had to be updated to include the new `destructiveReason: null` field on the echo tool — that assertion was the regression-pin for the list shape, and the additive change shifts it by one key. Three new tests cover (a) a destructive tool surfaces its reason, (b) a non-destructive tool surfaces null, (c) a multi-tool registry distinguishes the two correctly.
+
+**Why this work, this session:** Sixth Phase B+C target of a 180-min day session. Same shape of fix as `mcp-server-cookbook` #31 — the data was always there; the public surface just had to forward it. Each repo in today's session has shown the same pattern in its own form: a previous PR shipped the capability one layer down, and the polish PR brings it out to where consumers actually see it.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop if time permits. Remaining candidates: TS frontends (`nextjs-streaming-ai-patterns`, `ai-app-integration-tests`) which haven't been touched today, or `vector-search-at-scale` / `rag-production-kit` / `chunking-strategies-lab` for analogous polish gaps.

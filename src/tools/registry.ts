@@ -28,12 +28,28 @@ export class ToolRegistry {
     return tool;
   }
 
-  list(): { name: string; description: string; destructive: boolean }[] {
-    return [...this.tools.values()].map((t) => ({
-      name: t.name,
-      description: t.description,
-      destructive: t.annotations?.destructive === true,
-    }));
+  list(): {
+    name: string;
+    description: string;
+    destructive: boolean;
+    destructiveReason: string | null;
+  }[] {
+    // `destructiveReason` is enforced non-null at register() for destructive
+    // tools (see line 11–14 above), so the non-null-assertion below is safe.
+    // Non-destructive tools get `null` rather than the invoke-time
+    // `"tool is marked destructive"` fallback — `list()` describes the
+    // tool's intent, not how the invoke path renders missing reasons.
+    return [...this.tools.values()].map((t) => {
+      const isDestructive = t.annotations?.destructive === true;
+      return {
+        name: t.name,
+        description: t.description,
+        destructive: isDestructive,
+        destructiveReason: isDestructive
+          ? (t.annotations?.destructiveReason ?? null)
+          : null,
+      };
+    });
   }
 
   async invoke(name: string, input: unknown, ctx: ToolContext): Promise<unknown> {
