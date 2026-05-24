@@ -43,25 +43,38 @@ const realSleep: SleepFn = (ms: number) =>
   });
 
 /**
+ * Random-number abstraction so tests can pin jitter deterministically.
+ * Returns a float in `[0, 1)`, same contract as `Math.random`.
+ */
+export type RandomFn = () => number;
+
+const realRandom: RandomFn = Math.random;
+
+/**
  * Run an async function with retry-on-`ToolError`.
  *
  * Semantics:
  * - On success, returns the value immediately.
  * - On a `ToolError` whose `kind` is in the policy's retryable set, calls
- *   `onAttempt` with the failure info, sleeps `backoffMs * mult^(n-1)`,
- *   and tries again. Up to `maxAttempts` total attempts.
+ *   `onAttempt` with the failure info, sleeps `backoffMs * mult^(n-1)`
+ *   (clamped by `backoffMaxMs`, optionally jittered per `jitter`), and
+ *   tries again. Up to `maxAttempts` total attempts.
  * - On a non-`ToolError` throw (programmer bug) or a `ToolError` whose
  *   `kind` is non-retryable, propagates the original error immediately.
  *
  * The helper is intentionally pure — it knows nothing about the trace,
  * the registry, or the agent's planner. The executor wires the
  * `onAttempt` callback to emit `retry_attempted` events.
+ *
+ * The `random` injection point lets tests pin jitter for deterministic
+ * assertions; default is `Math.random`.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   policy: RetryPolicy,
   onAttempt: OnRetryAttempt = () => {},
   sleep: SleepFn = realSleep,
+  random: RandomFn = realRandom,
 ): Promise<T> {
   const maxAttempts = Math.max(1, policy.maxAttempts);
   const multiplier = policy.backoffMultiplier ?? 2.0;
@@ -84,7 +97,16 @@ export async function withRetry<T>(
       if (!moreAttemptsLeft || !kindIsRetryable) {
         throw err;
       }
-      const backoffMs = policy.backoffMs * multiplier ** (attempt - 1);
+      // Compute the raw exponential backoff, optionally cap it, then
+      // optionally jitter. The reported `backoffMs` is the actually-slept
+      // value so the trace event matches reality (not the abstract formula).
+      let backoffMs = policy.backoffMs * multiplier ** (attempt - 1);
+      if (policy.backoffMaxMs !== undefined && backoffMs > policy.backoffMaxMs) {
+        backoffMs = policy.backoffMaxMs;
+      }
+      if ((policy.jitter ?? "none") === "full") {
+        backoffMs = random() * backoffMs;
+      }
       onAttempt({ attempt, backoffMs, error: err });
       await sleep(backoffMs);
     }

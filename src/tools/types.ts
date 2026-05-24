@@ -76,6 +76,22 @@ export interface RetryPolicy {
   /** Default 2.0 (binary exponential). 1.0 = fixed-interval retry. */
   backoffMultiplier?: number;
   /**
+   * Optional upper bound on the per-attempt sleep. When set, the computed
+   * `backoffMs * backoffMultiplier^(n-1)` is clamped to `backoffMaxMs`
+   * before any jitter is applied. Undefined keeps the existing unbounded
+   * exponential schedule. Recommended for any policy with
+   * `maxAttempts > 5` to avoid runaway sleep growth.
+   */
+  backoffMaxMs?: number;
+  /**
+   * Optional jitter strategy applied to the (capped) backoff before sleeping.
+   * - `"none"` (default): sleep exactly the computed value (current behavior).
+   * - `"full"`: sleep a uniform random in `[0, computed]`. Disperses concurrent
+   *   retries so the same downstream service isn't hit by a synchronized
+   *   thundering herd. Per Google SRE book and AWS SDK guidance.
+   */
+  jitter?: "none" | "full";
+  /**
    * Which `ToolError` kinds are retryable. Default is `["internal"]` —
    * transient runtime failures only. Validation kinds and approval kinds
    * are never sensible to retry without changing the inputs.
