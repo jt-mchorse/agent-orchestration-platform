@@ -26,7 +26,12 @@ describe("ToolRegistry", () => {
 
     expect(reg.has("echo")).toBe(true);
     expect(reg.list()).toEqual([
-      { name: "echo", description: "echo input.text", destructive: false },
+      {
+        name: "echo",
+        description: "echo input.text",
+        destructive: false,
+        destructiveReason: null,
+      },
     ]);
 
     const result = await reg.invoke("echo", { text: "hello" }, ctx);
@@ -65,5 +70,59 @@ describe("ToolRegistry", () => {
     };
     reg.register(badTool);
     await expect(reg.invoke("bad", { text: "x" }, ctx)).rejects.toBeInstanceOf(ToolError);
+  });
+
+  // ----------------------------------------------------------------
+  // list() exposes destructiveReason on the self-describing surface
+  // (issue #27). types.ts:46-47 documents the intent that
+  // `registry.list()` stays self-describing so policy can't silently
+  // drift from tool changes; this group of tests pins that.
+  // ----------------------------------------------------------------
+
+  const destructiveTool: Tool<typeof echoInput, typeof echoOutput> = {
+    name: "post_review_comment",
+    description: "post a comment on the PR",
+    inputSchema: echoInput,
+    outputSchema: echoOutput,
+    annotations: {
+      destructive: true,
+      destructiveReason: "post a public review comment on the PR",
+    },
+    async run(input) {
+      return { echoed: input.text };
+    },
+  };
+
+  it("list() surfaces destructiveReason for destructive tools", () => {
+    const reg = new ToolRegistry();
+    reg.register(destructiveTool);
+    expect(reg.list()).toEqual([
+      {
+        name: "post_review_comment",
+        description: "post a comment on the PR",
+        destructive: true,
+        destructiveReason: "post a public review comment on the PR",
+      },
+    ]);
+  });
+
+  it("list() returns destructiveReason=null for non-destructive tools", () => {
+    const reg = new ToolRegistry();
+    reg.register(echoTool);
+    const entries = reg.list();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.destructive).toBe(false);
+    expect(entries[0]?.destructiveReason).toBeNull();
+  });
+
+  it("list() distinguishes the two when both kinds are registered", () => {
+    const reg = new ToolRegistry();
+    reg.register(echoTool);
+    reg.register(destructiveTool);
+    const byName = new Map(reg.list().map((e) => [e.name, e]));
+    expect(byName.get("echo")?.destructiveReason).toBeNull();
+    expect(byName.get("post_review_comment")?.destructiveReason).toBe(
+      "post a public review comment on the PR",
+    );
   });
 });
