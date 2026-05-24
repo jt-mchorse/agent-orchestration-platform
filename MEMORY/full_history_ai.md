@@ -333,3 +333,24 @@ context_for_next_session:
   - pattern_observation_each_repos_substantive_fix_tonight_addresses_a_real_production_concern_at_either_cli_layer_or_library_layer
 followups: []
 ---
+
+---
+session: 2026-05-24T15:48Z
+duration_min: 15
+issue: 27
+focus: registry_list_exposes_destructive_reason_self_describing_surface_gap_close
+delta:
+  files_changed: 2   # src/tools/registry.ts, test/registry.test.ts
+  files_added: 0
+  tests_added: 3
+  test_pass_rate: "175_passed_4_skipped"
+decisions_made: []
+context_for_next_session:
+  - types_ts_46_47_already_documented_that_registry_list_should_be_self_describing_so_policy_cant_silently_drift_from_tool_changes_d_012
+  - implementation_only_returned_name_description_destructive_destructive_reason_was_hidden_behind_get_round_trip
+  - new_list_shape_returns_destructive_reason_string_or_null_non_destructive_tools_get_null_not_invoke_path_fallback_string
+  - non_null_assertion_safe_register_enforces_destructive_reason_at_construction_for_destructive_tools_registry_ts_11_14
+  - existing_registers_lists_invokes_assertion_updated_with_new_null_field_three_new_tests_pin_destructive_non_destructive_and_multi_tool_distinguishability
+  - portfolio_pattern_sixth_in_day_session_loop_after_eval_harness_37_prompt_regression_32_mcp_cookbook_31_emb_shootout_26_async_pipelines_29_same_shape_of_fix_as_mcp_cookbook_31_data_was_populated_but_public_projection_didnt_expose_it
+followups: []
+---
