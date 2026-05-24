@@ -311,3 +311,25 @@ context_for_next_session:
   - eleven_arch_doc_locks_total_across_portfolio_at_session_end
 followups: []
 ---
+
+---
+session: 2026-05-24T04:05Z
+duration_min: 25
+issue: 25
+focus: retry_policy_backoff_max_cap_and_full_jitter_option
+delta:
+  files_changed: 2   # src/tools/types.ts, src/agent/retry.ts
+  files_added: 0
+  tests_added: 6
+  test_pass_rate: "172_passed_4_skipped"
+decisions_made: []
+context_for_next_session:
+  - retry_policy_had_unbounded_exponential_growth_and_no_jitter_two_production_realism_gaps
+  - backoff_max_ms_clamps_after_compute_before_jitter_undefined_preserves_unbounded_growth
+  - jitter_full_implements_aws_sdk_google_sre_pattern_random_uniform_zero_to_capped_default_none_preserves_byte_identical_current_behavior
+  - random_fn_injection_seam_parallel_to_existing_sleep_fn_seam_lets_tests_pin_jitter_deterministically
+  - on_attempt_callback_back_off_ms_now_reports_actually_slept_value_not_abstract_formula_trace_event_matches_reality
+  - ninth_in_night_session_loop_second_safety_gap_fix_first_was_python_async_pipelines_issue_26_dispatch_tool_calls_timeout
+  - pattern_observation_each_repos_substantive_fix_tonight_addresses_a_real_production_concern_at_either_cli_layer_or_library_layer
+followups: []
+---

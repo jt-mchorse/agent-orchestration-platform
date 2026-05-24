@@ -196,3 +196,21 @@ Also added D-003 (`Planner` three-method interface) and D-004 (replan budget def
 Vitest lock with 12 tests, four invariants pinned, tamper-verified each. TypeScript-side needed `undefined` guards on regex captures for strict-null typecheck.
 
 **Why this work, this session:** Final of five sister issues in the night sweep. **Open questions / blockers:** none. **Next session:** portfolio-wide architecture-doc lock pattern now has 12-of-12 coverage; sweep complete.
+
+## 2026-05-24 — Issue #25: RetryPolicy backoffMaxMs cap + full-jitter option
+
+**Duration:** ~25 min. **Issue:** [#25](https://github.com/jt-mchorse/agent-orchestration-platform/issues/25). **Branch:** `session/2026-05-24-0403-issue-25`.
+
+`withRetry` computed backoff as `backoffMs * mult^(n-1)` with no cap and no jitter. Two production-realism gaps: high multiplier or high `maxAttempts` let the per-attempt sleep grow unbounded (binary exponential at 10 attempts → ~100s on the 10th), and every concurrent agent slept exactly the same time, producing a synchronized thundering herd against the downstream service on every shared failure.
+
+Added two optional fields to `RetryPolicy`: `backoffMaxMs?: number` clamps the per-attempt sleep at this value after the exponential compute (undefined keeps unbounded growth — byte-identical to today), and `jitter?: "none" | "full"` (default `"none"`) implements the AWS-SDK / Google-SRE-book "full jitter" pattern: `sleep ← random.uniform(0, capped_backoff)`. A new `RandomFn` injection seam (parallel to the existing `SleepFn` seam) lets tests pin jitter for deterministic assertions.
+
+The `RetryAttempt.backoffMs` reported through the `onAttempt` callback is now the actually-slept value — after both cap and jitter — instead of the abstract formula. That matters because the trace event derived from that callback should reflect reality, not what would have been slept under different settings.
+
+Six new tests pin the contract: cap clamps a runaway compute (`backoffMs=100, mult=4, max=500` → slept sequence `[100, 400, 500, 500]`); undefined cap preserves unbounded growth; full jitter with a pinned random sequence draws sleeps in `[0, capped]`; no-options is byte-identical regression guard; the `onAttempt` callback's `backoffMs` matches the actually-slept value (after cap + jitter); cap holds even when jitter factor = 1.0.
+
+**Why this work, this session:** Ninth issue in the night-session multi-issue loop. Second safety gap fix (after `python-async-llm-pipelines` #26 added per-tool timeout). The pattern this session keeps surfacing: every repo had at least one CLI parity or library-safety gap that read cleanly from the source.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue to build-sequence #10 (`mcp-server-cookbook`).
