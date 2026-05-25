@@ -69,6 +69,49 @@ const realRandom: RandomFn = Math.random;
  * The `random` injection point lets tests pin jitter for deterministic
  * assertions; default is `Math.random`.
  */
+/**
+ * Validate a `RetryPolicy` at the entry of `withRetry`.
+ *
+ * Each invalid numeric throws `RangeError` naming the offending field and
+ * received value. Pre-#29 the runtime did `Math.max(1, maxAttempts)` and
+ * accepted negative/`NaN`/non-finite inputs for everything else — `NaN`
+ * for `maxAttempts` made the for-loop never execute and `throw lastError`
+ * surfaced `undefined`; negative backoffs were coerced to `0` by
+ * `setTimeout`, silently undoing the operator's intended schedule.
+ *
+ * Mirrors the portfolio's contract-tightening sweep (eval-harness #40,
+ * cost-optimizer #34, rag-kit #36, emb-shootout #29, vector-search #27,
+ * chunking-lab #27, prompt-regression #35): operator-supplied numeric
+ * inputs validated at the entry site with a loud error rather than
+ * silent degeneracy.
+ */
+function validatePolicy(policy: RetryPolicy): void {
+  if (!Number.isInteger(policy.maxAttempts) || policy.maxAttempts < 1) {
+    throw new RangeError(
+      `RetryPolicy.maxAttempts must be an integer >= 1; got ${policy.maxAttempts}`,
+    );
+  }
+  if (!Number.isFinite(policy.backoffMs) || policy.backoffMs < 0) {
+    throw new RangeError(
+      `RetryPolicy.backoffMs must be a finite number >= 0; got ${policy.backoffMs}`,
+    );
+  }
+  if (policy.backoffMaxMs !== undefined) {
+    if (!Number.isFinite(policy.backoffMaxMs) || policy.backoffMaxMs < 0) {
+      throw new RangeError(
+        `RetryPolicy.backoffMaxMs must be a finite number >= 0; got ${policy.backoffMaxMs}`,
+      );
+    }
+  }
+  if (policy.backoffMultiplier !== undefined) {
+    if (!Number.isFinite(policy.backoffMultiplier) || policy.backoffMultiplier < 1.0) {
+      throw new RangeError(
+        `RetryPolicy.backoffMultiplier must be a finite number >= 1.0; got ${policy.backoffMultiplier}`,
+      );
+    }
+  }
+}
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   policy: RetryPolicy,
@@ -76,7 +119,8 @@ export async function withRetry<T>(
   sleep: SleepFn = realSleep,
   random: RandomFn = realRandom,
 ): Promise<T> {
-  const maxAttempts = Math.max(1, policy.maxAttempts);
+  validatePolicy(policy);
+  const maxAttempts = policy.maxAttempts;
   const multiplier = policy.backoffMultiplier ?? 2.0;
   const retryable = new Set<ToolErrorKind>(
     policy.retryableErrorKinds ?? DEFAULT_RETRYABLE_KINDS,

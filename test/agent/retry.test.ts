@@ -145,15 +145,11 @@ describe("withRetry — abort paths", () => {
     expect(sleep.sleeps).toHaveLength(2);
   });
 
-  it("clamps maxAttempts < 1 to a single attempt", async () => {
-    const sleep = makeRecordedSleep();
-    const policy: RetryPolicy = { maxAttempts: 0, backoffMs: 1 };
-    const fn = vi.fn(async () => "value");
-
-    const result = await withRetry(fn, policy, () => {}, sleep.fn);
-    expect(result).toBe("value");
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
+  // Pre-#29 this test pinned a silent `Math.max(1, maxAttempts)` clamp.
+  // The clamp is gone — `maxAttempts < 1` now throws RangeError at the
+  // validation step (see "withRetry — RetryPolicy validation" block).
+  // Per-field rejection tests live in that block; this slot is intentionally
+  // retired so the abort-paths suite no longer documents the old behavior.
 });
 
 describe("DEFAULT_RETRYABLE_KINDS", () => {
@@ -309,5 +305,114 @@ describe("withRetry — onAttempt reports actually-slept backoffMs (issue #25)",
     // (after cap, with jitter=1.0) is [100, 500, 500]. Reported must match.
     expect(reported).toEqual([100, 500, 500]);
     expect(reported).toEqual(sleep.sleeps);
+  });
+});
+
+// Issue #29: validate RetryPolicy at the entry of withRetry. Pre-#29 invalid
+// numerics were silently absorbed by Math.max(1, …) and setTimeout's negative
+// coercion, masking operator misconfig. NaN for maxAttempts made the loop
+// never execute, and `throw lastError` surfaced `undefined` instead of an
+// error.
+describe("withRetry — RetryPolicy validation (issue #29)", () => {
+  const sleep = makeRecordedSleep();
+  const noopFn = async () => "ok";
+
+  it.each([
+    { value: 0, label: "zero" },
+    { value: -1, label: "negative" },
+    { value: 1.5, label: "fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects maxAttempts $label ($value)", async ({ value }) => {
+    const policy: RetryPolicy = { maxAttempts: value, backoffMs: 10 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).rejects.toThrow(
+      /maxAttempts must be an integer >= 1/,
+    );
+  });
+
+  it("accepts maxAttempts = 1 (minimum valid; no retries)", async () => {
+    const policy: RetryPolicy = { maxAttempts: 1, backoffMs: 0 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it.each([
+    { value: -1, label: "negative" },
+    { value: -0.5, label: "negative-fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects backoffMs $label ($value)", async ({ value }) => {
+    const policy: RetryPolicy = { maxAttempts: 3, backoffMs: value };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).rejects.toThrow(
+      /backoffMs must be a finite number >= 0/,
+    );
+  });
+
+  it("accepts backoffMs = 0 (minimum valid)", async () => {
+    const policy: RetryPolicy = { maxAttempts: 2, backoffMs: 0 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it.each([
+    { value: -1, label: "negative" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects backoffMaxMs $label ($value)", async ({ value }) => {
+    const policy: RetryPolicy = { maxAttempts: 3, backoffMs: 10, backoffMaxMs: value };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).rejects.toThrow(
+      /backoffMaxMs must be a finite number >= 0/,
+    );
+  });
+
+  it("accepts backoffMaxMs = 0 (clamps every attempt to 0; aggressive but valid)", async () => {
+    const policy: RetryPolicy = { maxAttempts: 2, backoffMs: 10, backoffMaxMs: 0 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it("accepts undefined backoffMaxMs (unbounded growth preserved)", async () => {
+    const policy: RetryPolicy = { maxAttempts: 2, backoffMs: 10 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it.each([
+    { value: 0, label: "zero" },
+    { value: 0.5, label: "shrinking <1.0" },
+    { value: -1, label: "negative" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects backoffMultiplier $label ($value)", async ({ value }) => {
+    const policy: RetryPolicy = {
+      maxAttempts: 3,
+      backoffMs: 10,
+      backoffMultiplier: value,
+    };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).rejects.toThrow(
+      /backoffMultiplier must be a finite number >= 1\.0/,
+    );
+  });
+
+  it("accepts backoffMultiplier = 1.0 (fixed-interval retry, per docstring)", async () => {
+    const policy: RetryPolicy = {
+      maxAttempts: 2,
+      backoffMs: 10,
+      backoffMultiplier: 1.0,
+    };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it("accepts undefined backoffMultiplier (defaults to 2.0)", async () => {
+    const policy: RetryPolicy = { maxAttempts: 2, backoffMs: 10 };
+    await expect(withRetry(noopFn, policy, () => {}, sleep.fn)).resolves.toBe("ok");
+  });
+
+  it("validation runs before fn() is invoked even once (proves it's at entry)", async () => {
+    const fn = vi.fn(async () => "should not reach");
+    const policy: RetryPolicy = { maxAttempts: 0, backoffMs: 10 };
+    await expect(withRetry(fn, policy, () => {}, sleep.fn)).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    expect(fn).not.toHaveBeenCalled();
   });
 });
