@@ -230,3 +230,16 @@ The existing "registers, lists, and invokes tools" test had to be updated to inc
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop if time permits. Remaining candidates: TS frontends (`nextjs-streaming-ai-patterns`, `ai-app-integration-tests`) which haven't been touched today, or `vector-search-at-scale` / `rag-production-kit` / `chunking-strategies-lab` for analogous polish gaps.
+
+## 2026-05-25 — Issue #29: withRetry validates RetryPolicy at entry; no more silent clamp
+**Duration:** ~30 min · **Branch:** `session/2026-05-24-issue-29`
+
+- `withRetry` at `src/agent/retry.ts:79` did `Math.max(1, policy.maxAttempts)` and accepted everything else (`backoffMs`, `backoffMaxMs`, `backoffMultiplier`) without validation. Three concrete failure modes were silently absorbed: `maxAttempts = 0` reversed the operator's intent (became 1); `maxAttempts = NaN` made the loop never execute and threw `undefined`; `backoffMs < 0` was spec-coerced to `0` by `setTimeout`. `backoffMultiplier < 1.0` produced shrinking-not-growing schedules that contradict the docstring's `1.0 = fixed-interval retry`.
+- Added `validatePolicy(policy)` at the entry of `withRetry` — runs before any attempt is made. Each invalid field throws `RangeError` naming the field and value. The old `Math.max(1, ...)` clamp is removed (dead code after validation). The validations match each field's documented contract: `maxAttempts` integer `>= 1`, `backoffMs` finite `>= 0`, `backoffMaxMs` (if defined) finite `>= 0`, `backoffMultiplier` (if defined) finite `>= 1.0`.
+- 15 new tests in `test/agent/retry.test.ts` under an issue-#29 `describe` block, organized as `it.each` tables for per-field rejection (`0`, `-1`, `NaN`, `+Infinity`, fractional where relevant) plus boundary acceptance (`1`, `0`, `0`, `1.0`). One test pins "validation runs before `fn()` is invoked even once" so the contract is anchored at the entry rather than drifting inside the loop. The pre-existing `clamps maxAttempts < 1 to a single attempt` test is retired with a comment pointing to the new block. Net +13 tests (15 added, 1 retired, 1 not applicable in this counting). Full suite 198/198 + 4 skipped (was 175 after #27).
+
+**Why this work, this session:** Second Phase B+C target in the 360-min night session. First TypeScript repo to join the contract-tightening sweep that has now landed in 8 Python repos. The TS analogue of Python's `__post_init__` pattern is "validate at function entry, throw `RangeError`" — same posture (no silent degeneracy from operator-supplied numerics), idiomatic surface.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `mcp-server-cookbook` (build seq #10) is the next TypeScript target; after that `nextjs-streaming-ai-patterns` (#11) and `ai-app-integration-tests` (#12) close out the unvisited-tonight repos.
