@@ -124,3 +124,17 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The annotation → policy-map refactor is mechanical (one new `Map`, one new constructor argument, one read-site change in `invokeWithRetry`); if a future requirement demands runtime-overridable policy, both can coexist (annotation as default, map as override).
 
 **Related issues:** #5
+
+## D-013 — Atomic-write helper lives in `src/io/atomic-write.ts` (2026-05-26)
+**Decision:** The atomic-write helper for this repo lives at `src/io/atomic-write.ts`, exposing public `atomicWriteFile(target, data, encoding="utf-8")`. The pattern mirrors `servers/filesystem-sandbox/src/atomic_write.ts` from `mcp-server-cookbook#37` — the TypeScript portfolio standard from the 2026-05-26 atomic-write arc.
+
+**Why:** Two production write sites in this repo (`src/bin/eval-runner.ts` and `scripts/render-eval-snapshot.ts`) needed atomicity, and a third bin or script may want it later. Placing the helper at the package level (`src/io/`) instead of inline at each call site mirrors the architecture decisions made by every Python sibling in the recent arc: `rag_kit/io_utils.py` (rag-production-kit#44/#45), `eval_harness/io_utils.py` (llm-eval-harness#51, D-015), `emb_shootout/io_utils.py` (embedding-model-shootout#37, D-009). Centralizing keeps the test surface coherent (one helper, one set of failure-invariant tests; future callers inherit the guarantee for free).
+
+**Alternatives considered:**
+- File-private helper per caller — rejected; would mean two copies of ~70 lines that can drift, and the test surface would fragment across the call-site files.
+- Separate npm package — rejected; over-engineering for ~70 lines with one consumer.
+- Copy-paste pattern inline at each call site — rejected; same drift hazard as file-private helpers and no central seam.
+
+**Reversibility:** Cheap. The helper is a stable API; future evolution is a localized rewrite.
+
+**Related issues:** #33
