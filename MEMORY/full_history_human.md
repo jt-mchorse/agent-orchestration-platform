@@ -243,3 +243,16 @@ The existing "registers, lists, and invokes tools" test had to be updated to inc
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `mcp-server-cookbook` (build seq #10) is the next TypeScript target; after that `nextjs-streaming-ai-patterns` (#11) and `ai-app-integration-tests` (#12) close out the unvisited-tonight repos.
+
+## 2026-05-26 — Issue #31: ExecutorOptions validation completes the #29 sweep into AgentRun
+**Duration:** ~25 min · **Branch:** `session/2026-05-25-2350-issue-31`
+
+- `AgentRun.run()` previously consumed `this.opts.maxReplans ?? DEFAULT_MAX_REPLANS` without any validation, while the sibling `withRetry` flow had `validatePolicy` at entry (#29). Added a `validateOptions(opts)` helper at the bottom of `src/agent/executor.ts` mirroring `validatePolicy` (same file: `retry.ts:88-113`). `AgentRun.run()` calls it before reading `maxReplans`, so misconfig fails loud before any planner / tool / trace activity.
+- Closed five silent failure modes — most importantly: `maxReplans=NaN` made `replans >= NaN` always false, so the budget-exhaust abort branch was unreachable. Re-plans looped indefinitely with no `aborted` trace event ever firing. Bool / float / negative / Infinity all produced misleading aborts (`"max_replans_exceeded:<bad>"`) or silently disabled the budget contract.
+- 17 new collected test cases in a new "ExecutorOptions validation (#31)" describe block: 11-value `it.each` rejection matrix, 5-value acceptance pin over `[1, 2, 5, 10, 100]`, default-preservation pin (covers both omitted-opts and explicit-empty-opts paths), an ordering pin that asserts `plannerCalls === 0` and `trace.events()` empty after a rejected construct (proving validation fires *before* any other activity), and a RangeError-message-shape regex pin on the field name and value. Full suite 217 passed + 4 pre-existing skipped. Typecheck clean.
+
+**Why this work, this session:** Sixth Phase B+C target in the 360-min night session and the first TypeScript Phase B+C PR of this session (prior five were Python). Picked via build-sequence #9 after `python-async-llm-pipelines#35` (#5). `AgentRun.run` is the sibling entry point to `withRetry`; #29 only tightened the retry side, leaving the executor side as the natural symmetric gap.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `mcp-server-cookbook` (build #10, TypeScript) is the natural next pickup — same TypeScript validation patterns apply. After that, `nextjs-streaming-ai-patterns` (#11) and `ai-app-integration-tests` (#12).
