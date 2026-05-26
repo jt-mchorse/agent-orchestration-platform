@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
 import { renderEvalMarkdown } from "../src/eval/comment.js";
 import { discoverCases, evaluateAll } from "../src/eval/runner.js";
+import { atomicWriteFile } from "../src/io/atomic-write.js";
 
 const FIXTURES_DIR = "fixtures/sample-prs";
 const OUT_PATH = "docs/eval_snapshot.md";
@@ -21,8 +21,7 @@ async function main(): Promise<number> {
   }
   const run = await evaluateAll(cases);
   const md = renderEvalMarkdown(run);
-  await fs.mkdir(path.dirname(outPath), { recursive: true });
-  await fs.writeFile(outPath, md, "utf-8");
+  await atomicWriteFile(outPath, md);
   process.stdout.write(`wrote ${OUT_PATH} (${md.length} bytes)\n`);
   return 0;
 }
