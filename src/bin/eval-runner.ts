@@ -9,12 +9,12 @@
  * structured run for downstream tooling (savings dashboard, etc.).
  */
 
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { renderEvalMarkdown, upsertStickyComment } from "../eval/comment.js";
 import { discoverCases, evaluateAll } from "../eval/runner.js";
+import { atomicWriteFile } from "../io/atomic-write.js";
 
 interface CLIArgs {
   fixturesDir: string;
@@ -66,10 +66,9 @@ async function main(): Promise<number> {
   const run = await evaluateAll(cases);
   const md = renderEvalMarkdown(run);
 
-  await fs.mkdir(resultsDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = path.join(resultsDir, `eval-${stamp}.json`);
-  await fs.writeFile(
+  await atomicWriteFile(
     out,
     JSON.stringify(
       {

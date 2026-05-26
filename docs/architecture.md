@@ -248,3 +248,16 @@ to compile would have been dead surface. The MCP server's runtime
 contract (`@modelcontextprotocol/sdk`) and Postgres bindings (`pg`,
 declared as an `optionalDependency` so hermetic CI doesn't pull it)
 are the only required deps; everything else is dev-tooling.
+
+## Cross-cutting: atomic file writes (#33)
+
+`src/io/atomic-write.ts` is the package-level helper every operator-
+facing writer (`src/bin/eval-runner.ts`, `scripts/render-eval-snapshot.ts`)
+calls when persisting JSON or markdown output. It writes to a
+`<dest>.tmp` sibling in the same directory, `fsync`s, then `rename`s
+into place — operators never see a half-written eval result or
+snapshot from a `SIGINT` mid-write. D-013 places the helper at the
+package level (matching the TypeScript portfolio standard set by
+`mcp-server-cookbook/servers/filesystem-sandbox/src/atomic-write.ts`)
+rather than file-private so future writers can adopt it without a
+second implementation.

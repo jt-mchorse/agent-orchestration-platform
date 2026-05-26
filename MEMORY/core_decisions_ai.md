@@ -81,3 +81,12 @@
   reversibility: cheap
   related_issues: [#5]
   superseded_by: null
+
+- id: D-013
+  date: 2026-05-26
+  decision: atomic_write_helper_lives_in_package_level_src_io_atomic_write_ts_following_typescript_portfolio_standard
+  rationale: matches_mcp_server_cookbook_filesystem_sandbox_src_atomic_write_ts_typescript_pattern_leader_one_helper_one_test_surface_centralized_module_for_future_callers
+  alternatives_rejected: [file_private_helper_per_caller, separate_npm_package, copy_paste_pattern_inline_at_each_call_site]
+  reversibility: cheap
+  related_issues: [#33]
+  superseded_by: null
