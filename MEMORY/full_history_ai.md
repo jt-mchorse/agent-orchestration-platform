@@ -434,3 +434,20 @@ context_for_next_session:
   - total_elapsed_approx_35_to_40_min_of_180_min_budget_room_for_at_least_one_more_issue
 followups: []
 ---
+
+---
+session: 2026-05-27T00:00Z
+duration_min: 8
+issue: 35
+focus: readme_decision_range_upper_bound_lock_propagation_8_of_10_first_typescript
+delta:
+  files_changed: 2
+  tests_added: 1
+context_for_next_session:
+  - readme_decision_range_lock_pattern_now_nine_repos_chunking_lab_eval_harness_cost_optimizer_prompt_regression_rag_kit_emb_shootout_vector_search_async_pipelines_agent_orch
+  - three_more_repos_pending_mcp_cookbook_nextjs_streaming_ai_integration_tests_all_typescript
+  - first_typescript_propagation_translated_python_pattern_to_vitest_reusing_the_active_decision_parsing_logic_that_already_lives_in_test_architecture_doc_test_ts
+  - typescript_pattern_now_documented_in_test_readme_decision_range_test_ts_other_ts_repos_can_copy
+decisions_made: []
+followups: []
+---
