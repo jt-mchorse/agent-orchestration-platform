@@ -37,6 +37,12 @@ export class AgentRun {
   ) {}
 
   async run(pr: PlannerState["pr"]): Promise<Review> {
+    // Validate before any planner / tool / trace activity (#31). Sibling
+    // pattern to `validatePolicy` in `retry.ts` (#29). Pre-#31 a NaN
+    // maxReplans made `replans >= maxReplans` always false → the budget
+    // exhaust branch was unreachable; bool / float / negative silently
+    // produced misleading "max_replans_exceeded:<value>" trace events.
+    validateOptions(this.opts);
     const maxReplans = this.opts.maxReplans ?? DEFAULT_MAX_REPLANS;
 
     this.trace.emit({ kind: "run_started", pr });
@@ -214,5 +220,31 @@ export class AgentRun {
       },
       this.opts.sleep,
     );
+  }
+}
+
+/**
+ * Validate `ExecutorOptions` at the entry of `AgentRun.run()` (#31).
+ *
+ * Sibling to `validatePolicy` in `retry.ts` (#29). Each invalid numeric
+ * throws `RangeError` naming the offending field and received value.
+ *
+ * Pre-#31 the runtime read `this.opts.maxReplans ?? DEFAULT_MAX_REPLANS`
+ * and trusted it. `NaN` made `replans >= maxReplans` always false → the
+ * budget exhaust branch was unreachable, re-plans looped indefinitely
+ * with no terminal trace event. Bool / float / negative silently
+ * produced misleading `"max_replans_exceeded:<value>"` aborts.
+ *
+ * Mirrors the portfolio's contract-tightening sweep — `RetryPolicy`
+ * validation (#29) at the function entry, loud `RangeError` rather than
+ * silent degeneracy.
+ */
+function validateOptions(opts: ExecutorOptions): void {
+  if (opts.maxReplans !== undefined) {
+    if (!Number.isInteger(opts.maxReplans) || opts.maxReplans < 1) {
+      throw new RangeError(
+        `ExecutorOptions.maxReplans must be an integer >= 1; got ${opts.maxReplans}`,
+      );
+    }
   }
 }

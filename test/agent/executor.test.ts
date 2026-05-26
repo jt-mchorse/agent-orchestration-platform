@@ -686,3 +686,107 @@ describe("AgentRun — integration with the default tool surface", () => {
     expect(trace.ofKind("re_plan_triggered")).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------
+// ExecutorOptions validation (#31)
+// ---------------------------------------------------------------------
+
+describe("AgentRun — ExecutorOptions validation (#31)", () => {
+  // Pre-#31 the runtime read `this.opts.maxReplans ?? DEFAULT_MAX_REPLANS`
+  // and trusted it. NaN/non-finite/negative slipped past silently and
+  // either made the budget-exhaust branch unreachable or produced
+  // misleading "max_replans_exceeded:<bad>" trace events. Sibling pattern
+  // to validatePolicy in retry.ts (#29).
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    -1,
+    0,
+    0.5,
+    5.5,
+    true,
+    false,
+    "5",
+    null,
+  ])("rejects maxReplans=%p", async (bad) => {
+    const planner = new ScriptedPlanner({ goal: "noop", steps: [] });
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await expect(
+      new AgentRun(buildRegistry(), planner, trace, ctx, {
+        maxReplans: bad as unknown as number,
+      }).run(PR),
+    ).rejects.toThrow(RangeError);
+  });
+
+  it.each([1, 2, 5, 10, 100])("accepts maxReplans=%p", async (good) => {
+    const planner = new ScriptedPlanner({ goal: "noop", steps: [] });
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    const review = await new AgentRun(buildRegistry(), planner, trace, ctx, {
+      maxReplans: good,
+    }).run(PR);
+    // Empty plan -> finalize -> scripted review summary.
+    expect(review.summary).toBeTruthy();
+  });
+
+  it("treats undefined maxReplans as DEFAULT_MAX_REPLANS (existing default-path preserved)", async () => {
+    const planner = new ScriptedPlanner({ goal: "noop", steps: [] });
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    // Omit opts entirely.
+    const review = await new AgentRun(buildRegistry(), planner, trace, ctx).run(PR);
+    expect(review.summary).toBeTruthy();
+
+    // Or pass explicit empty options.
+    const review2 = await new AgentRun(buildRegistry(), planner, trace, ctx, {}).run(PR);
+    expect(review2.summary).toBeTruthy();
+  });
+
+  it("validates before the planner is called (no run_started, no plan_emitted)", async () => {
+    let plannerCalls = 0;
+    const planner: ScriptedPlanner = {
+      // Minimal stand-in surface so we can detect if the planner was touched.
+      initialPlan: async () => {
+        plannerCalls += 1;
+        return { goal: "should-not-run", steps: [] };
+      },
+      revise: async () => {
+        plannerCalls += 1;
+        return { goal: "should-not-run", steps: [] };
+      },
+      finalize: async () => {
+        plannerCalls += 1;
+        return { summary: "should-not-run", findings: [], recommendation: "approve" };
+      },
+    } as unknown as ScriptedPlanner;
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await expect(
+      new AgentRun(buildRegistry(), planner, trace, ctx, {
+        maxReplans: Number.NaN,
+      }).run(PR),
+    ).rejects.toThrow(RangeError);
+
+    expect(plannerCalls).toBe(0);
+    expect(trace.events()).toHaveLength(0);
+  });
+
+  it("RangeError message names the field and value", async () => {
+    const planner = new ScriptedPlanner({ goal: "noop", steps: [] });
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await expect(
+      new AgentRun(buildRegistry(), planner, trace, ctx, {
+        maxReplans: -7,
+      }).run(PR),
+    ).rejects.toThrow(/ExecutorOptions\.maxReplans must be an integer >= 1; got -7/);
+  });
+});
