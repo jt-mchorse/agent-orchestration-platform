@@ -270,3 +270,14 @@ The existing "registers, lists, and invokes tools" test had to be updated to inc
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Scan the remaining four repos for `Path.write_text` / `fs.writeFile` production write sites. If any have gaps, file an issue and ship a fix the same shape. If all are clean (some may just have no on-disk artifact surface — `python-async-llm-pipelines` is a benchmark-runner, may have none), the portfolio-wide atomic-write arc is genuinely saturated and the next session can pivot to a different harm class (input-trust on external API responses, resource leaks on error paths, or test-determinism guarantees).
+
+## 2026-05-26 — Issue #35: README decision-range upper-bound lock
+**Duration:** ~8 min · **Branch:** `session/2026-05-26-2334-issue-35`
+
+- Added `test/readme-decision-range.test.ts` — first TypeScript translation of the Python lock pattern.
+- Added `D-002…D-013` citation under `## Architecture`.
+
+**Why this work, this session:** Propagation 8 of 10 of the cross-portfolio drift class. First TS propagation, sets the template for `mcp-server-cookbook`, `nextjs-streaming-ai-patterns`, and `ai-app-integration-tests`.
+
+**Open questions / blockers:** none.
+**Next session:** Continue to mcp-server-cookbook.
