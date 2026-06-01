@@ -292,3 +292,20 @@ The existing "registers, lists, and invokes tools" test had to be updated to inc
 **Open questions / blockers:** none.
 
 **Next session:** continue portfolio propagation.
+
+## 2026-06-01 — Issue #39: First TypeScript port of the validate pattern
+**Duration:** ~22 min · **Branch:** `session/2026-06-01-2335-issue-39`
+
+- Shipped `src/eval/validate.ts` with `validateFixture(path)` and `validateGolden(path)`, walking the JSON in collecting mode and returning a frozen `ValidationReport` with eighteen fixture finding codes and eleven golden finding codes. Full coverage of `fixtures/sample-prs/SCHEMA.md` including `repo_format`, `files_empty`, per-field `pr.*` and `files[*].*` checks, and `patch === null` accepted for binary/large files.
+- Shape divergence from the four Python sister ports: `jsonPath` replaces `lineNo` because inputs here are single JSON documents, not JSONL. A dotted path like `pr.number` or `files[0].filename` is what the operator actually needs to locate the problem. Small reasoned divergence, no D-NNN.
+- TypeScript strict mode (`exactOptionalPropertyTypes: true`) required conditional spreads when the report's `schemaVersion`/`recommendation` scalars are absent — kept the report's published surface tight without leaking `undefined` into JSON consumers.
+- Wired `npm run validate -- <path> [--golden] [--json]` (`src/bin/validate.ts`). Exit codes 0/1/2 uniform with the Python sister validators so consumers can chain validators across the language boundary.
+- `test/eval/validate.test.ts` is 29 cases — both shipped fixture/golden pairs validate clean, accumulating-multi-finding (no fail-fast), one positive per major finding code, frozen shape, renderer round-trip, and five CLI end-to-end cases via `npx tsx` subprocess.
+- `docs/architecture.md` Eval suite section now enumerates four modules (validate is the fourth, annotated with #39 and cross-referenced to the four sister-repo PRs). README "Quickstart" gains a `npm run validate` block. `test/architecture-doc.test.ts` `KNOWN_SHIPPED_ISSUES` and its hard-pin extended to include #39.
+- Live-tested against both shipped fixture/golden pairs: exit 0 in one pass with `schema_version=1` / `recommendation=approve_with_comments`. Full suite 255 / 255 pass (4 skipped, existing pattern), typecheck clean.
+
+**Why this work, this session:** Fourth iteration of the day-session loop. The validate pattern had propagated to four Python repos this week, and the fail-fast `JSON.parse` shape at `src/eval/runner.ts` L50-51 and L125-126 was the most natural TypeScript port target — `fixtures/sample-prs/SCHEMA.md` is a rich spec that maps 1:1 to a collecting-mode lint. Crossing the language boundary is its own form of pattern validation.
+
+**Open questions / blockers:** None — ready for review.
+
+**Next session:** Continue the day-session loop. Remaining untouched-since-2026-05-27 candidates: `mcp-server-cookbook` (next in TS build sequence; check for similar fixture-validation gaps), `nextjs-streaming-ai-patterns`, `ai-app-integration-tests`. `vector-search-at-scale` has no obvious validate analog (single-JSON results files, no JSONL).
