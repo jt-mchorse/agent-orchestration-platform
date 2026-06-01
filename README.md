@@ -57,6 +57,18 @@ npm run eval -- --dry-run                # rendered markdown to stdout
 npx tsx scripts/render-eval-snapshot.ts  # writes docs/eval_snapshot.md
 ```
 
+Lint a fixture or golden JSON file before spending eval tokens (#39):
+
+```bash
+npm run validate -- fixtures/sample-prs/<slug>.json            # fixture
+npm run validate -- fixtures/sample-prs/<slug>.golden.json --golden
+```
+
+`validate` walks the JSON in collecting mode and surfaces every
+malformed row in one pass — first TypeScript port of the validator
+pattern shipped in the four Python sister repos this week. Exit codes
+`0 clean / 1 findings / 2 I/O error`.
+
 The composite + per-fixture scores in [`docs/eval_snapshot.md`](docs/eval_snapshot.md)
 are byte-locked to the renderer by `test/readme-snapshot.test.ts`, so a
 silent change in `renderEvalMarkdown` or `scoreReview` fails CI.

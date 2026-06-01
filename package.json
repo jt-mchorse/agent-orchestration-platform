@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "trace:server": "tsx src/bin/trace-server.ts",
-    "eval": "tsx src/bin/eval-runner.ts"
+    "eval": "tsx src/bin/eval-runner.ts",
+    "validate": "tsx src/bin/validate.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
