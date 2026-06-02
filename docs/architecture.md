@@ -68,7 +68,7 @@ flowchart TD
 
 ## Eval suite (#7)
 
-`src/eval/` ships three modules:
+`src/eval/` ships four modules:
 
 - **`score.ts`** — `scoreReview(actual, golden)` returns a
   `ReviewScore` with three sub-metrics: exact-class recommendation
@@ -83,6 +83,15 @@ flowchart TD
   markdown table; `upsertStickyComment(repo, pr, body)` finds + edits
   the prior comment by hidden marker (`<!-- agent-eval:sticky-comment -->`)
   or POSTs a new one.
+- **`validate.ts` (#39)** — `validateFixture(path)` /
+  `validateGolden(path)` walk one of the eval-runner's input JSON files
+  in collecting mode and surface every malformed row in one pass.
+  Closes the fail-fast `JSON.parse` gap in `runner.ts` (lines 50, 125);
+  first TypeScript port of the validator pattern shipped in
+  `llm-eval-harness`, `prompt-regression-suite`, `embedding-model-shootout`,
+  and `chunking-strategies-lab` this week. Drives `npm run validate --
+  <path> [--golden] [--json]`; exit codes 0 / 1 / 2 uniform with the
+  Python sister validators.
 
 The `agent-eval` GitHub Action wires these together: on every PR it
 runs the eval against the committed fixtures, prints the markdown to

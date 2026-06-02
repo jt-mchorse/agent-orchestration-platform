@@ -71,7 +71,7 @@ const OPERATOR_SUPPLIED_PATHS: ReadonlyArray<string> = [];
 
 // Core deliverables (handoff §2). Each shipped surface is annotated in
 // the doc with its origin issue number.
-const KNOWN_SHIPPED_ISSUES = [1, 2, 3, 4, 5, 6, 7] as const;
+const KNOWN_SHIPPED_ISSUES = [1, 2, 3, 4, 5, 6, 7, 39] as const;
 
 const MIN_ACTIVE_DECISION_ID = 2;
 
@@ -238,7 +238,7 @@ describe("architecture-doc", () => {
   });
 
   it("KNOWN_SHIPPED_ISSUES is hard-pinned", () => {
-    expect([...KNOWN_SHIPPED_ISSUES]).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect([...KNOWN_SHIPPED_ISSUES]).toEqual([1, 2, 3, 4, 5, 6, 7, 39]);
   });
 
   it("MIN_ACTIVE_DECISION_ID is hard-pinned", () => {
