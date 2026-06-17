@@ -309,3 +309,26 @@ The existing "registers, lists, and invokes tools" test had to be updated to inc
 **Open questions / blockers:** None — ready for review.
 
 **Next session:** Continue the day-session loop. Remaining untouched-since-2026-05-27 candidates: `mcp-server-cookbook` (next in TS build sequence; check for similar fixture-validation gaps), `nextjs-streaming-ai-patterns`, `ai-app-integration-tests`. `vector-search-at-scale` has no obvious validate analog (single-JSON results files, no JSONL).
+
+## 2026-06-17 — Issue #41: Workflow YAML-parseability lock (TS port)
+**Duration:** ~18 min · **Branch:** `session/2026-06-17-1916-issue-41`
+
+Added `test/workflows-yaml-parseable.test.ts` (vitest), pulling
+`js-yaml@^4.2.0` and `@types/js-yaml@^4.0.9` into `devDependencies`.
+The test enumerates `.github/workflows/*.yml` at module scope and
+registers two `it` blocks per file (parse + non-empty `jobs:`) plus
+one smoke check that ≥1 file exists. 5 tests today across `ci.yml`
+and `eval.yml`.
+
+**Why this work, this session:** First TypeScript hop of the
+`portfolio-ops#30` propagation arc — same inverse safety net that
+closed the 21-day silent CI outage in `portfolio-ops#27`. Three
+Python sisters already shipped (`llm-eval-harness#61`,
+`rag-production-kit#53`, `chunking-strategies-lab#40`); this is the
+TS port and the pattern that the remaining TS repo
+(`mcp-server-cookbook`) will follow.
+
+**Open questions / blockers:** none — `npm run typecheck` clean,
+`npm test` 255 → 260 passed locally; PR #42 open and waiting for CI.
+
+**Next session:** continue propagation to the remaining 8 repos.

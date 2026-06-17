@@ -493,3 +493,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-17T19:45Z
+duration_min: 18
+issue: 41
+focus: workflow_yaml_parseability_lock_propagation_typescript_port
+phase: day_session_phase_b_iteration_4
+delta:
+  files_added: 1   # test/workflows-yaml-parseable.test.ts
+  files_changed: 2 # package.json + package-lock.json (js-yaml, @types/js-yaml)
+  tests_added: 5   # 1 smoke + 2 parse + 2 jobs across ci.yml and eval.yml
+context_for_next_session:
+  - typescript_port_of_the_python_yaml_parseability_lock_first_one_in_the_propagation_arc_to_target_a_ts_repo_fourth_hop_overall_after_llm_eval_harness_61_rag_production_kit_53_chunking_strategies_lab_40
+  - js_yaml_chosen_over_yaml_npm_package_because_js_yaml_safe_load_semantics_match_pyyaml_safe_load_pattern_one_to_one_and_js_yaml_is_the_more_common_node_choice
+  - vitest_for_loop_at_module_scope_over_workflow_file_list_grows_naturally_no_describe_each_needed_each_iteration_registers_two_it_blocks_one_for_parse_one_for_jobs
+  - silent_ci_hint_string_pulled_out_to_constant_so_both_failure_paths_share_the_same_message_explaining_the_21_day_outage_context_to_a_future_engineer_who_hits_the_assertion
+  - typescript_test_count_pre_branch_255_post_branch_260_typecheck_clean_no_other_test_affected
+  - eight_remaining_portfolio_repos_still_need_lock_one_ts_repo_remains_mcp_server_cookbook_other_seven_are_python
+decisions_made: []
+followups: []
+---
