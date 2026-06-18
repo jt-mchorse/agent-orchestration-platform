@@ -332,3 +332,15 @@ TS port and the pattern that the remaining TS repo
 `npm test` 255 → 260 passed locally; PR #42 open and waiting for CI.
 
 **Next session:** continue propagation to the remaining 8 repos.
+
+## 2026-06-18 — Issue #43: timeout-minutes guard + lock test
+**Duration:** ~15 min · **Branch:** `session/2026-06-18-0331-issue-43`
+
+- Added `timeout-minutes` to every job in `ci.yml` (15 / 15 / 20 / 15) and `eval.yml` (15).
+- Added `test/workflows-timeout-minutes.test.ts` — 16 new tests (1 smoke + 5 jobs × 3 invariants).
+
+**Why this work, this session:** eighth hop in the portfolio-wide timeout-minutes propagation arc; second TypeScript hop after `nextjs-streaming-ai-patterns#37`.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue propagation. Three repos remain: mcp-server-cookbook (TS), ai-app-integration-tests (TS), portfolio-ops itself.
