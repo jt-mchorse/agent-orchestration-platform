@@ -534,3 +534,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T16:03Z
+duration_min: 12
+issue: 45
+focus: workflow_concurrency_guard_plus_lock_test_propagation_ts_second_hop
+phase: day_session_phase_b_iteration_10
+delta:
+  files_added: 1   # test/workflows-concurrency.test.ts
+  files_changed: 2 # .github/workflows/{ci.yml,eval.yml}
+  tests_added: 4
+context_for_next_session:
+  - tenth_per_repo_hop_of_concurrency_lock_propagation_second_typescript_hop_after_nextjs_streaming_ai_patterns_38
+  - ci_yml_group_ci_dollar_github_ref_eval_yml_group_agent_eval_dollar_github_ref_distinct
+  - test_count_283_to_287_full_vitest_clean_typecheck_clean
+  - companion_locks_in_this_repo_workflows_yaml_parseable_workflows_timeout_minutes_now_workflows_concurrency_three_invariants_at_three_per_three
+decisions_made: []
+followups: [#45]
+---
