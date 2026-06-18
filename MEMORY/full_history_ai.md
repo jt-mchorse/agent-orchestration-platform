@@ -514,3 +514,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T03:31Z
+duration_min: 15
+issue: 43
+focus: workflow_timeout_minutes_lock_propagation_hop_8_second_typescript_hop
+phase: night_session_phase_b_iteration_7
+delta:
+  files_added: 1   # test/workflows-timeout-minutes.test.ts
+  files_changed: 2 # .github/workflows/ci.yml + .github/workflows/eval.yml
+  tests_added: 16  # 1 smoke + 5 jobs * 3 invariants
+context_for_next_session:
+  - eighth_propagation_hop_second_typescript_hop_after_nextjs_streaming_ai_patterns_37
+  - five_jobs_total_typecheck_test_memory_check_eval_get_15_min_pg_integration_gets_20_min_postgres_start_plus_schema_apply_plus_integration_suite_is_the_longest_job
+  - vitest_test_modeled_on_nextjs_streaming_ai_patterns_template_three_describe_it_invariants_split_per_failure_mode
+  - audit_phase_a_py_will_drop_agent_orchestration_platform_from_missing_timeout_finding_set_after_this_pr_merges
+  - test_count_pre_branch_264_post_branch_280_plus_16_full_suite_clean_typecheck_clean
+decisions_made: []
+followups: []
+---
