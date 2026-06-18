@@ -18,6 +18,14 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel the in-flight agent-eval sticky comment when a newer commit
+# lands on the PR — older runs' results are stale by construction since
+# the sticky tracks the latest commit's review deltas. Distinct group
+# from ci so the two workflows run concurrently on the same ref.
+concurrency:
+  group: agent-eval-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   eval:
     runs-on: ubuntu-latest
