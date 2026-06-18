@@ -344,3 +344,20 @@ TS port and the pattern that the remaining TS repo
 **Open questions / blockers:** none.
 
 **Next session:** continue propagation. Three repos remain: mcp-server-cookbook (TS), ai-app-integration-tests (TS), portfolio-ops itself.
+
+## 2026-06-18 — Issue #45: concurrency guard + lock test
+**Duration:** ~12 min · **Branch:** `session/2026-06-18-1533-issue-45`
+
+- Added top-level `concurrency:` to `ci.yml` and `eval.yml` (distinct
+  groups so they don't cancel each other on the same ref).
+- Wrote `test/workflows-concurrency.test.ts` — vitest + js-yaml,
+  modeled on the nextjs-streaming-ai-patterns template (#38).
+
+**Why this work, this session:** tenth per-repo hop in the
+concurrency-lock arc; second TypeScript hop. Audit fingerprint shipped
+in portfolio-ops #41 surfaces every workflow missing the lock.
+
+**Open questions / blockers:** none. Vitest 283 → 287.
+
+**Next session:** continue propagation to remaining 2 repos
+(mcp-server-cookbook + portfolio-ops itself).
