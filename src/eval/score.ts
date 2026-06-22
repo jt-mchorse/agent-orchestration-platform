@@ -57,10 +57,23 @@ export function scoreReview(actual: Review, golden: Review): ReviewScore {
   const matched = matches.length;
   const total_actual = actual.findings.length;
   const total_golden = golden.findings.length;
-  const precision = total_actual === 0 ? 0 : matched / total_actual;
-  const recall = total_golden === 0 ? 0 : matched / total_golden;
-  const f1 =
-    precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
+  // When both sides report zero findings the agent correctly found nothing
+  // on a clean PR — a *perfect* agreement, so precision/recall/F1 are 1.0.
+  // This matches the both-empty convention `jaccard` (line ~145) and
+  // `summary_length_ratio` (below) already use; without it a perfect clean
+  // review scored findings_f1=0 and lost the full 0.4 findings weight
+  // (composite capped at 0.6). The asymmetric cases are unchanged: a
+  // hallucinated finding (golden empty, actual non-empty) keeps precision 0
+  // and a missed finding (golden non-empty, actual empty) keeps recall 0, so
+  // both still score F1 0.
+  const bothEmpty = total_actual === 0 && total_golden === 0;
+  const precision = bothEmpty ? 1 : total_actual === 0 ? 0 : matched / total_actual;
+  const recall = bothEmpty ? 1 : total_golden === 0 ? 0 : matched / total_golden;
+  const f1 = bothEmpty
+    ? 1
+    : precision + recall === 0
+      ? 0
+      : (2 * precision * recall) / (precision + recall);
 
   const actual_len = actual.summary.length;
   const golden_len = golden.summary.length;

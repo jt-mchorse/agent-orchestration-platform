@@ -97,6 +97,19 @@ describe("scoreReview", () => {
     expect(score.summary_length_ratio).toBeCloseTo(1.0, 6);
   });
 
+  it("scores a clean review with no findings on either side at 1.0 (#47)", () => {
+    // The agent correctly reported zero findings on a clean PR and the golden
+    // agrees — a perfect agreement, so findings_f1 must be 1.0 (not 0), and a
+    // matching recommendation + summary yields composite 1.0.
+    const golden: Review = r("approve", goldenSummary, []);
+    const actual: Review = r("approve", goldenSummary, []);
+    const score = scoreReview(actual, golden);
+    expect(score.findings_precision).toBe(1);
+    expect(score.findings_recall).toBe(1);
+    expect(score.findings_f1).toBe(1);
+    expect(score.composite).toBeCloseTo(1.0, 6);
+  });
+
   it("recommendation_match is exact-class", () => {
     const golden: Review = r("approve", goldenSummary);
     const wrong: Review = r("request_changes", goldenSummary);
