@@ -361,3 +361,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 
 **Next session:** continue propagation to remaining 2 repos
 (mcp-server-cookbook + portfolio-ops itself).
+
+## 2026-06-22 — Issue #47: eval — score matching empty findings as F1=1.0, not 0
+**Duration:** ~20 min · **Branch:** `session/2026-06-22-1201-issue-47`
+
+- Found during Phase A (Explore subagent across executor/planner/score/runner after I'd cleared retry.ts): `scoreReview` returned `findings_f1 = 0` when both the agent and golden review had zero findings — a correct "no issues on a clean PR" agreement. That penalized a perfect clean review by the full 0.4 findings weight (composite 0.6 instead of 1.0). The same file already treats the empty-empty case as 1.0 in `jaccard()` and `summary_length_ratio()`; findings F1 was the inconsistent one.
+- Fix: special-case both-empty → precision/recall/F1 = 1.0. Asymmetric cases unchanged (hallucinated or missed findings still score F1 0).
+- 1 new test; verified it fails on the pre-fix code. Suite 283 → 284 (4 pg-integration skipped locally), tsc clean. PR #48 ready.
+
+**Why this work, this session:** the repo's only open work was a one-way-blocked anchor issue; this was a real, high-confidence inverted-metric bug in the eval scorer, found by reading the scoring path. Strictly higher value than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** retry/executor/planner/score are well-hardened now. Remaining surface to audit if needed: `trace/pg-store.ts` event ordering and the `mcp-server/` subdir.
