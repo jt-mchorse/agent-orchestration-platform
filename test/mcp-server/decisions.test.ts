@@ -94,6 +94,20 @@ describe("decisionsFilePath", () => {
     expect(() => decisionsFilePath("/abs/root", "../etc")).toThrow(/invalid repo name/);
     expect(() => decisionsFilePath("/abs/root", "a/b")).toThrow(/invalid repo name/);
   });
+
+  it("rejects repo names containing a backslash separator", () => {
+    // A stray `\\` in the sanitizer's character class used to whitelist the
+    // backslash, so a Windows-style separator slipped past the trust boundary.
+    expect(() => decisionsFilePath("/abs/root", "a\\b")).toThrow(/invalid repo name/);
+    expect(() => decisionsFilePath("/abs/root", "..\\..\\secret")).toThrow(/invalid repo name/);
+  });
+
+  it("still accepts legitimate hyphen/dot/underscore slugs", () => {
+    // Guard against over-tightening: valid slugs must keep resolving.
+    expect(decisionsFilePath("/abs/root", "good-repo.1_v2")).toBe(
+      "/abs/root/repos/good-repo.1_v2/MEMORY/core_decisions_ai.md",
+    );
+  });
 });
 
 describe("readCoreDecisions", () => {
