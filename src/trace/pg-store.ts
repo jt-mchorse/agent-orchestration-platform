@@ -73,6 +73,7 @@ export class PgStore implements TraceStore {
                            recommendation, summary)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (run_id) DO UPDATE SET
+           started_at   = EXCLUDED.started_at,
            finalized_at = EXCLUDED.finalized_at,
            status       = EXCLUDED.status,
            total_cost_dollars = EXCLUDED.total_cost_dollars,
