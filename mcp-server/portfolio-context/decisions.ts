@@ -107,7 +107,11 @@ export function parseCoreDecisionsMarkdown(text: string): CoreDecision[] {
 }
 
 export function decisionsFilePath(portfolioRoot: string, repo: string): string {
-  const safeRepo = repo.replace(/[^A-Za-z0-9_.\\-]/g, "");
+  // Strip anything outside the slug allow-list, then reject if anything was
+  // stripped. The hyphen is last in the class (a literal, no escape needed);
+  // a stray `\\` here previously whitelisted backslash, letting a Windows-style
+  // separator (`..\\..\\secret`) slip past this trust boundary.
+  const safeRepo = repo.replace(/[^A-Za-z0-9_.-]/g, "");
   if (safeRepo !== repo) {
     throw new Error(`invalid repo name: ${repo}`);
   }
