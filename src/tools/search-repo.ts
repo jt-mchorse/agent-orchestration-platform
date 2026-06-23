@@ -78,13 +78,17 @@ export const searchRepoTool: Tool<typeof inputSchema, typeof outputSchema> = {
         } else if (line) {
           matches.push({ filename: file.filename, lineHint: line });
         }
-        if (matches.length >= input.maxResults) {
+        // Collect one match past the cap before declaring truncation: a full
+        // buffer doesn't imply more exist. Only when a match BEYOND maxResults
+        // is found was anything actually withheld — so `>`, not `>=`, and slice
+        // the surplus off the returned set.
+        if (matches.length > input.maxResults) {
           return {
             owner: input.owner,
             repo: input.repo,
             query: input.query,
             source: "fixture_substring" as const,
-            matches,
+            matches: matches.slice(0, input.maxResults),
             truncated: true,
           };
         }

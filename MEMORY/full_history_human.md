@@ -386,3 +386,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** `search-repo.ts` `truncated` reporting semantics were flagged as debatable and left out of scope.
+
+---
+## 2026-06-23 — Issue #51: search_repo falsely reported truncated at the exact-fill boundary
+**Duration:** ~15 min · **Branch:** `session/2026-06-23-0420-issue-51`
+
+- Fixed an off-by-one in `searchRepoTool`. It set `truncated: true` the instant `matches.length >= maxResults`, right after a push — even when that match was the last available. So a result set that exactly fills `maxResults` falsely claimed truncation, corrupting the signal the planner/UI use to decide whether to paginate or widen a query.
+- Now collects one match past the cap (`>`, not `>=`) and slices the surplus, so `truncated` reflects real overflow. Added a robust exact-fill test. Red pre-fix, green post-fix. Suite green, tsc clean. (Confirms the lead a prior session deferred as "debatable".)
+
+**Why this work, this session:** found by a different-angle second pass in the night session's Phase A dogfood wave; a real correctness bug on a registered planner-invokable tool's documented `truncated` contract.
+
+**Open questions / blockers:** none.
+
+**Next session:** none specific to search_repo.

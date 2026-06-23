@@ -35,4 +35,24 @@ describe("search_repo (replay)", () => {
     expect(result.matches.length).toBe(1);
     expect(result.truncated).toBe(true);
   });
+
+  it("reports truncated=false when maxResults exactly equals the match count", async () => {
+    // First learn the true match count with plenty of headroom, then ask for
+    // exactly that many. Pre-fix, the `>= maxResults` check declared truncation
+    // the moment the buffer filled — even though nothing was withheld.
+    const all = await searchRepoTool.run(
+      { owner: "jt-mchorse", repo: "vector-search-at-scale", query: "terraform", maxResults: 50 },
+      ctx,
+    );
+    expect(all.truncated).toBe(false);
+    const n = all.matches.length;
+    expect(n).toBeGreaterThan(1);
+
+    const exact = await searchRepoTool.run(
+      { owner: "jt-mchorse", repo: "vector-search-at-scale", query: "terraform", maxResults: n },
+      ctx,
+    );
+    expect(exact.matches.length).toBe(n);
+    expect(exact.truncated).toBe(false);
+  });
 });
