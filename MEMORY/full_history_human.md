@@ -374,3 +374,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** retry/executor/planner/score are well-hardened now. Remaining surface to audit if needed: `trace/pg-store.ts` event ordering and the `mcp-server/` subdir.
+
+## 2026-06-23 — Issue #49: MCP repo-name sanitizer whitelisted backslash
+**Duration:** ~15 min · **Branch:** `session/2026-06-23-0338-issue-49`
+
+- Fixed an input-validation hole in `decisionsFilePath`. Its allow-list regex `/[^A-Za-z0-9_.\\-]/` had a literal backslash inside the character class (the `\\` was meant to escape the trailing `-`, which needs no escape), so backslash was whitelisted. A backslash-bearing repo name — e.g. a Windows-style `..\..\secret` — passed the sanitizer and flowed into `path.join`, a path-separator escape and a contract violation (the existing test rejects `/` and `../`).
+- Dropped the stray backslash. Valid hyphen/dot/underscore slugs still resolve; backslash is now rejected. Added backslash-rejection and valid-slug tests. Red pre-fix, green post-fix. Suite 285 → 286, tsc clean.
+
+**Why this work, this session:** found by the night session's Phase A dogfood wave; `decisionsFilePath` is the trust boundary for the `get_repo_core_decisions` MCP tool, whose `repo` arg is untrusted (MCP client / LLM caller). This tightens the guard to its documented contract — unambiguous, unlike the mcp-server-cookbook #54/#55 decision-revisit guards that need a human severity call.
+
+**Open questions / blockers:** none.
+
+**Next session:** `search-repo.ts` `truncated` reporting semantics were flagged as debatable and left out of scope.
