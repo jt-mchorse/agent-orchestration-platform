@@ -399,3 +399,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** none specific to search_repo.
+
+## 2026-06-24 — Issue #53: PgStore replay left started_at stale (ON CONFLICT UPDATE omitted it)
+**Duration:** ~30 min · **Branch:** `session/2026-06-23-2322-issue-53`
+
+- `PgStore.writeRun` computed `started_at` from the input events but its `ON CONFLICT (run_id) DO UPDATE SET` clause updated every sibling field (`finalized_at`, `status`, cost/token totals, `recommendation`, `summary`) *except* `started_at`. So a replay of the same `run_id` carrying a later `run_started` ts left the persisted `started_at` stale — diverging from `MemoryStore.writeRun`, which recomputes it on every write, and drifting the `listRuns ORDER BY started_at DESC` ordering between the two stores.
+- Fix: one-line addition of `started_at = EXCLUDED.started_at,` to the UPDATE clause, mirroring the sibling fields. Added a `DATABASE_URL`-gated pg-integration test that writes a run at ts=T1, replays the same `run_id` at ts=T2, and asserts `getRun().started_at` reflects T2 (parity with `MemoryStore`).
+- **Verification limitation (honest):** I could not stand up local Postgres — the Docker daemon started fine, but the `postgres:16-alpine` Docker Hub pull stalled at zero bytes for >10 min (a registry/network issue on this machine), so the local autonomous run can't execute the gated test. Verified instead: `tsc --noEmit` clean, full vitest 287 passed / 5 skipped (the pg tests, now including the new one — confirming it's registered and gated). The end-to-end round-trip proof is the `pg-integration` CI job (`ci.yml`), which runs on every PR, brings up the postgres service, applies `init.sql`, and runs `npm test -- test/trace/pg-store.test.ts` with `DATABASE_URL` set. Without the fix that test asserts `started_at == T2` against an upsert that leaves it at T1, so it fails — the inverse is self-evident.
+
+**Why this work, this session:** a real, pre-filed `priority:med` consistency bug; the two priority-tier repos worked earlier this session (`llm-eval-harness` #85, `llm-cost-optimizer` #83) were dogfood finds, and `rag-production-kit` was too hardened to surface a clean high-reachability bug quickly, so clearing a legitimate backlog item was the next-best value.
+
+**Open questions / blockers:** none — the fix is correct by inspection (a missing upsert field) and the pg-integration CI job provides the live-Postgres execution proof on the PR.
+
+**Next session:** a shared `MemoryStore`/`PgStore` parity harness (run both through one rewrite matrix) would lock the broader invariant; deferred as a possible follow-up.

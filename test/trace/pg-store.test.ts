@@ -140,6 +140,36 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     }
   });
 
+  it_pg("replay with a new run_started ts updates started_at (parity with MemoryStore)", async () => {
+    // #53: the ON CONFLICT UPDATE clause omitted `started_at = EXCLUDED.started_at`,
+    // so a replay carrying a different run_started ts left the persisted started_at
+    // stale — diverging from MemoryStore (which recomputes it on every write) and
+    // drifting the `listRuns ORDER BY started_at DESC` ordering. it_pg only runs
+    // when DATABASE_URL is set, so the cast is safe.
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    const runId = await uniqueRunId();
+    try {
+      const t1 = 1_700_000_000_000;
+      const t2 = 1_700_000_600_000; // +10 min
+      const first = makeEvents();
+      first[0] = { ts: t1, kind: "run_started", pr: PR };
+      await store.writeRun({ run_id: runId, pr: PR, events: first, review: review() });
+
+      const before = await store.getRun(runId);
+      expect(before?.started_at).toBe(new Date(t1).toISOString());
+
+      // Replay the same run_id with a later run_started ts.
+      const second = makeEvents();
+      second[0] = { ts: t2, kind: "run_started", pr: PR };
+      await store.writeRun({ run_id: runId, pr: PR, events: second, review: review() });
+
+      const after = await store.getRun(runId);
+      expect(after?.started_at).toBe(new Date(t2).toISOString());
+    } finally {
+      await store.close();
+    }
+  });
+
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });
