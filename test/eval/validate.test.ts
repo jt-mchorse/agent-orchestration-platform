@@ -172,6 +172,50 @@ describe("validateFixture: schema findings", () => {
     expect(r.findings.map((f) => f.code)).toContain("not_an_object");
   });
 
+  it("flags pr.number_negative when pr.number is negative (#55)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["number"] = -1;
+    const p = await writeJson("negnum.json", v);
+    const r = await validateFixture(p);
+    expect(r.ok).toBe(false);
+    expect(r.findings.map((f) => f.code)).toContain("pr.number_negative");
+  });
+
+  it("flags pr.additions_negative when a pr count is negative (#55)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["additions"] = -10;
+    const p = await writeJson("negadd.json", v);
+    const r = await validateFixture(p);
+    expect(r.findings.map((f) => f.code)).toContain("pr.additions_negative");
+  });
+
+  it("flags files[0].deletions_negative when a file count is negative (#55)", async () => {
+    const v = validFixture();
+    (v["files"] as Array<Record<string, unknown>>)[0]!["deletions"] = -5;
+    const p = await writeJson("negfile.json", v);
+    const r = await validateFixture(p);
+    expect(r.findings.map((f) => f.code)).toContain("files[0].deletions_negative");
+  });
+
+  it("still flags wrong_type (not _negative) for a non-integer count (#55)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["additions"] = 2.5;
+    const p = await writeJson("floatadd.json", v);
+    const r = await validateFixture(p);
+    const codes = r.findings.map((f) => f.code);
+    expect(codes).toContain("pr.additions_wrong_type");
+    expect(codes).not.toContain("pr.additions_negative");
+  });
+
+  it("accepts zero counts (the inclusive non-negative boundary) (#55)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["additions"] = 0;
+    (v["pr"] as Record<string, unknown>)["deletions"] = 0;
+    const p = await writeJson("zerocounts.json", v);
+    const r = await validateFixture(p);
+    expect(r.findings.map((f) => f.code)).not.toContain("pr.additions_negative");
+  });
+
   it("flags repo_format when repo is not owner/name", async () => {
     const v = validFixture();
     v["repo"] = "no-slash-here";
