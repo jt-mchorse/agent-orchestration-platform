@@ -457,6 +457,19 @@ function _requireFiniteInteger(
       reason: `${here} must be a finite integer, got ${_typeName(value)}`,
       jsonPath: here,
     });
+    return;
+  }
+  // Every field routed through this helper is a count: pr.number (>= 1),
+  // additions / deletions / changed_files / changes (>= 0). A negative value is
+  // corruption (a bad GitHub-API transform, a hand-edited fixture) that would
+  // otherwise pass the gate and flow into evaluateAll, producing a nonsensical
+  // review summary. Reject it loudly — same entry-validation posture as #29/#31.
+  if (value < 0) {
+    findings.push({
+      code: `${prefix}.${field}_negative`,
+      reason: `${here} must be non-negative, got ${value}`,
+      jsonPath: here,
+    });
   }
 }
 

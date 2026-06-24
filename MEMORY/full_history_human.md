@@ -412,3 +412,17 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — the fix is correct by inspection (a missing upsert field) and the pg-integration CI job provides the live-Postgres execution proof on the PR.
 
 **Next session:** a shared `MemoryStore`/`PgStore` parity harness (run both through one rewrite matrix) would lock the broader invariant; deferred as a possible follow-up.
+
+---
+## 2026-06-24 — Issue #55: fixture validator accepted negative count fields
+**Duration:** ~20 min · **Branch:** `session/2026-06-24-0432-issue-55`
+
+- `_requireFiniteInteger` checked number/finite/integer but not non-negativity, so a fixture with a negative `pr.number`/`additions`/`deletions`/`changed_files` or file-level count validated clean and flowed through `validateFixture` (the gate before `evaluateAll`) into the runner.
+- Added a `value < 0` check raising a distinct `<prefix>.<field>_negative` finding, kept separate from `_wrong_type`. Matches the fail-loud entry-validation arc in retry.ts (#29) and executor.ts (#31).
+- 5 new tests (negative pr.number/additions/file count, wrong_type-not-negative for a float, zero-count boundary accepted). Red via `git stash`, green after. tsc clean, vitest 287 → 292.
+
+**Why this work, this session:** agent-orchestration-platform was the last unexamined non-tier repo this run; retry/executor/score/context/search/pg-store were saturated, so a dogfood sweep of the eval validator surfaced this.
+
+**Open questions / blockers:** Housekeeping for JT — there's a pre-existing stray full clone of the `ai-app-integration-tests` repo nested inside the `agent-orchestration-platform` working copy (`repos/agent-orchestration-platform/ai-app-integration-tests/`, dated Jun 23 12:32, predates this session). A prior session likely ran `git clone` from the wrong CWD. It's untracked and not gitignored; left in place (not mine to delete) — recommend removing it so a future `git add -A` can't accidentally commit a nested repo.
+
+**Next session:** planner.ts / executor.ts internals and the tools/ modules remain the dogfood frontier here.
