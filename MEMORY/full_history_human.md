@@ -426,3 +426,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** Housekeeping for JT — there's a pre-existing stray full clone of the `ai-app-integration-tests` repo nested inside the `agent-orchestration-platform` working copy (`repos/agent-orchestration-platform/ai-app-integration-tests/`, dated Jun 23 12:32, predates this session). A prior session likely ran `git clone` from the wrong CWD. It's untracked and not gitignored; left in place (not mine to delete) — recommend removing it so a future `git add -A` can't accidentally commit a nested repo.
 
 **Next session:** planner.ts / executor.ts internals and the tools/ modules remain the dogfood frontier here.
+
+---
+## 2026-06-25 — Issue #57: skip non-finite/negative costs in aggregateCost
+**Duration:** ~18 min · **Branch:** `session/2026-06-25-2353-issue-57`
+
+- `aggregateCost` guarded each cost field with `typeof x === "number"`, but `typeof NaN === "number"` is `true` (as are `Infinity` and negatives), so a single corrupt observation made `x += NaN` poison the entire run's aggregate — which is persisted to Postgres and rendered on the run-detail screen. The guard's evident purpose was to count only real cost numbers and skip absent ones.
+- Fix: an `isCountableCost` type guard (`Number.isFinite(x) && x >= 0`) skips a corrupt value the same way an absent field is skipped — a partial total, never a corrupt one. Matches the repo's finite-and-non-negative contract (`RetryPolicy.backoffMs`, the #56 negative-fixture-count guard) while keeping the aggregator's robust "skip what you can't trust" posture. Five tests (NaN/Inf/-Inf/negative per-observation + per-field drop); red-green verified (all 5 fail without the fix). Full vitest green (297 passed), `tsc --noEmit` clean.
+
+**Why this work, this session:** fifth issue of a multi-issue DAY session. With the priority-tier and several non-tier repos already mined, a strict defensive-gap sweep of agent-orchestration-platform surfaced the cost aggregator's `typeof` hole — the one cost/number seam not yet covered by the repo's finite/non-negative hardening arc.
+
+**Open questions / blockers:** none. (Housekeeping: the pre-existing stray nested `ai-app-integration-tests/` clone in the repo root is still present, untracked; already flagged by a prior session, left in place.)
+
+**Next session:** the trace cost path now rejects corrupt numbers at aggregation; a follow-up could fail-loud at the cost-emission seam in the executor if upstream wants to reject corrupt costs earlier.
