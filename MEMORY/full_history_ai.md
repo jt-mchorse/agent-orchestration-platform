@@ -686,3 +686,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-26T03:43Z
+duration_min: 15
+issue: 59
+focus: listruns_started_at_tie_break_by_run_id_deterministic_pagination_both_backends
+phase: night_session_phase_b_issue_7
+delta:
+  files_changed: 3 # src/trace/store.ts + src/trace/pg-store.ts + test/trace/store.test.ts
+  tests_added: 1   # four same-ms runs stable order across calls + page boundary
+context_for_next_session:
+  - found_via_night_phase_a_dogfood_explore_agent_hand_verified_both_listruns_backends_ordered_by_started_at_alone_no_tie_breaker
+  - root_cause_store_ts_168_sort_localecompare_started_at_only_pg_store_ts_127_order_by_started_at_desc_only_started_at_is_ms_epoch_so_same_ms_runs_compare_equal_undefined_relative_order
+  - harm_listruns_paginated_limit_offset_via_get_api_runs_equal_timestamp_run_straddling_page_boundary_dropped_or_duplicated_plus_memorystore_pgstore_can_disagree_breaking_parity_53
+  - existing_pg_store_test_92_bumps_timestamps_to_keep_ordering_stable_acknowledging_the_gap
+  - fix_add_run_id_stable_unique_secondary_key_both_backends_store_ts_or_run_id_localecompare_pg_store_order_by_started_at_desc_run_id_asc_parity_maintained
+  - test_four_same_ms_runs_written_out_of_run_id_order_assert_stable_ascending_run_id_across_repeated_calls_and_page_boundary_typecheck_lint_full_vitest_298_green
+  - same_deterministic_tie_break_class_as_rag_84_fusion_insertion_order_and_chunking_68_order_independent_ranking
+  - note_preexisting_nested_ai_app_integration_tests_git_repo_inside_agent_orchestration_platform_dated_jun_23_unrelated_to_this_change_left_untouched
+decisions_made: []
+followups: []
