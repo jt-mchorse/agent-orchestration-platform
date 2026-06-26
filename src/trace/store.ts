@@ -45,7 +45,20 @@ export interface RunDetail extends RunSummary {
  * Skips missing fields rather than treating them as zero — so a partial
  * cost report shows up as a partial total, not a misleading "$0.00".
  * If no observation reports any cost at all, the result is all zeros.
+ *
+ * A non-finite (NaN/Infinity) or negative value is skipped the same way: a
+ * bare `typeof === "number"` check passes for `NaN` (and `Infinity`, and
+ * negatives), so a single corrupt observation would otherwise poison the
+ * whole run's aggregate (`x += NaN` → `NaN`) that gets persisted and rendered
+ * on the run-detail screen. Counting only finite, non-negative costs matches
+ * the finite-and-non-negative contract the rest of the repo enforces
+ * (`RetryPolicy.backoffMs`, the negative-fixture-count guard) while keeping
+ * this aggregator's "skip what you can't trust → partial total" posture.
  */
+function isCountableCost(x: number | undefined): x is number {
+  return typeof x === "number" && Number.isFinite(x) && x >= 0;
+}
+
 export function aggregateCost(events: TraceEvent[]): AggregatedCost {
   let input = 0;
   let output = 0;
@@ -54,9 +67,9 @@ export function aggregateCost(events: TraceEvent[]): AggregatedCost {
     if (e.kind !== "observation") continue;
     const c: StepCost | undefined = e.observation.cost;
     if (!c) continue;
-    if (typeof c.input_tokens === "number") input += c.input_tokens;
-    if (typeof c.output_tokens === "number") output += c.output_tokens;
-    if (typeof c.dollars === "number") dollars += c.dollars;
+    if (isCountableCost(c.input_tokens)) input += c.input_tokens;
+    if (isCountableCost(c.output_tokens)) output += c.output_tokens;
+    if (isCountableCost(c.dollars)) dollars += c.dollars;
   }
   return { input_tokens: input, output_tokens: output, dollars };
 }

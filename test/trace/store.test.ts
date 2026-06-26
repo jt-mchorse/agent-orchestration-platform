@@ -130,6 +130,37 @@ describe("aggregateCost", () => {
     ];
     expect(aggregateCost(events).dollars).toBeCloseTo(0.0005, 6);
   });
+
+  // `typeof NaN === "number"` is true, so a bare typeof guard let a corrupt
+  // value poison the whole run's aggregate (`x += NaN` → NaN). Non-finite and
+  // negative costs are skipped like an absent field — a partial total, never a
+  // corrupt one — matching the repo's finite-and-non-negative contract.
+  it.each([NaN, Infinity, -Infinity, -5])(
+    "skips a corrupt cost value (%p) instead of poisoning the aggregate",
+    (bad) => {
+      const events: TraceEvent[] = [
+        obs("a", true, { input: 100, output: 50, dollars: 0.01 }),
+        obs("b", true, { input: bad, output: bad, dollars: bad }),
+      ];
+      // The corrupt observation's fields are dropped; the good one survives intact.
+      expect(aggregateCost(events)).toEqual({
+        input_tokens: 100,
+        output_tokens: 50,
+        dollars: 0.01,
+      });
+    },
+  );
+
+  it("drops only the corrupt field, keeping the valid fields of the same observation", () => {
+    const events: TraceEvent[] = [
+      obs("a", true, { input: 100, output: NaN, dollars: 0.02 }),
+    ];
+    expect(aggregateCost(events)).toEqual({
+      input_tokens: 100,
+      output_tokens: 0, // NaN skipped
+      dollars: 0.02,
+    });
+  });
 });
 
 // -------------------------------------------------------------
