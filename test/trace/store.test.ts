@@ -240,6 +240,34 @@ describe("MemoryStore", () => {
     expect(page.map((r) => r.run_id)).toEqual(["r-1", "r-0"]);
   });
 
+  it("listRuns breaks started_at ties by run_id deterministically across pages", async () => {
+    const store = new MemoryStore();
+    // Four runs that all start in the SAME millisecond — equal started_at. Write
+    // them out of run_id order so a missing tie-breaker would surface insertion
+    // order instead of a stable one (#59).
+    for (const id of ["r-c", "r-a", "r-d", "r-b"]) {
+      await store.writeRun({
+        run_id: id,
+        pr: PR,
+        events: [
+          { ts: 1_700_000_000_000, kind: "run_started", pr: PR },
+          { ts: 1_700_000_000_001, kind: "finalized", review: review() },
+        ],
+        review: review(),
+      });
+    }
+    // Equal timestamps → deterministic ascending run_id tie-break, repeatable.
+    const first = await store.listRuns();
+    const second = await store.listRuns();
+    expect(first.map((r) => r.run_id)).toEqual(["r-a", "r-b", "r-c", "r-d"]);
+    expect(second.map((r) => r.run_id)).toEqual(first.map((r) => r.run_id));
+    // Pagination must not drop/duplicate across a boundary: page1 + page2 covers
+    // every run exactly once, in the same total order.
+    const page1 = await store.listRuns({ limit: 2, offset: 0 });
+    const page2 = await store.listRuns({ limit: 2, offset: 2 });
+    expect([...page1, ...page2].map((r) => r.run_id)).toEqual(["r-a", "r-b", "r-c", "r-d"]);
+  });
+
   it("derives status = aborted when events contain an aborted entry", async () => {
     const store = new MemoryStore();
     await store.writeRun({

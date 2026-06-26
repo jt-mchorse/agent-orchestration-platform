@@ -165,7 +165,14 @@ export class MemoryStore implements TraceStore {
     const limit = opts.limit ?? 50;
     const offset = opts.offset ?? 0;
     const all = [...this.runs.values()]
-      .sort((a, b) => b.started_at.localeCompare(a.started_at))
+      // Tie-break on the unique run_id so equal started_at timestamps (two runs
+      // started in the same ms) get a deterministic, stable order — otherwise
+      // paginated reads can drop or duplicate a run across page boundaries.
+      // Kept in parity with PgStore's `ORDER BY started_at DESC, run_id ASC`.
+      .sort(
+        (a, b) =>
+          b.started_at.localeCompare(a.started_at) || a.run_id.localeCompare(b.run_id),
+      )
       .map((d) => {
         const { events: _events, ...rest } = d;
         void _events;
