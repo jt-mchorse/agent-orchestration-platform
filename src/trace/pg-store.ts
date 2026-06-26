@@ -124,7 +124,9 @@ export class PgStore implements TraceStore {
       `SELECT run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
               total_cost_dollars, total_input_tokens, total_output_tokens, recommendation, summary
        FROM runs
-       ORDER BY started_at DESC
+       -- run_id tie-breaker keeps equal-started_at rows in a deterministic order
+       -- so paginated reads can't drop/duplicate a run; parity with MemoryStore.
+       ORDER BY started_at DESC, run_id ASC
        LIMIT $1 OFFSET $2`,
       [limit, offset],
     );
