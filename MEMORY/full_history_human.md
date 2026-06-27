@@ -463,3 +463,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** the recommendation spelling is now uniform repo-wide; the live GitHub posting path remains un-wired (unchanged).
+
+## 2026-06-27 — Issue #65: Postgres trace store dropped ToolError messages
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-1546-issue-65`
+
+- `ToolError extends Error`, and `Error` sets `message` as a non-enumerable own property, so `JSON.stringify` omits it. `PgStore.writeRun` persists each event via `JSON.stringify(payloadOf(ev))`, so every `ToolError` on the Postgres path — error observations, retries, fallbacks, and nested `re_plan_triggered.reason.error` — round-tripped with `message === undefined`, and the run-detail UI rendered `error: <kind> — undefined`. The in-memory store was unaffected, so the two stores silently diverged on exactly the observability surface the trace store exists for.
+- Added `ToolError.toJSON()` returning `{ name, kind, toolName, message }` (honored recursively by `JSON.stringify`) and hermetic round-trip regression tests. Negative-checked: all three fail pre-fix.
+
+**Why this work, this session:** fifth find of a multi-issue DAY run, from the second Phase A dogfood sweep over the non-tier repos.
+
+**Open questions / blockers:** none — but I noticed a stray nested clone of `ai-app-integration-tests` inside this repo's root (dated Jun 23, a misplaced clone from a prior session; clean, on main, fully pushed). Left in place and flagged for JT to remove; it risks being accidentally staged by a future `git add -A`.
+
+**Next session:** ToolError now serializes losslessly; the PgStore/MemoryStore read-back still differs in that PgStore returns plain objects rather than reconstructed Error instances (pre-existing, out of scope).

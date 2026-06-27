@@ -128,4 +128,15 @@ export class ToolError extends Error {
     this.toolName = toolName;
     this.name = "ToolError";
   }
+
+  // `Error` sets `message` as a non-enumerable own property, so JSON.stringify
+  // drops it — which silently lost the failure message from every ToolError
+  // persisted to the Postgres trace store (PgStore.writeRun → JSON.stringify),
+  // leaving the run-detail UI to render "error: <kind> — undefined" (#65).
+  // JSON.stringify honors toJSON(), so make the serialized shape explicit and
+  // message-preserving; it's applied recursively, so a nested `reason.error`
+  // in a re_plan_triggered event is covered too.
+  toJSON(): { name: string; kind: ToolErrorKind; toolName: string; message: string } {
+    return { name: this.name, kind: this.kind, toolName: this.toolName, message: this.message };
+  }
 }
