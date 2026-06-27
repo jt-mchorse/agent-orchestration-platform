@@ -439,3 +439,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none. (Housekeeping: the pre-existing stray nested `ai-app-integration-tests/` clone in the repo root is still present, untracked; already flagged by a prior session, left in place.)
 
 **Next session:** the trace cost path now rejects corrupt numbers at aggregation; a follow-up could fail-loud at the cost-emission seam in the executor if upstream wants to reject corrupt costs earlier.
+
+## 2026-06-27 — Issue #61: read-file-at-ref drops added lines starting with ++
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-0043-issue-61`
+
+- `reconstructAddedFileFromPatch` skipped lines starting with `+++` or `---` to ignore unified-diff file headers. But GitHub's per-file `patch` field carries only hunk bodies (starts at `@@`) and never includes those headers — verified: 0 header-like lines across all 58 fixture patches. So the guard never fired legitimately and only misfired on a genuine added content line whose text starts with `++` (source `++flagged` → patch `+++flagged`), silently dropping it. Realistic triggers: C/Java `++i;`, markdown `++ins++`, a checked-in diff file.
+- Fixed by removing the header guard (keeping the `@@` hunk-header skip) and exporting the pure helper for unit testing. 4 unit tests (++ line survives, -- line survives, normal added file, null patch). Suite 298 → 302; typecheck clean (this repo's CI has no lint/readme gate).
+
+**Why this work, this session:** tenth issue of a multi-issue DAY run, and a deliberate **second** dogfood pass on agent-orchestration-platform. The first pass (retry/executor/planner/score) came back clean; this pass focused on the trace store and tools and found the read-file-at-ref bug — a reminder that a second pass with a different module focus surfaces what the first missed.
+
+**Open questions / blockers:** none. Runner-up unfiled: `findStickyCommentId` stops after 10 comment pages (misses a sticky comment beyond ~1000 comments) — appears to be an intentional bound.
+
+**Next session:** the portfolio is heavily covered — this run closed 10 issues. Future yield likely depends on new trending issues or deeper second-pass audits.
