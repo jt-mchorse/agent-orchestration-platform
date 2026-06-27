@@ -43,13 +43,18 @@ async function tryReadFromCache(
   }
 }
 
-function reconstructAddedFileFromPatch(patch: string | null): string | null {
+export function reconstructAddedFileFromPatch(patch: string | null): string | null {
   if (!patch) return null;
   const lines = patch.split("\n");
   const added: string[] = [];
   for (const line of lines) {
+    // GitHub's per-file `patch` field is hunk bodies only — it starts at `@@`
+    // and never carries the unified-diff *file headers* (`--- a/x` / `+++ b/x`).
+    // A previous `+++`/`---` skip here was meant for those headers, but since
+    // they never appear it only misfired on a genuine added content line whose
+    // text starts with `++` (source `++flagged` → patch `+++flagged`), silently
+    // dropping it. Only the `@@` hunk header needs skipping (#61).
     if (line.startsWith("@@")) continue;
-    if (line.startsWith("+++") || line.startsWith("---")) continue;
     if (line.startsWith("+")) added.push(line.slice(1));
   }
   return added.join("\n");
