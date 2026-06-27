@@ -115,6 +115,16 @@ export function decisionsFilePath(portfolioRoot: string, repo: string): string {
   if (safeRepo !== repo) {
     throw new Error(`invalid repo name: ${repo}`);
   }
+  // `.` and `-` are in the allow-list above, so a bare `.` or `..` survives the
+  // strip unchanged (safeRepo === repo) and slips past it — then `path.join`
+  // collapses the `..` and the lookup escapes the `repos/` jail (e.g.
+  // `repos/../MEMORY/...` -> `<root>/MEMORY/...`). Reject these two segment
+  // names explicitly: they are never valid repo slugs, so this is fail-closed
+  // and rejects only categorically-invalid input (a literal `...` directory is
+  // still allowed). Same trust-boundary class as the backslash gap above.
+  if (repo === "." || repo === "..") {
+    throw new Error(`invalid repo name: ${repo}`);
+  }
   if (repo === "portfolio-ops") {
     return path.join(portfolioRoot, "portfolio-ops", "MEMORY", "core_decisions_ai.md");
   }

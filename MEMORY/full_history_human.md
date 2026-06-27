@@ -475,3 +475,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — but I noticed a stray nested clone of `ai-app-integration-tests` inside this repo's root (dated Jun 23, a misplaced clone from a prior session; clean, on main, fully pushed). Left in place and flagged for JT to remove; it risks being accidentally staged by a future `git add -A`.
 
 **Next session:** ToolError now serializes losslessly; the PgStore/MemoryStore read-back still differs in that PgStore returns plain objects rather than reconstructed Error instances (pre-existing, out of scope).
+
+## 2026-06-27 — Issue #67: MCP decisionsFilePath path-traversal sanitizer bypass
+**Duration:** ~15 min · **Branch:** `session/2026-06-27-1941-issue-67`
+
+- `decisionsFilePath` (the MCP portfolio-context trust boundary) strips chars outside `[A-Za-z0-9_.-]` and rejects `repo` if anything was stripped — but `.` and `-` are allow-listed, so a bare `.` or `..` survived unchanged and slipped past the check. `path.join` then collapsed the `..`, escaping the `repos/` jail (`repos/../MEMORY/...` → `<root>/MEMORY/...`). The sibling tests covered `../etc`/`a/b`/backslash forms (all contain a stripped char) but never a bare `..`.
+- Fixed with a fail-closed guard rejecting `repo === '.' || repo === '..'`. Strictly more restrictive — a literal `...` directory and a `.hidden` slug still resolve. Reproduced firsthand via a throwaway vitest spec; lock test fails on pre-fix code.
+
+**Why this work, this session:** fourth issue of a multi-issue DAY run; surfaced by a second Phase A dogfood batch after the priority tier was largely exhausted. Vector-search, chunking, embedding-shootout, python-async, and ai-app-integration-tests all came back clean — the portfolio is deeply hardened.
+
+**Open questions / blockers:** none. Security-relevant but bounded; flagged for JT in the PR. Also noted (deferred, non-hermetic): a `MemoryStore.listRuns` vs `PgStore` collation tie-break divergence that needs a live Postgres to prove.
+
+**Next session:** the stray untracked `ai-app-integration-tests/` nested clone at this repo's root (flagged previously) is still present — safe to remove.
