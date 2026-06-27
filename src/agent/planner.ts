@@ -36,7 +36,7 @@ export interface Planner {
  * Once exhausted, further triggers return an empty plan and the executor
  * finalizes with whatever observations it has.
  *
- * `finalReview` defaults to a generic "approve with comments" review so
+ * `finalReview` defaults to a generic "approve_with_comments" review so
  * test cases that don't care about the final shape can be terse. Tests
  * that *do* care pass a callback that constructs the review from the
  * observations.

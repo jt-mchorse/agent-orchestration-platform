@@ -451,3 +451,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none. Runner-up unfiled: `findStickyCommentId` stops after 10 comment pages (misses a sticky comment beyond ~1000 comments) — appears to be an intentional bound.
 
 **Next session:** the portfolio is heavily covered — this run closed 10 issues. Future yield likely depends on new trending issues or deeper second-pass audits.
+
+## 2026-06-27 — Issue #63: align post_review_comment enum to the canonical Review type
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-0344-issue-63`
+
+- `post_review_comment`'s input schema declared the recommendation enum space-separated (`"request changes" | "approve with comments" | "approve"`), but the canonical `Review["recommendation"]` type — and the planner, eval runner/validator, trace-server, and UI CSS classes — all use underscores. Since this is the HITL tool that posts a synthesized `Review`, feeding the review's recommendation in failed zod validation for two of the three values. Reproduced: `approve_with_comments` and `request_changes` → REJECTED; only the `approve with comments` spelling nothing emits was accepted.
+- Aligned the sole outlier to `["request_changes", "approve_with_comments", "approve"]`, updated the two `test/approvals.test.ts` lines that had locked the wrong contract, fixed the `docs/use-case.md` prose + a `planner.ts` doc comment, and added an `it.each` round-trip test pinning acceptance of every `Review["recommendation"]` member. `npm test` 302 → 305, tsc clean.
+
+**Why this work, this session:** seventh issue of a multi-issue NIGHT run; a medium-high-confidence internal-contract inconsistency where the canonical `Review` type is the single source of truth and one outlier diverged.
+
+**Open questions / blockers:** none.
+
+**Next session:** the recommendation spelling is now uniform repo-wide; the live GitHub posting path remains un-wired (unchanged).

@@ -137,7 +137,7 @@ describe("post_review_comment destructive flow end-to-end", () => {
         message: "RRF k constant deserves a comment.",
       },
     ],
-    recommendation: "approve with comments" as const,
+    recommendation: "approve_with_comments" as const,
   };
 
   it("denyAllProvider blocks the post and the underlying tool is never invoked", async () => {
@@ -165,8 +165,27 @@ describe("post_review_comment destructive flow end-to-end", () => {
     expect(result.mode).toBe("replay");
     expect(result.preview).toMatch(/Review: jt-mchorse\/rag-production-kit#9/);
     expect(result.preview).toMatch(/CONCERN/);
-    expect(result.preview).toMatch(/approve with comments/);
+    expect(result.preview).toMatch(/approve_with_comments/);
   });
+
+  // #63: the input enum was space-separated while the canonical
+  // Review["recommendation"] (and planner/eval/UI) use underscores, so the
+  // HITL tool rejected the very Review it exists to post. Pin that every
+  // canonical recommendation is accepted and echoed in the preview.
+  it.each(["request_changes", "approve_with_comments", "approve"] as const)(
+    "accepts the canonical Review recommendation %s and echoes it in the preview",
+    async (recommendation) => {
+      const reg = new ToolRegistry();
+      reg.register(postReviewCommentTool);
+      const result = (await reg.invoke(
+        "post_review_comment",
+        { ...validInput, recommendation },
+        { ...ctxBase, approvals: autoApproveProvider },
+      )) as { posted: boolean; preview: string };
+      expect(result.posted).toBe(false);
+      expect(result.preview).toContain(`**Recommendation:** ${recommendation}`);
+    },
+  );
 });
 
 describe("createCliApprovalProvider", () => {

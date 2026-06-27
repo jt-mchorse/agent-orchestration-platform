@@ -12,8 +12,8 @@ or written to stdout (replay mode), containing:
    reviewer's overall confidence.
 2. A list of **findings**, each tagged with severity (`blocker`, `concern`,
    `nit`, `praise`) and anchored to a file + line range.
-3. A **final recommendation**: one of `request changes`, `approve with
-   comments`, `approve`.
+3. A **final recommendation**: one of `request_changes`,
+   `approve_with_comments`, `approve`.
 
 The agent runs against one PR at a time. Multi-PR batching is out of scope.
 
