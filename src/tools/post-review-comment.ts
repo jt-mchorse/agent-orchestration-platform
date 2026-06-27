@@ -15,7 +15,11 @@ const inputSchema = z.object({
   number: z.number().int().positive(),
   summary: z.string().min(1),
   findings: z.array(findingSchema),
-  recommendation: z.enum(["request changes", "approve with comments", "approve"]),
+  // Underscored to match the canonical Review["recommendation"] (src/agent/types.ts)
+  // and every other producer/consumer (planner, eval runner/validator, UI CSS).
+  // A space-separated enum here rejected the synthesized Review this HITL tool
+  // is meant to post (#63).
+  recommendation: z.enum(["request_changes", "approve_with_comments", "approve"]),
 });
 
 const outputSchema = z.object({
