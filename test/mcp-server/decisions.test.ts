@@ -102,10 +102,27 @@ describe("decisionsFilePath", () => {
     expect(() => decisionsFilePath("/abs/root", "..\\..\\secret")).toThrow(/invalid repo name/);
   });
 
+  it("rejects bare `.` and `..` segments that escape the repos/ jail", () => {
+    // `.` and `-` are in the allow-list, so `.`/`..` survived the strip
+    // unchanged (safeRepo === repo) and `path.join` collapsed the `..`, e.g.
+    // `repos/../MEMORY/...` -> `<root>/MEMORY/...` — escaping the jail without
+    // throwing. The sibling separator tests never exercised a bare `..`.
+    expect(() => decisionsFilePath("/abs/root", "..")).toThrow(/invalid repo name/);
+    expect(() => decisionsFilePath("/abs/root", ".")).toThrow(/invalid repo name/);
+  });
+
   it("still accepts legitimate hyphen/dot/underscore slugs", () => {
     // Guard against over-tightening: valid slugs must keep resolving.
     expect(decisionsFilePath("/abs/root", "good-repo.1_v2")).toBe(
       "/abs/root/repos/good-repo.1_v2/MEMORY/core_decisions_ai.md",
+    );
+    // A literal `...` directory and a dot-prefixed slug are NOT traversal
+    // segments, so the `.`/`..` guard must not reject them.
+    expect(decisionsFilePath("/abs/root", "...")).toBe(
+      "/abs/root/repos/.../MEMORY/core_decisions_ai.md",
+    );
+    expect(decisionsFilePath("/abs/root", ".hidden")).toBe(
+      "/abs/root/repos/.hidden/MEMORY/core_decisions_ai.md",
     );
   });
 });
