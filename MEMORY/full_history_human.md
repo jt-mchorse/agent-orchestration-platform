@@ -513,3 +513,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** —
+
+## 2026-06-28 — Issue #73: a malformed .json fixture crashed the whole search
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-1619-issue-73`
+
+- `searchRepoTool.run` walks every `.json` in `fixturesDir` and is written to tolerate non-fixtures (`if (!parsed.success) continue`). But `JSON.parse(raw)` ran *outside* the `safeParse` guard, and `safeParse` only catches Zod mismatches — not a `SyntaxError`. So one corrupt/non-fixture `.json` in the directory threw a raw `SyntaxError` that propagated through `registry.invoke` and, not being a `ToolError`, was re-raised by the executor as a programmer bug — crashing the entire agent run on a query that wouldn't even have matched that fixture's repo.
+- Fixed by decoding under `try/catch` and `continue`ing on failure, treating a JSON parse error exactly like the schema-mismatch skip two lines below. Added a vitest regression test using a temp fixtures dir (malformed + valid file) that asserts the search resolves with the valid match; proven to fail pre-fix with the SyntaxError. Full suite 315 passed (5 skipped), typecheck clean.
+
+**Why this work, this session:** sixth substantive issue of a multi-issue DAY run and the first in a TypeScript repo (after four Python dogfood finds). A real robustness defect: a single stray file in the walked directory takes down unrelated agent runs, defeating the per-file tolerance the loop was written to provide.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains.
