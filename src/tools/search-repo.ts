@@ -67,7 +67,17 @@ export const searchRepoTool: Tool<typeof inputSchema, typeof outputSchema> = {
       if (!entry.endsWith(".json")) continue;
       const full = path.join(ctx.fixturesDir, entry);
       const raw = await readFile(full, "utf8");
-      const parsed = fixtureLiteSchema.safeParse(JSON.parse(raw));
+      // `safeParse` only catches Zod mismatches, not a `JSON.parse` SyntaxError.
+      // Decode under guard so a corrupt/non-fixture `.json` in the directory is
+      // skipped exactly like a schema mismatch — not re-raised as a fatal
+      // SyntaxError that crashes the whole agent run on an unrelated query (#73).
+      let json: unknown;
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      const parsed = fixtureLiteSchema.safeParse(json);
       if (!parsed.success) continue;
       if (parsed.data.repo !== targetRepo) continue;
       for (const file of parsed.data.files) {
