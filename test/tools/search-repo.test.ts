@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { searchRepoTool } from "../../src/tools/search-repo.js";
 import type { ToolContext } from "../../src/tools/types.js";
@@ -54,5 +56,37 @@ describe("search_repo (replay)", () => {
     );
     expect(exact.matches.length).toBe(n);
     expect(exact.truncated).toBe(false);
+  });
+});
+
+describe("search_repo (replay) — tolerates a malformed .json in the fixtures dir", () => {
+  let tmp: string | undefined;
+
+  afterEach(async () => {
+    if (tmp) await rm(tmp, { recursive: true, force: true });
+    tmp = undefined;
+  });
+
+  it("skips an unparseable .json instead of crashing the whole search (#73)", async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), "search-repo-bad-"));
+    // A corrupt/non-fixture .json sitting in the walked directory must not be
+    // fatal — pre-fix the bare JSON.parse threw a SyntaxError and aborted the run.
+    await writeFile(path.join(tmp, "broken.json"), "{ not valid json", "utf8");
+    await writeFile(
+      path.join(tmp, "valid.json"),
+      JSON.stringify({
+        repo: "jt-mchorse/x",
+        files: [{ filename: "terraform/main.tf", patch: "+ terraform config" }],
+      }),
+      "utf8",
+    );
+
+    const result = await searchRepoTool.run(
+      { owner: "jt-mchorse", repo: "x", query: "terraform", maxResults: 5 },
+      { mode: "replay", fixturesDir: tmp },
+    );
+
+    expect(result.matches.map((m) => m.filename)).toContain("terraform/main.tf");
+    expect(result.truncated).toBe(false);
   });
 });
