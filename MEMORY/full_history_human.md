@@ -500,3 +500,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** Portfolio is heavily saturated for autonomous bug work; remaining open issues are JT-decision (`decision-revisit`) or demo-video captures.
+
+## 2026-06-28 — Issue #71: fixture validator accepted pr.number=0 against its own >=1 contract
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-0346-issue-71`
+
+- `_requireFiniteInteger` guarded only `value < 0`, so `pr.number: 0` passed the pre-flight fixture lint despite the helper's comment stating `pr.number (>= 1)`. `fetch_pr` types `number` as `.positive()`, so a 0 fixture passed `validate` then threw at eval time — defeating the lint's whole purpose.
+- Fixed by adding an optional `min` (default 0) with an `_out_of_range` branch after the existing `_negative` branch; `pr.number` validates with `min=1`. Strictly safer (only rejects input the eval already rejects); negative still yields `_negative` (#55 preserved). +3 tests; CLI repro now exits 1; full suite green.
+- Found via the second Phase A dogfood wave (the other four repos — llm-cost-optimizer, embedding-model-shootout, vector-search-at-scale, python-async-llm-pipelines — came back clean/well-hardened).
+
+**Why this work, this session:** the one solid finding from the second dogfood wave; a real contract gap on the eval pre-flight lint.
+
+**Open questions / blockers:** none.
+
+**Next session:** —
