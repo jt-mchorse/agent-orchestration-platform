@@ -639,6 +639,126 @@ describe("AgentRun — retry and fallback", () => {
       expect(obs[0].observation.outcome.error.toolName).toBe("secondary");
     }
   });
+
+  it("does NOT route a denied approval to the fallback tool (#69)", async () => {
+    // A denied destructive action is a human decision, not a tool failure:
+    // the fallbackTo path must not "recover" it by running an alternate tool,
+    // which would bypass the HITL checkpoint entirely. The denial must flow to
+    // the replan path so the planner decides.
+    let altRan = false;
+    const denyingPost: Tool<typeof postIn, typeof postOut> = {
+      name: "denyingPost",
+      description: "destructive, with a fallback declared",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      annotations: {
+        destructive: true,
+        destructiveReason: "post on a real PR",
+        fallbackTo: "altPost",
+      },
+      async run() {
+        return { posted: true };
+      },
+    };
+    const altPost: Tool<typeof postIn, typeof postOut> = {
+      name: "altPost",
+      description: "the alternate poster — MUST NOT run on a denial",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      async run() {
+        altRan = true;
+        return { posted: true };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(denyingPost);
+    registry.register(altPost);
+
+    const denyAll = {
+      async requestApproval() {
+        return { approved: false, reason: "operator said no" };
+      },
+    };
+    const initial: Plan = {
+      goal: "try to post",
+      steps: [{ rationale: "send the comment", tool: "denyingPost", input: { body: "hi" } }],
+    };
+    const revised: Plan = { goal: "skip posting", steps: [] };
+    const planner = new ScriptedPlanner(initial, [() => revised]);
+    const trace = new Trace();
+    const ctx: ToolContext = {
+      mode: "replay",
+      fixturesDir: "fixtures/sample-prs",
+      approvals: denyAll,
+    };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(altRan).toBe(false);
+    expect(trace.ofKind("fallback_used")).toHaveLength(0);
+    const obs = trace.ofKind("observation");
+    expect(obs[0]?.observation.outcome.kind).toBe("error");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.kind).toBe("approval_denied");
+    }
+    const replan = trace.ofKind("re_plan_triggered");
+    expect(replan).toHaveLength(1);
+    expect(replan[0]?.reason.kind).toBe("approval_denied");
+  });
+
+  it("does NOT route a missing-approvals error to the fallback tool (#69)", async () => {
+    // Same protection for `approval_missing`: a destructive tool invoked with
+    // no approvals provider on the context must surface the error, not silently
+    // route to the fallback.
+    let altRan = false;
+    const denyingPost: Tool<typeof postIn, typeof postOut> = {
+      name: "denyingPost",
+      description: "destructive, with a fallback declared",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      annotations: {
+        destructive: true,
+        destructiveReason: "post on a real PR",
+        fallbackTo: "altPost",
+      },
+      async run() {
+        return { posted: true };
+      },
+    };
+    const altPost: Tool<typeof postIn, typeof postOut> = {
+      name: "altPost",
+      description: "the alternate poster — MUST NOT run when approvals are unwired",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      async run() {
+        altRan = true;
+        return { posted: true };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(denyingPost);
+    registry.register(altPost);
+
+    const initial: Plan = {
+      goal: "try to post with no approver wired",
+      steps: [{ rationale: "send the comment", tool: "denyingPost", input: { body: "hi" } }],
+    };
+    const revised: Plan = { goal: "skip posting", steps: [] };
+    const planner = new ScriptedPlanner(initial, [() => revised]);
+    const trace = new Trace();
+    // No `approvals` on the context — destructive invocation must fail closed.
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(altRan).toBe(false);
+    expect(trace.ofKind("fallback_used")).toHaveLength(0);
+    const obs = trace.ofKind("observation");
+    expect(obs[0]?.observation.outcome.kind).toBe("error");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.kind).toBe("approval_missing");
+    }
+  });
 });
 
 // ---------------------------------------------------------------------

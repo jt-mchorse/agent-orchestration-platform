@@ -487,3 +487,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none. Security-relevant but bounded; flagged for JT in the PR. Also noted (deferred, non-hermetic): a `MemoryStore.listRuns` vs `PgStore` collation tie-break divergence that needs a live Postgres to prove.
 
 **Next session:** the stray untracked `ai-app-integration-tests/` nested clone at this repo's root (flagged previously) is still present — safe to remove.
+
+## 2026-06-27 — Issue #69: denied approval silently bypassed by the fallback path
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-2333-issue-69`
+
+- The executor's `fallbackTo` recovery treated `approval_denied`/`approval_missing` like an ordinary tool failure, so a denied destructive action (or one with no approvals provider wired) was silently re-run via the fallback tool — bypassing the human-in-the-loop checkpoint. Found via a Phase A dogfood sweep and independently reproduced before filing.
+- Fixed by short-circuiting approval-class errors to an error observation before the fallback lookup, so the denial flows to the existing replan path (mirrors the retry layer, which already excludes those kinds). Added two locking tests.
+- Suite 309 → 311, typecheck clean.
+
+**Why this work, this session:** It was the only real, reproducible bug surfaced across 8 deep dogfood sweeps — the rest of the portfolio is saturated/hardened. A HITL bypass on destructive actions is high-value.
+
+**Open questions / blockers:** none.
+
+**Next session:** Portfolio is heavily saturated for autonomous bug work; remaining open issues are JT-decision (`decision-revisit`) or demo-video captures.

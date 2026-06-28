@@ -136,6 +136,16 @@ export class AgentRun {
         // Programmer bug — re-raise per the existing contract.
         throw err;
       }
+      // Approval-class errors are human/runtime decisions, not tool failures:
+      // a denied (or un-wired) destructive action must not be silently
+      // "recovered" by routing to a fallback tool — that bypasses the HITL
+      // checkpoint entirely (the fallback could itself be destructive). Mirror
+      // the retry layer, which also never retries approval kinds, and surface
+      // the denial so the planner decides via the existing replan path, where
+      // `approval_denied` is already modeled as a distinct ReplanReason.
+      if (err.kind === "approval_denied" || err.kind === "approval_missing") {
+        return { step, outcome: { kind: "error", error: err } };
+      }
       let fallbackName: string | undefined;
       try {
         fallbackName = this.fallbackFor(primaryName);
