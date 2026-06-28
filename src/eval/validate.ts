@@ -210,8 +210,10 @@ function _validateFixtureSchema(
 }
 
 function _validatePrObject(pr: Record<string, unknown>, findings: ValidationFinding[]): void {
-  // Numeric fields: number, additions, deletions, changed_files.
-  for (const field of ["number", "additions", "deletions", "changed_files"] as const) {
+  // pr.number is 1-based (fetch_pr requires `.positive()`), so it gets min=1;
+  // the count fields are >= 0.
+  _requireFiniteInteger(pr, "number", "pr", findings, 1);
+  for (const field of ["additions", "deletions", "changed_files"] as const) {
     _requireFiniteInteger(pr, field, "pr", findings);
   }
   // String fields: title, body, state, base, head, html_url, created_at.
@@ -440,6 +442,7 @@ function _requireFiniteInteger(
   field: string,
   prefix: string,
   findings: ValidationFinding[],
+  min = 0,
 ): void {
   const here = `${prefix}.${field}`;
   const value = obj[field];
@@ -459,7 +462,7 @@ function _requireFiniteInteger(
     });
     return;
   }
-  // Every field routed through this helper is a count: pr.number (>= 1),
+  // Fields routed through this helper are counts: pr.number (>= 1),
   // additions / deletions / changed_files / changes (>= 0). A negative value is
   // corruption (a bad GitHub-API transform, a hand-edited fixture) that would
   // otherwise pass the gate and flow into evaluateAll, producing a nonsensical
@@ -468,6 +471,19 @@ function _requireFiniteInteger(
     findings.push({
       code: `${prefix}.${field}_negative`,
       reason: `${here} must be non-negative, got ${value}`,
+      jsonPath: here,
+    });
+    return;
+  }
+  // A field with `min >= 1` (pr.number) is 1-based: 0 is non-negative but still
+  // invalid. fetch_pr/post_review_comment type `number` as `z.number().int()
+  // .positive()`, so a 0 here passes this pre-flight lint yet the eval run
+  // rejects it the moment fetch_pr is called (#71). Catch it here instead, where
+  // it's cheap, rather than letting a "clean" fixture blow up mid-run.
+  if (value < min) {
+    findings.push({
+      code: `${prefix}.${field}_out_of_range`,
+      reason: `${here} must be at least ${min}, got ${value}`,
       jsonPath: here,
     });
   }

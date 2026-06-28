@@ -216,6 +216,41 @@ describe("validateFixture: schema findings", () => {
     expect(r.findings.map((f) => f.code)).not.toContain("pr.additions_negative");
   });
 
+  it("flags pr.number_out_of_range when pr.number is 0 (#71)", async () => {
+    // pr.number is 1-based: fetch_pr types it `z.number().int().positive()`, so a
+    // 0 passes this pre-flight lint pre-fix yet the eval run rejects it. Catch it
+    // here instead of letting a "clean" fixture blow up mid-run.
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["number"] = 0;
+    const p = await writeJson("zeronum.json", v);
+    const r = await validateFixture(p);
+    expect(r.ok).toBe(false);
+    const codes = r.findings.map((f) => f.code);
+    expect(codes).toContain("pr.number_out_of_range");
+    // 0 is non-negative, so it must NOT be reported as _negative.
+    expect(codes).not.toContain("pr.number_negative");
+  });
+
+  it("keeps the _negative code (not _out_of_range) for a negative pr.number (#71 preserves #55)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["number"] = -3;
+    const p = await writeJson("negnum2.json", v);
+    const r = await validateFixture(p);
+    const codes = r.findings.map((f) => f.code);
+    expect(codes).toContain("pr.number_negative");
+    expect(codes).not.toContain("pr.number_out_of_range");
+  });
+
+  it("accepts pr.number = 1 (the inclusive 1-based boundary) (#71)", async () => {
+    const v = validFixture();
+    (v["pr"] as Record<string, unknown>)["number"] = 1;
+    const p = await writeJson("onenum.json", v);
+    const r = await validateFixture(p);
+    const codes = r.findings.map((f) => f.code);
+    expect(codes).not.toContain("pr.number_out_of_range");
+    expect(codes).not.toContain("pr.number_negative");
+  });
+
   it("flags repo_format when repo is not owner/name", async () => {
     const v = validFixture();
     v["repo"] = "no-slash-here";
