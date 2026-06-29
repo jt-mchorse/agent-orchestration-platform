@@ -857,3 +857,20 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-29T03:57Z
+issue: 75
+focus: readme_trace_server_port_5180_wrong_real_default_8766
+phase: night_session_phase_b_iteration_9
+duration_min: 8
+delta:
+  files_changed: 1 # README.md
+  tests_added: 0   # readme-only
+context_for_next_session:
+  - readme_80_documented_trace_viewer_at_localhost_5180_but_npm_run_trace_server_binds_8766_trace_server_ts_121_number_process_env_port_or_8766_logged_url_at_140_scripts_capture_demo_sh_39_49_agree_default_8766_5180_appeared_nowhere_else_in_repo_orphaned_wrong_value_dead_port_for_quickstart
+  - fix_readme_only_5180_to_8766_vitest_315_passed_5_pg_skipped_readme_tests_unaffected
+  - surfaced_by_parallel_doc_contract_subagent_sweep_ninth_issue_this_night_run_completes_the_three_repo_doc_contract_batch_prompt_regression_91_llm_eval_118_agent_orch_75
+decisions_made: []
+followups: []
+---

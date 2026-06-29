@@ -525,3 +525,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains.
+
+## 2026-06-29 — Issue #75: README trace-server port was 5180, real default is 8766
+**Duration:** ~8 min · **Branch:** `session/2026-06-29-0357-readme-trace-port`
+
+- README:80 told operators the trace viewer is at `localhost:5180`, but `npm run trace:server` binds 8766 (`trace-server.ts:121`), and `scripts/capture_demo.sh` agrees (default 8766). `5180` appeared nowhere else — an orphaned wrong value sending the quickstart to a dead port.
+- README-only fix to the real default port.
+
+**Why this work, this session:** ninth issue of the night run, from the parallel doc-contract subagent sweep (completing the prompt-regression #91 / llm-eval #118 / agent-orch #75 batch).
+
+**Open questions / blockers:** none.
+
+**Next session:** the trace-server quickstart URL matches the shipped default port and the demo script.
