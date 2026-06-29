@@ -77,7 +77,7 @@ Browse a recorded run in the trace viewer (after a real run produces a
 `results/eval-*.json`):
 
 ```bash
-npm run trace:server      # → http://localhost:5180/  (React via ESM CDN, D-006)
+npm run trace:server      # → http://localhost:8766/  (React via ESM CDN, D-006)
 ```
 
 Use the registry from your own script:
