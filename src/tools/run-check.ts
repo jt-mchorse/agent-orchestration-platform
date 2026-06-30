@@ -69,7 +69,26 @@ export const runCheckTool: Tool<typeof inputSchema, typeof outputSchema> = {
         checks: [],
       };
     }
-    const parsed = fixtureSchema.safeParse(JSON.parse(raw));
+    // Decode under guard. `safeParse` only catches Zod mismatches, not a
+    // `JSON.parse` SyntaxError, so a corrupt fixture at the deterministic
+    // checks path threw a raw SyntaxError — and `executor.ts` re-raises any
+    // non-`ToolError` as a run crash (it only catches `ToolError` as a per-step
+    // error outcome). That poisoned the whole run on one bad fixture (#79, the
+    // single-path twin of the #73/#77 directory-walk bugs). Map the SyntaxError
+    // to the SAME `internal` ToolError the schema-mismatch path below raises:
+    // `readFile` already succeeded, so the file exists and only its *content* is
+    // corrupt — the corrupt-fixture case, categorically distinct from the
+    // read-failure → `missing_fixture` path above (which means "no fixture at
+    // all"). A truncated/corrupt recording must surface, not masquerade as
+    // "this ref has no checks".
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(raw);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new ToolError("run_check", "internal", `checks fixture at ${candidate} is not valid JSON: ${detail}`);
+    }
+    const parsed = fixtureSchema.safeParse(decoded);
     if (!parsed.success) {
       throw new ToolError("run_check", "internal", `checks fixture at ${candidate} failed schema: ${parsed.error.message}`);
     }
