@@ -537,3 +537,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none.
 
 **Next session:** the trace-server quickstart URL matches the shipped default port and the demo script.
+
+## 2026-06-29 — Issue #77: read_file_at_ref crashed the whole run on a corrupt .json in fixturesDir (unguarded twin of #73)
+**Duration:** ~20 min · **Branch:** `session/2026-06-29-2339-issue-77`
+
+- `tryReconstructFromAnyFixture` (`src/tools/read-file-at-ref.ts:86`) decoded each `.json` in `fixturesDir` with `fixtureLiteSchema.safeParse(JSON.parse(raw))` — the `JSON.parse` runs *outside* the `safeParse` guard, which only catches Zod mismatches, not a `SyntaxError`. So one corrupt/non-fixture `.json` in the walked directory threw a raw `SyntaxError` (not a `ToolError`), which propagated through `registry.invoke` and was re-raised by the executor, crashing the whole `AgentRun.run()` — even when the requested file is reconstructable from a perfectly good sibling fixture. The byte-for-byte unguarded twin of #73 (`search-repo.ts`).
+- Reproduced firsthand with a throwaway vitest test (`mkdtemp` dir holding a `broken.json` + a valid added-file fixture): pre-fix `readFileAtRefTool.run` threw `SyntaxError` instead of reconstructing. Fixed by mirroring the #73 fix exactly — decode under `try/catch`, `continue` on `SyntaxError`, then `safeParse`. Lock test mirrors the #73 `search-repo` test and was confirmed failing on pre-fix code. Suite 315 → 316, `tsc --noEmit` clean.
+
+**Why this work, this session:** third substantive issue of a multi-issue DAY run (after `llm-eval-harness` #122 and `rag-production-kit` #102). The five priority-tier repos were exhausted for this run, so rotated to non-tier `agent-orchestration-platform`; a dogfood hunter found this genuine #73-class bug, verified firsthand before acting.
+
+**Open questions / blockers:** `run-check.ts:72` has the same `JSON.parse`-outside-`safeParse`, but it reads one deterministic fixture path (not a directory walk), so a corrupt fixture there only fails the matching request — filed as a separate low-priority follow-up candidate rather than scope-creeping this fix.
+
+**Next session:** continue the loop; portfolio is deeply saturated (this run's dogfood sweep found 5 other repos clean).

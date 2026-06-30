@@ -83,7 +83,18 @@ async function tryReconstructFromAnyFixture(
     if (!entry.endsWith(".json")) continue;
     const full = path.join(fixturesDir, entry);
     const raw = await readFile(full, "utf8");
-    const parsed = fixtureLiteSchema.safeParse(JSON.parse(raw));
+    // `safeParse` only catches Zod mismatches, not a `JSON.parse` SyntaxError.
+    // Decode under guard so a corrupt/non-fixture `.json` in the directory is
+    // skipped (identical to a schema mismatch) rather than throwing a raw
+    // SyntaxError that crashes the whole agent run on an unrelated query — the
+    // unguarded twin of #73 (search-repo.ts).
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = fixtureLiteSchema.safeParse(json);
     if (!parsed.success) continue;
     if (parsed.data.repo !== `${owner}/${repo}`) continue;
     if (parsed.data.pr.head !== ref) continue;
