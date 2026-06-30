@@ -549,3 +549,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** `run-check.ts:72` has the same `JSON.parse`-outside-`safeParse`, but it reads one deterministic fixture path (not a directory walk), so a corrupt fixture there only fails the matching request — filed as a separate low-priority follow-up candidate rather than scope-creeping this fix.
 
 **Next session:** continue the loop; portfolio is deeply saturated (this run's dogfood sweep found 5 other repos clean).
+
+## 2026-06-30 — Issue #79: run_check crashed the whole run on a corrupt checks fixture (single-path twin of #73/#77)
+**Duration:** ~20 min · **Branch:** `session/2026-06-30-0310-issue-79`
+
+- `run-check.ts:72` decoded its checks fixture with `fixtureSchema.safeParse(JSON.parse(raw))` — `JSON.parse` runs *outside* the `safeParse` guard (which only catches Zod mismatches, not a `SyntaxError`). So a malformed `.json` at the single deterministic checks path threw a raw `SyntaxError`; `executor.ts:135` re-raises any non-`ToolError` as a run crash (it only catches `ToolError` as a per-step error outcome), so one corrupt fixture poisoned the whole `AgentRun`. The last of the three `JSON.parse`-outside-`safeParse` sites (after #73 `search-repo`, #77 `read-file-at-ref`).
+- Fixed by decoding under `try/catch` and mapping the `SyntaxError` to the **same** `ToolError("run_check", "internal", …)` the adjacent schema-mismatch path already raises — **not** `missing_fixture`. The distinction is deliberate: `readFile` already succeeded, so the file exists and only its *content* is corrupt (the corrupt-fixture case), whereas `missing_fixture` means "no fixture at all". A truncated/corrupt recording must surface as an error, not masquerade as "this ref has no checks". This also differs from #73/#77's `continue`-skip resolution because those walk a directory (a bad file is skipped in favor of others), while `run_check` reads one deterministic path — so the correct parallel is "treat malformed JSON identically to schema mismatch", which in this file already throws `ToolError("internal")`.
+- Lock test writes `"{ not valid json"` at the checks path and asserts a `ToolError` (kind `internal`), not a raw `SyntaxError`; confirmed failing on pre-fix code via `git stash` (inverse safety net). Suite 316 → 317 passing, `tsc --noEmit` clean.
+
+**Why this work, this session:** first substantive issue of a NIGHT multi-issue run. The priority tier had no actionable unblocked code work (llm-cost-optimizer #97 is a JT-blocked decision-revisit; the rest are demo-video captures), so D-007 fall-through to non-tier `agent-orchestration-platform`, which had a concrete, pre-filed #73-class bug.
+
+**Open questions / blockers:** none — this closes the JSON.parse-guard arc across all three sites.
+
+**Next session:** continue the loop; portfolio is deeply saturated.
