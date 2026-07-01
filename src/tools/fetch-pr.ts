@@ -55,7 +55,20 @@ async function loadFixtureByCoordinates(
     if (!entry.endsWith(".json")) continue;
     const full = path.join(fixturesDir, entry);
     const raw = await readFile(full, "utf8");
-    const parsed = prFixtureSchema.safeParse(JSON.parse(raw));
+    // `safeParse` only catches Zod mismatches, not a `JSON.parse` SyntaxError.
+    // Decode under guard so a corrupt/non-fixture `.json` in the directory is
+    // skipped exactly like a schema mismatch — not re-raised as a fatal
+    // SyntaxError that crashes the whole run (the executor re-raises non-
+    // ToolError throws) when an unrelated stray file sorts ahead of the valid
+    // target fixture. Parity with search-repo.ts (#73) / run-check.ts (#79) —
+    // fetch_pr walks the same directory but was missed (#81).
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = prFixtureSchema.safeParse(json);
     if (!parsed.success) continue;
     if (parsed.data.repo === targetRepo && parsed.data.pr.number === number) {
       return parsed.data;
