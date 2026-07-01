@@ -126,8 +126,28 @@ export class AgentRun {
    * planner's view of the run stays at one observation per step.
    */
   private async runStepWithRetryAndFallback(step: PlannedStep): Promise<Observation> {
-    // 1) Try the primary tool with its retry policy, if any.
     const primaryName = step.tool;
+    // 0) A plan step naming an unregistered tool is misconfiguration the planner
+    //    can replan around — surface it as the step's observation, exactly like
+    //    the fallback-orphan path below (`fallbackFor`) and per the documented
+    //    contract in docs/architecture.md. `step.tool` is planner-supplied
+    //    (LLM-generated in AnthropicPlanner), so a hallucinated/typo'd name must
+    //    not crash the whole run: `registry.get` would throw a plain `Error`
+    //    that the catch below re-raises as a "programmer bug", aborting before
+    //    finalize() with no review or replan. The guard belongs here, not just
+    //    in invokeWithRetry, because the catch would otherwise call
+    //    `fallbackFor(primaryName)` whose own `registry.get(primaryName)`
+    //    re-throws the same plain Error and re-crashes.
+    if (!this.registry.has(primaryName)) {
+      return {
+        step,
+        outcome: {
+          kind: "error",
+          error: new ToolError(primaryName, "internal", "no tool with that name is registered"),
+        },
+      };
+    }
+    // 1) Try the primary tool with its retry policy, if any.
     try {
       const value = await this.invokeWithRetry(primaryName, step.input);
       return { step, outcome: { kind: "ok", value } };

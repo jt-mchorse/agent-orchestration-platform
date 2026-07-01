@@ -244,6 +244,40 @@ describe("AgentRun — re-plan", () => {
     expect(review.recommendation).toBe("request_changes");
   });
 
+  it("surfaces an unregistered primary tool as a replan-able observation, not a crash", async () => {
+    // `step.tool` is planner-supplied (LLM-generated in AnthropicPlanner); a
+    // hallucinated/typo'd name must surface as an `internal` ToolError the
+    // planner can replan around — the same contract the fallback-orphan path
+    // honors — rather than letting registry.get throw a plain Error that aborts
+    // the whole run before finalize (#83).
+    const registry = new ToolRegistry();
+    registry.register(pingTool);
+    const initial: Plan = {
+      goal: "call a tool that doesn't exist",
+      steps: [{ rationale: "typo'd tool name", tool: "ghost_tool", input: {} }],
+    };
+    const recovered: Plan = {
+      goal: "recover with a real tool",
+      steps: [{ rationale: "use a registered tool", tool: "ping", input: { msg: "ok" } }],
+    };
+    const expected: Review = { summary: "recovered", findings: [], recommendation: "approve" };
+    const planner = new ScriptedPlanner(initial, [() => recovered], () => expected);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    // Must not throw — the run recovers via replan and finalizes.
+    const review = await new AgentRun(registry, planner, trace, ctx).run(PR);
+    expect(review).toEqual(expected);
+
+    const replan = trace.ofKind("re_plan_triggered");
+    expect(replan).toHaveLength(1);
+    expect(replan[0]?.reason.kind).toBe("tool_error");
+    if (replan[0]?.reason.kind === "tool_error") {
+      expect(replan[0].reason.toolName).toBe("ghost_tool");
+    }
+    expect(trace.ofKind("finalized")).toHaveLength(1);
+  });
+
   it("re-throws non-ToolError exceptions from the registry", async () => {
     // A tool that throws a plain Error simulates a programmer mistake;
     // we don't want the executor swallowing those into re-plan triggers.
