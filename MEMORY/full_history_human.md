@@ -574,3 +574,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the four fixture-walkers now share the guard; a lightweight cross-tool lock test could prevent a fifth walker regressing.
+
+## 2026-07-01 — Issue #83: unregistered primary step tool crashed the run instead of replanning
+**Duration:** ~25 min · **Branch:** `session/2026-07-01-1548-issue-83`
+
+- The executor's documented recovery contract (`docs/architecture.md`) says an unregistered tool name must surface as an `internal` `ToolError` observation the planner can replan around, not crash the run. That held for a misconfigured `fallbackTo` (`fallbackFor`) but **not** for the primary step tool: `invokeWithRetry`'s `registry.get(step.tool)` throws a plain `Error` for an unregistered name, which the catch re-raises as a "programmer bug", aborting `AgentRun.run` before `finalize()` — no review, no replan, no terminal trace event. `step.tool` is planner-supplied (LLM-generated in `AnthropicPlanner`), so a hallucinated/typo'd name is exactly the recoverable-misconfiguration case. Reproduced firsthand before fixing.
+- Fixed with an early guard at the top of `runStepWithRetryAndFallback`: an unregistered primary tool returns a `ToolError` observation that routes through the existing replan machinery. The guard belongs there, not in `invokeWithRetry`, because the catch would otherwise call `fallbackFor(primaryName)` whose own `registry.get` re-throws the same plain Error (double crash). Extended the architecture-doc contract to name the primary path. +1 test (fails pre-fix); the existing "registered tool throws a plain Error still re-raises" behavior is unchanged. Suite 318 → 319, typecheck clean. Filed `priority:high` (crash-the-whole-run on untrusted LLM output, same class as #81).
+
+**Why this work, this session:** third issue of the DAY run, reached via a final bounded 2-repo TS sweep (agent-orchestration-platform + nextjs). The nextjs hunter returned NO_BUG after exhaustive partial-JSON/SSE fuzzing; the agent-orch hunter surfaced this contract asymmetry.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop; portfolio saturation is deep (this run found 4 real bugs across ~13 hunts).

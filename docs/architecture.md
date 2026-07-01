@@ -237,10 +237,12 @@ is ignored — that makes cycles impossible by construction and keeps the
 recovery tree shallow enough that humans can reason about a misbehaving
 agent without reading the trace twice.
 
-When a `fallbackTo` points at an unregistered tool, the executor
-surfaces it as an `internal` `ToolError` on the step's observation
-(naming the orphan) rather than crashing the run — misconfiguration is
-visible, and the planner can replan around it.
+When a tool name isn't registered — whether it's a plan step's *primary*
+`tool` (a planner hallucination/typo; `step.tool` is LLM-generated in the
+production planner) or a `fallbackTo` target — the executor surfaces it as
+an `internal` `ToolError` on the step's observation (naming the orphan)
+rather than crashing the run — misconfiguration is visible, and the
+planner can replan around it.
 
 ## Stack
 
