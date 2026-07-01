@@ -562,3 +562,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — this closes the JSON.parse-guard arc across all three sites.
 
 **Next session:** continue the loop; portfolio is deeply saturated.
+
+## 2026-07-01 — Issue #81: fetch_pr was the fourth directory-walker missed by the JSON.parse-guard arc
+**Duration:** ~25 min · **Branch:** `session/2026-07-01-0340-issue-81`
+
+- A prior session recorded that the `JSON.parse`-guard arc was "closed across all three sites" (search-repo #73, read-file-at-ref, run-check #79) — but `fetch_pr` is a *fourth* directory-walking fixture tool, and it still had a bare `prFixtureSchema.safeParse(JSON.parse(raw))`. A corrupt/non-fixture `.json` in the fixtures dir threw a raw `SyntaxError` (not a `ToolError`); the executor re-raises non-`ToolError` throws, so it aborted the whole run — with the valid target fixture present but unreached because the corrupt file sorted first. `fetch_pr` is the entry step of every eval, so the blast radius is large (filed priority:high).
+- Surfaced by a dogfood hunter and reproduced myself (a throwaway vitest test: `search_repo` skipped the corrupt sibling, `fetch_pr` threw `SyntaxError`). Fixed by mirroring `search-repo.ts` — decode under try/catch, `continue` past bad files. +1 lock test (corrupt file sorts first). Suite 317 → 318, typecheck clean.
+
+**Why this work, this session:** portfolio is deeply saturated. Two parallel dogfood hunt rounds (6 agent hunts + 3 self-hunts) came back NO_BUG_FOUND except this and the llm-eval-harness #130 pipe-escape — both confirmed real by my own repro and shipped.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the four fixture-walkers now share the guard; a lightweight cross-tool lock test could prevent a fifth walker regressing.
