@@ -1,4 +1,4 @@
-import { Readable, Writable } from "node:stream";
+import { PassThrough, Readable, Writable } from "node:stream";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { ToolRegistry } from "../src/tools/registry.js";
@@ -220,5 +220,27 @@ describe("createCliApprovalProvider", () => {
     });
     expect(decision.approved).toBe(false);
     expect(decision.reason).toMatch(/operator answered/);
+  });
+
+  it("does not hang or drop the answer when two lines arrive in one chunk on a shared stream (#85)", async () => {
+    // A single provider is called once per destructive tool in a run, all
+    // sharing one input stream. Node can deliver both answers ("y\nn\n") in a
+    // single `data` chunk. Pre-fix, the first approval consumed the whole chunk
+    // and discarded the residual "n\n", so the second approval blocked forever
+    // and the operator's "n" was silently lost. The carry buffer must preserve
+    // it. The Promise.race guards the test from hanging if the bug regresses.
+    const input = new PassThrough();
+    const output = new Writable({ write(_c, _e, cb) { cb(); } });
+    const provider = createCliApprovalProvider({ input, output });
+    input.write("y\nn\n");
+
+    const d1 = await provider.requestApproval({ toolName: "t1", reason: "r", input: {} });
+    const d2 = await Promise.race([
+      provider.requestApproval({ toolName: "t2", reason: "r", input: {} }),
+      new Promise((r) => setTimeout(() => r({ approved: "TIMEOUT" }), 1000)),
+    ]);
+
+    expect(d1.approved).toBe(true);
+    expect(d2).toEqual({ approved: false, reason: 'operator answered "n"' });
   });
 });
