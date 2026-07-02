@@ -586,3 +586,11 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop; portfolio saturation is deep (this run found 4 real bugs across ~13 hunts).
+
+## 2026-07-02 — Issue #85: CLI approval provider hangs on the 2nd approval (~25 min)
+
+**What got done.** `readSingleLine` in `src/agent/cli-approval.ts` kept a per-call local buffer and threw away everything after the first newline. But a single `createCliApprovalProvider` is called once per destructive tool in a run, all sharing one stdin stream, and Node can deliver several buffered lines in one `data` chunk (piped stdin, fast typist). So the first approval consumed the whole chunk, dropped the residual, and the next approval blocked forever on a newline that had already arrived — a human-in-the-loop deadlock plus silent loss of the operator's answer. Fixed by hoisting a persistent carry buffer into the provider closure: `readSingleLine` resolves from an already-buffered line first, keeps the bytes after the newline as carry, and clears on stream end. Added a regression test (two answers in one chunk on a shared `PassThrough`) that TIMEOUTs pre-fix and passes post-fix. Full vitest suite green (320 passed, 5 skipped live-DB), typecheck clean; the public signature is unchanged.
+
+**Why prioritized.** Fourth issue of the day run, from the final pair of dogfood hunts after the priority tier was exhausted. The Python filesystem-sandbox MCP server came up clean under a thorough sandbox-escape probe; the TS orchestration platform surfaced this. Filed priority:high because it's a deadlock plus data loss on the safety-critical approval path, same robustness-contract precedent as #81/#83. Reproduced firsthand before filing and fixing.
+
+**Open questions / blockers.** None. A larger refactor to a shared readline interface was deferred; the carry-buffer fix is the minimal correct change.
