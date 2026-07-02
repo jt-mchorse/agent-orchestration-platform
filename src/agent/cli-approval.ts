@@ -31,9 +31,31 @@ function defaultFormat(req: ApprovalRequest): string {
   ].join("\n");
 }
 
-function readSingleLine(input: Readable, _output: Writable): Promise<string> {
-  return new Promise<string>((resolve) => {
-    let buf = "";
+/**
+ * Reads one `\n`-terminated line from `input`, carrying any residual bytes
+ * across calls via `carry`.
+ *
+ * A single provider's `requestApproval` is called once per destructive tool in
+ * a run, all sharing the same `input` stream. Node routinely delivers several
+ * buffered lines in one `data` chunk (piped stdin, or a fast typist). If each
+ * call kept only a local buffer it would discard everything after the first
+ * newline, so the *next* call would block forever on a line that already
+ * arrived — a HITL deadlock plus silent loss of the operator's answer. `carry`
+ * is a mutable box shared by the closure so the leftover of one read seeds the
+ * next. Returns `{ line, carry }`; the caller threads the new carry back in.
+ */
+function readSingleLine(
+  input: Readable,
+  carry: string,
+): Promise<{ line: string; carry: string }> {
+  // A full line may already be sitting in the carry from a previous read; if so
+  // resolve synchronously without touching the stream.
+  const buffered = carry.indexOf("\n");
+  if (buffered !== -1) {
+    return Promise.resolve({ line: carry.slice(0, buffered), carry: carry.slice(buffered + 1) });
+  }
+  return new Promise<{ line: string; carry: string }>((resolve) => {
+    let buf = carry;
     let settled = false;
     const onData = (chunk: Buffer | string) => {
       buf += typeof chunk === "string" ? chunk : chunk.toString("utf8");
@@ -42,14 +64,15 @@ function readSingleLine(input: Readable, _output: Writable): Promise<string> {
         if (settled) return;
         settled = true;
         cleanup();
-        resolve(buf.slice(0, nl));
+        // Keep everything after the newline as the carry for the next read.
+        resolve({ line: buf.slice(0, nl), carry: buf.slice(nl + 1) });
       }
     };
     const onEnd = () => {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve(buf);
+      resolve({ line: buf, carry: "" });
     };
     const cleanup = () => {
       input.off("data", onData);
@@ -66,10 +89,14 @@ export function createCliApprovalProvider(opts: CliApprovalOptions = {}): Approv
   const input = opts.input ?? process.stdin;
   const output = opts.output ?? process.stderr;
   const format = opts.format ?? defaultFormat;
+  // Residual bytes read past one approval's newline, carried to the next.
+  let carry = "";
   return {
     async requestApproval(req: ApprovalRequest): Promise<ApprovalDecision> {
       output.write(format(req));
-      const answer = (await readSingleLine(input, output)).trim().toLowerCase();
+      const read = await readSingleLine(input, carry);
+      carry = read.carry;
+      const answer = read.line.trim().toLowerCase();
       if (answer === "y" || answer === "yes") {
         return { approved: true };
       }
