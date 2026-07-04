@@ -606,3 +606,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review. Two local gotchas noted for next time: this repo uses `noUncheckedIndexedAccess` (regex `m[1]` needs `!`), and has no lint step (CI gates are typecheck + vitest only).
 
 **Next session:** portfolio-ops #55 TS side is now truly complete across four repos; close #55 once #77/#83/#73/#88 merge.
+
+## 2026-07-04 — Issue #89: GFM table pipe-escaping in the eval PR comment
+**Duration:** ~25 min · **Branch:** `session/2026-07-04-1516-issue-89` · **PR:** #90
+
+- `escape()` in `src/eval/comment.ts` HTML-escaped `&`/`<`/`>` for the sticky eval comment's HTML context but never escaped the GFM table-cell delimiter `|`. A fixture's `fixture_id` is an unconstrained `string`, so an id like `lang=py|framework=next` split into an extra table column and corrupted the whole rendered eval-comment table's alignment on a PR. Backticks don't protect a literal `|` — GitHub splits cells on unescaped pipes before parsing inline-code spans. Extended `escape()` to also replace `|` → `\|` (both its call sites are table cells) and added a regression test that a piped `fixture_id` keeps the data row's column count equal to the header's. Reproduced live before the fix: 8 fields vs the header's 7.
+- The recommendation cells are enum-typed today, so they can't carry a pipe in well-typed code (a test asserting a piped recommendation failed strict `tsc` and was dropped); they still flow through the same helper, so they're covered defensively. `npm run typecheck` + `npm test` (329 passing) green.
+
+**Why this work, this session:** Portfolio is deeply saturated — zero `priority:high` issues anywhere, no freshness floor crossed, and the two open `priority:med` issues (llm-cost-optimizer #97, vector-search #71) are both JT-decision one-way blockers already deferred twice. A thorough manual review plus a subagent bug-hunt of priority-tier `llm-cost-optimizer` came up empty (it's airtight). Pivoted to the recurring, proven dogfood grep for table-row emitters interpolating free-form strings; it surfaced this repo as the one TS emitter the portfolio-wide pipe-escaping sweep (#130/#134/#79/#100) had missed.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** rotate to the next priority-tier repo per selection; the pipe-escaping class is now swept across all emitters found.
