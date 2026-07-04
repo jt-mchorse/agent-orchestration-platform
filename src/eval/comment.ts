@@ -53,11 +53,25 @@ function headlineFor(run: EvalRun): string {
   return ":x: composite < 0.65";
 }
 
+// Escape a value for a GFM table cell that is also rendered as HTML (the
+// sticky eval comment). The `&`/`<`/`>` entity escapes cover the HTML context;
+// the `|` -> `\|` escape covers the GFM table-cell delimiter. Backticks do NOT
+// protect a literal `|`: GitHub splits table cells on unescaped pipes *before*
+// it parses inline-code spans, so an un-escaped pipe in the free-form
+// `fixture_id` cell (`lang=py|framework=next`) injects a spurious column and
+// corrupts the whole table's alignment. (The recommendation cells are enum-
+// typed today, but they flow through here too so the guard covers them
+// defensively if that type ever loosens.) GitHub renders `\|` as a
+// literal pipe, inside a code span in a table too. This is the TS side of the
+// portfolio-wide sweep (llm-eval-harness #130/#134, embedding-model-shootout
+// #79, chunking-strategies-lab #100) that missed this repo (#89). Both call
+// sites of `escape` are table cells, so the pipe escape belongs here.
 function escape(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/\|/g, "\\|");
 }
 
 // ---------- GitHub API plumbing (stdlib-only) ----------

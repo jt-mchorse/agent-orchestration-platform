@@ -107,6 +107,35 @@ describe("renderEvalMarkdown", () => {
     expect(md).toContain("0 fixture(s)");
     expect(md).toContain("no fixtures");
   });
+
+  // Regression (#89): a literal `|` in a free-form table cell (fixture_id or a
+  // recommendation string) must be escaped to `\|`. GitHub splits GFM table
+  // cells on unescaped pipes *before* it parses inline-code spans, so an
+  // un-escaped pipe injects a spurious column and corrupts the whole table's
+  // alignment. This is the TS side of the portfolio-wide pipe-escaping sweep
+  // (llm-eval-harness #130/#134, embedding-model-shootout #79,
+  // chunking-strategies-lab #100) that had missed this repo.
+  it("escapes a literal pipe in fixture_id so the table column count is stable", () => {
+    const run = fakeRun({
+      cases: [
+        {
+          ...fakeRun().cases[0]!,
+          fixture_id: "lang=py|framework=next",
+        },
+      ],
+    });
+    const md = renderEvalMarkdown(run);
+    const lines = md.split("\n");
+    const headerRow = lines.find((l) => l.startsWith("| fixture |"))!;
+    const dataRow = lines.find((l) => l.includes("lang=py"))!;
+    // The pipe inside the id must be escaped, so it contributes no delimiter.
+    expect(dataRow).toContain("lang=py\\|framework=next");
+    expect(dataRow).not.toContain("py|framework"); // no raw pipe leaked
+    // Escaped `\|` is not a cell delimiter, so header and data rows have the
+    // same number of pipe-delimited fields (the corruption signature).
+    const fields = (row: string): number => row.split(/(?<!\\)\|/).length;
+    expect(fields(dataRow)).toBe(fields(headerRow));
+  });
 });
 
 // -------------------------------------------------------------------
