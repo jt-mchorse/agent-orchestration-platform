@@ -594,3 +594,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Why prioritized.** Fourth issue of the day run, from the final pair of dogfood hunts after the priority tier was exhausted. The Python filesystem-sandbox MCP server came up clean under a thorough sandbox-escape probe; the TS orchestration platform surfaced this. Filed priority:high because it's a deadlock plus data loss on the safety-critical approval path, same robustness-contract precedent as #81/#83. Reproduced firsthand before filing and fixing.
 
 **Open questions / blockers.** None. A larger refactor to a shared readline interface was deferred; the carry-buffer fix is the minimal correct change.
+
+## 2026-07-04 — Issue #87: architecture-doc symbol-resolution lock (missed portfolio-ops #55 TS repo)
+**Duration:** ~40 min · **Branch:** `session/2026-07-04-0339-issue-87` · **PR:** #88
+
+- This repo was a hidden gap in portfolio-ops #55's TS-side propagation: an early #55 comment listed it among the repos to do, but the final status table dropped it, so it never got the symbol lock (unlike nextjs #77, mcp #83, ai-app #73). Found it by checking each TS repo's arch-doc test for a symbol axis after finishing the three listed ones — this one had only the four original invariants.
+- Added a symbol-resolution invariant. This doc has the richest symbol vocabulary of any TS repo (~33 backtick identifiers), so the ground truth had to include **method declarations**, not just top-level ones — the doc names store/planner/executor methods (`getRun`, `writeRun`, `initialPlan`, `runStepWithRetryAndFallback`). Three hard-pinned exception sets carry the rest: `EXTERNAL_SYMBOLS` (npm `optionalDependencies`), `PLANNED_SYMBOLS` (`AnthropicPlanner` — the documented-future planner, verified via source comments, not drift), `DOC_FIELDS` (`toolName`, `fallbackTo`). All 33 classify (28 declarations/methods, 5 pinned); vitest 328 green, tsc clean.
+
+**Why this work, this session:** fifth iteration of the NIGHT loop; a genuine #55 gap discovered by auditing beyond the tracked list. High value — the largest doc surface, previously unlocked.
+
+**Open questions / blockers:** none — ready for review. Two local gotchas noted for next time: this repo uses `noUncheckedIndexedAccess` (regex `m[1]` needs `!`), and has no lint step (CI gates are typecheck + vitest only).
+
+**Next session:** portfolio-ops #55 TS side is now truly complete across four repos; close #55 once #77/#83/#73/#88 merge.
