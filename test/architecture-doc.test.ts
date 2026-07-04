@@ -39,8 +39,8 @@
 // the guard.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const DOC_PATH = resolve(REPO_ROOT, "docs/architecture.md");
@@ -247,5 +247,200 @@ describe("architecture-doc", () => {
 
   it("OPERATOR_SUPPLIED_PATHS is hard-pinned", () => {
     expect([...OPERATOR_SUPPLIED_PATHS]).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Symbol-resolution lock (portfolio-ops #55, TS side — #87).
+//
+// The four invariants above lock path tokens, shipped issues, active
+// decisions, and banned phrases — but nothing checks that the *symbols* the
+// doc names actually exist. This doc has the richest symbol vocabulary of any
+// TS repo in the portfolio: types (`AgentRun`, `AnthropicPlanner`, `PgStore`,
+// `TraceStore`, `ReplanReason`, ...) and functions/methods (`aggregateCost`,
+// `buildDefaultRegistry`, `runStepWithRetryAndFallback`, `scoreReview`,
+// `getRun`/`listRuns`/`writeRun`, ...). A rename would leave the doc stale with
+// CI green — the drift class portfolio-ops #55 catalogued portfolio-wide (e.g.
+// llm-cost-optimizer's nonexistent `BatchAPIBackend`).
+//
+// Same resolver shape as the nextjs-streaming-ai-patterns #77 /
+// ai-app-integration-tests #73 siblings (multi-word camel/Pascal candidates,
+// fenced blocks stripped), with one adaptation this doc forces: the ground
+// truth includes **method declarations**, not just top-level ones — the doc
+// names store/planner/executor methods (`getRun`, `writeRun`, `initialPlan`,
+// `runStepWithRetryAndFallback`) that aren't module-level functions. Three
+// hard-pinned exception sets carry the non-declaration identifiers.
+
+const SYMBOL_SOURCE_DIRS = ["src", "mcp-server", "scripts"] as const;
+
+// npm package.json vocabulary the doc names in backticks (the pg driver is
+// declared as an optionalDependency so hermetic CI doesn't pull it). Not repo
+// symbols. Hard-pinned below.
+const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
+  "optionalDependencies",
+  "optionalDependency",
+] as const;
+
+// Documented-future symbols the doc forward-references. `AnthropicPlanner` is
+// the not-yet-shipped production planner: src/agent/planner.ts calls it
+// "(separate file, future)", src/eval/runner.ts says "Once AnthropicPlanner
+// lands", and the doc says a `ScriptedPlanner` placeholder "swaps in here".
+// Kept semantically distinct from EXTERNAL_SYMBOLS so the pin self-documents
+// that this names an intended-but-unshipped surface; drop it once the class
+// lands (at which point it also resolves as a real declaration).
+const PLANNED_SYMBOLS: ReadonlyArray<string> = ["AnthropicPlanner"] as const;
+
+// Object-field / option-key names the doc references that are neither
+// top-level nor method declarations. `toolName` is an object field
+// (src/tools/registry.ts); `fallbackTo` is the fallback option-key surfaced in
+// the executor's error message. Kept as explicit, verified pins rather than
+// broadening the ground truth to all `NAME:` property keys (which would weaken
+// the lock into "identifier appears anywhere in source").
+const DOC_FIELDS: ReadonlyArray<string> = ["fallbackTo", "toolName"] as const;
+
+// Reserved words that can appear as `NAME(` at the start of an indented line
+// but are control flow, not method declarations.
+const NON_METHOD_KEYWORDS = new Set([
+  "if",
+  "for",
+  "while",
+  "switch",
+  "catch",
+  "return",
+  "function",
+  "constructor",
+  "await",
+  "typeof",
+  "do",
+  "else",
+]);
+
+/** Strip fenced code blocks (``` ... ```), including mermaid diagrams and the
+ *  directory tree, so backtick pairing for inline-code extraction can't desync
+ *  on the triple fences. */
+function stripFences(md: string): string {
+  return md.replace(/```[\s\S]*?```/g, "");
+}
+
+/** True for a multi-word camelCase or PascalCase identifier. */
+function isMultiWordIdentifier(tok: string): boolean {
+  return /[a-z][A-Z]/.test(tok) || /[A-Z][a-z].*[A-Z]/.test(tok);
+}
+
+/** Multi-word camel/Pascal identifier candidates from the doc. */
+function candidateSymbols(md: string): string[] {
+  const prose = stripFences(md);
+  const out = new Set<string>();
+  for (const m of prose.matchAll(/`([^`\n]+)`/g)) {
+    for (const piece of m[1]!.split(/[^A-Za-z0-9_$]+/)) {
+      for (const tok of piece.split(".")) {
+        if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(tok) && isMultiWordIdentifier(tok)) {
+          out.add(tok);
+        }
+      }
+    }
+  }
+  return [...out].sort();
+}
+
+/** Recursively collect `*.ts` files (excluding tests) under a source dir. */
+function sourceFiles(dir: string): string[] {
+  const abs = resolve(REPO_ROOT, dir);
+  if (!existsSync(abs)) return [];
+  const files: string[] = [];
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+    const rel = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...sourceFiles(rel));
+    else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
+      files.push(resolve(REPO_ROOT, rel));
+    }
+  }
+  return files;
+}
+
+/** Ground truth: every top-level declaration AND class/interface method
+ *  declaration across the source dirs. Methods are load-bearing here — the doc
+ *  names store/planner methods that aren't module-level functions. Method
+ *  extraction matches an indented `NAME(params)` followed by a return-type
+ *  annotation or a `{` body (so plain calls, which lack the trailing `{`/`:`,
+ *  are not counted), minus control-flow keywords. */
+function repoDeclaredSymbols(): Set<string> {
+  const declRe =
+    /(?:^|\n)[ \t]*(?:export[ \t]+)?(?:default[ \t]+)?(?:async[ \t]+)?(?:function\*?|const|let|var|class|type|interface|enum)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)/g;
+  const methodRe =
+    /(?:^|\n)[ \t]+(?:(?:public|private|protected|static|readonly|async|get|set|override|abstract)[ \t]+)*([A-Za-z_$][A-Za-z0-9_$]*)[ \t]*\([^)]*\)[ \t]*(?::[^\n{]*)?\{/g;
+  const names = new Set<string>();
+  for (const dir of SYMBOL_SOURCE_DIRS) {
+    for (const file of sourceFiles(dir)) {
+      const text = readFileSync(file, "utf8");
+      for (const m of text.matchAll(declRe)) names.add(m[1]!);
+      for (const m of text.matchAll(methodRe)) {
+        if (!NON_METHOD_KEYWORDS.has(m[1]!)) names.add(m[1]!);
+      }
+    }
+  }
+  return names;
+}
+
+/** Shared resolution path used by both the live and inverse tests. */
+function unresolvedSymbols(md: string, repoSymbols: Set<string>): string[] {
+  const allowed = new Set<string>([...EXTERNAL_SYMBOLS, ...PLANNED_SYMBOLS, ...DOC_FIELDS]);
+  return candidateSymbols(md).filter(
+    (sym) => !repoSymbols.has(sym) && !allowed.has(sym),
+  );
+}
+
+describe("docs/architecture.md names only symbols that exist (#87 / portfolio-ops #55)", () => {
+  const md = readFileSync(DOC_PATH, "utf8");
+  const repoSymbols = repoDeclaredSymbols();
+
+  it("extracts a non-empty candidate set (guards regex/extraction breakage)", () => {
+    expect(candidateSymbols(md).length).toBeGreaterThan(0);
+  });
+
+  it("discovers the repo's real declarations and methods as ground truth", () => {
+    // Sanity floor: a top-level type, a top-level fn, and a store method — all
+    // named in the doc. If the scan regresses, the resolution test would
+    // false-flag everything; catch it here with a legible message.
+    for (const known of ["TraceStore", "buildDefaultRegistry", "writeRun"]) {
+      expect(repoSymbols.has(known), `expected repo symbol '${known}' in the source scan`).toBe(true);
+    }
+  });
+
+  it("every multi-word symbol the doc names resolves to a declaration or a pinned exception", () => {
+    const unresolved = unresolvedSymbols(md, repoSymbols);
+    expect(
+      unresolved,
+      `docs/architecture.md names these multi-word identifiers that resolve to no ` +
+        `top-level or method declaration in ${JSON.stringify([...SYMBOL_SOURCE_DIRS])}, ` +
+        `and are not in EXTERNAL_SYMBOLS / PLANNED_SYMBOLS / DOC_FIELDS: ` +
+        `${JSON.stringify(unresolved)}. Fix the doc, or add the symbol to the matching pinned set.`,
+    ).toEqual([]);
+  });
+
+  it("flags an injected drifted symbol while a real one in the same text resolves (inverse safety net)", () => {
+    // `writeRunXYZ` is not a declaration/method/pin; `writeRun` is a real store
+    // method. Same code path as the live test, so the green can't be vacuous.
+    const injected = "the real `writeRun` sits beside a drifted `writeRunXYZ`";
+    const unresolved = unresolvedSymbols(injected, repoSymbols);
+    expect(unresolved).toContain("writeRunXYZ");
+    expect(unresolved).not.toContain("writeRun");
+  });
+
+  it("EXTERNAL_SYMBOLS is the exact pinned set", () => {
+    expect([...EXTERNAL_SYMBOLS]).toEqual(["optionalDependencies", "optionalDependency"]);
+  });
+
+  it("PLANNED_SYMBOLS is the exact pinned set", () => {
+    expect([...PLANNED_SYMBOLS]).toEqual(["AnthropicPlanner"]);
+  });
+
+  it("DOC_FIELDS is the exact pinned set", () => {
+    expect([...DOC_FIELDS]).toEqual(["fallbackTo", "toolName"]);
+  });
+
+  it("SYMBOL_SOURCE_DIRS is the exact pinned set", () => {
+    expect([...SYMBOL_SOURCE_DIRS]).toEqual(["src", "mcp-server", "scripts"]);
   });
 });
