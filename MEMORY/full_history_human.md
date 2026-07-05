@@ -618,3 +618,11 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** rotate to the next priority-tier repo per selection; the pipe-escaping class is now swept across all emitters found.
+
+## 2026-07-05 — Issue #91: read_file_at_ref searches all fixtures for an added entry (~15 min)
+
+**What got done.** `tryReconstructFromAnyFixture` in `src/tools/read-file-at-ref.ts` loops over every replay fixture to reconstruct a file's added-side content, but it aborted the whole search with `return null` the moment it found the file in a non-`added` state. Because a PR file's status is relative to its base and the loop matches fixtures on `pr.head === ref` only, the same file at the same head ref can be `modified` vs one base and `added` vs another; if the modified fixture was visited first, the tool threw `not_found` even though a later fixture held a reconstructable `added` patch. Fixed by `continue`ing past a non-`added` match instead of returning null, so the search only fails after exhausting every fixture. Added two tests: a modified-first/added-second pair now reconstructs the content (fails pre-fix), and a file that is only ever modified still raises not_found (no false success). Full suite green (331 passed), typecheck clean. PR #92.
+
+**Why prioritized.** Third issue of the night run, from a parallel dogfood bug-hunt across the not-yet-saturated repos. Confirmed firsthand with a scratch vitest test that failed pre-fix before writing the real fix. The change is strictly safe — it only newly recovers the added-in-a-later-fixture case and leaves every single-fixture outcome unchanged — consistent with this file's earlier robustness fixes (#61, the JSON.parse guard).
+
+**Open questions / blockers.** None — ready for review.

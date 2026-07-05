@@ -57,6 +57,63 @@ describe("read_file_at_ref (replay)", () => {
   });
 });
 
+describe("read_file_at_ref searches all fixtures for an added entry (#91)", () => {
+  it("reconstructs the added version even when a modified-status fixture is seen first", async () => {
+    // A PR file's status is relative to its base; this tool matches fixtures on
+    // pr.head === ref only, so the same file at the same head can be `modified`
+    // vs one base and `added` vs another. The alphabetically-first fixture here
+    // has it `modified`; the second has it `added` with a full add patch. Pre-fix
+    // the loop hit `return null` on the modified match and threw not_found; the
+    // fix `continue`s and finds the reconstructable added entry.
+    const dir = await mkdtemp(path.join(tmpdir(), "arf-91-"));
+    const modifiedFirst = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "main" },
+      files: [{ filename: "src/x.ts", status: "modified", patch: "@@ -1,1 +1,1 @@\n-old\n+new" }],
+    };
+    const addedSecond = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "develop" },
+      files: [{ filename: "src/x.ts", status: "added", patch: "@@ -0,0 +1,2 @@\n+hello\n+world" }],
+    };
+    await writeFile(path.join(dir, "a-modified.json"), JSON.stringify(modifiedFirst));
+    await writeFile(path.join(dir, "b-added.json"), JSON.stringify(addedSecond));
+    try {
+      const result = await readFileAtRefTool.run(
+        { owner: "o", repo: "r", ref: "ref1", path: "src/x.ts" },
+        { mode: "replay", fixturesDir: dir },
+      );
+      expect(result.source).toBe("patch_added");
+      expect(result.content).toBe("hello\nworld");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still raises not_found when the file is only ever modified (never added)", async () => {
+    // The fix must not turn an unreconstructable file into a false success: a
+    // file that is `modified` in every matching fixture has no full-content patch
+    // anywhere, so the tool must still report not_found after exhausting them.
+    const dir = await mkdtemp(path.join(tmpdir(), "arf-91b-"));
+    const onlyModified = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "main" },
+      files: [{ filename: "src/x.ts", status: "modified", patch: "@@ -1,1 +1,1 @@\n-old\n+new" }],
+    };
+    await writeFile(path.join(dir, "only-modified.json"), JSON.stringify(onlyModified));
+    try {
+      await expect(
+        readFileAtRefTool.run(
+          { owner: "o", repo: "r", ref: "ref1", path: "src/x.ts" },
+          { mode: "replay", fixturesDir: dir },
+        ),
+      ).rejects.toBeInstanceOf(ToolError);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("reconstructAddedFileFromPatch (#61)", () => {
   it("keeps an added content line whose text starts with ++", () => {
     // GitHub prefixes each added source line with a single `+`, so the source

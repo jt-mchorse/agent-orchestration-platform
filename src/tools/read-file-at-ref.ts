@@ -100,7 +100,14 @@ async function tryReconstructFromAnyFixture(
     if (parsed.data.pr.head !== ref) continue;
     const file = parsed.data.files.find((f) => f.filename === filePath);
     if (!file) continue;
-    if (file.status !== "added") return null;
+    // Only an `added` file's patch carries full content to reconstruct. A file's
+    // status is relative to its PR *base*, and this loop matches fixtures on
+    // `pr.head === ref` only — so the same file at the same head can be `modified`
+    // vs one base and `added` vs another. `continue` (not `return null`) keeps
+    // searching the remaining fixtures for a reconstructable `added` entry, as the
+    // function name promises; returning null here abandoned the search on the
+    // first non-`added` match and reported not_found for a recoverable file (#91).
+    if (file.status !== "added") continue;
     return reconstructAddedFileFromPatch(file.patch);
   }
   return null;
