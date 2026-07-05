@@ -1035,3 +1035,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-05T03:27Z
+issue: 91
+focus: read_file_at_ref_search_all_fixtures_continue_instead_of_return_null_on_non_added_match
+phase: night_session_phase_b_iteration_3
+duration_min: 15
+delta:
+  files_changed: 2  # src/tools/read-file-at-ref.ts + test/tools/read-file-at-ref.test.ts
+  tests_added: 2    # added-after-modified reconstructs + only-modified still not_found
+context_for_next_session:
+  - found_via_dogfood_bug_hunt_agent_confirmed_with_scratch_vitest_test_that_failed_pre_fix_with_not_found
+  - root_cause_tryReconstructFromAnyFixture_looped_all_fixtures_but_line_103_return_null_on_first_non_added_match_aborted_the_whole_search
+  - realism_pr_file_status_is_relative_to_base_loop_matches_pr_head_eq_ref_only_not_base_so_same_file_same_head_can_be_modified_vs_one_base_added_vs_another_two_prs_same_branch_different_targets
+  - fix_return_null_to_continue_strictly_safe_single_fixture_cases_unchanged_only_newly_recovers_added_in_later_fixture_case
+  - two_tests_added_after_modified_reconstructs_hello_world_plus_only_modified_still_not_found_no_false_success
+  - full_suite_331_passed_5_skipped_typecheck_clean_pr_92_ready_closes_91
+  - other_second_wave_findings_rejected_nextjs_checkpoint_stream_leading_space_on_resume_is_correct_by_design_seamless_join_ai_app_integration_tests_clean_mcp_filesystem_sandbox_py_non_atomic_write_under_evaluation_next
+  - night_run_tally_3_shipped_vsas_76_ems_83_aop_91_all_from_parallel_dogfood_hunts_2_merged_1_pending_ci
+decisions_made: []
+followups: []
+---
