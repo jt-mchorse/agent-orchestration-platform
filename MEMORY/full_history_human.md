@@ -626,3 +626,13 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Why prioritized.** Third issue of the night run, from a parallel dogfood bug-hunt across the not-yet-saturated repos. Confirmed firsthand with a scratch vitest test that failed pre-fix before writing the real fix. The change is strictly safe — it only newly recovers the added-in-a-later-fixture case and leaves every single-fixture outcome unchanged — consistent with this file's earlier robustness fixes (#61, the JSON.parse guard).
 
 **Open questions / blockers.** None — ready for review.
+
+## 2026-07-06 — Issue #93: README HITL example crashed on stale enum value (~30 min)
+
+**What got done.** The README's "Interactive approval" example — the one demonstrating the human-in-the-loop gate on the single destructive tool — passed `recommendation: "approve with comments"` (space-separated), but #63 had switched the `post_review_comment` input enum to the underscored `"approve_with_comments"`. The code and its tests were fixed then; the README example was not, so the documented snippet threw `input_validation` on copy-paste before ever reaching the approval gate. Reproduced firsthand (`buildDefaultRegistry()` + `invoke`): the space form errors, the underscore form runs. Corrected `README.md:154` and added `test/readme-recommendation-enum.test.ts`, which asserts every README `recommendation:` literal is a member of the tool's live enum (`postReviewCommentTool.inputSchema`) — it fails on the pre-fix README, closing the gap where nothing executes the README's TS blocks. `npm test` 333 passed, `tsc` clean.
+
+**Why prioritized.** Third real bug of the NIGHT loop, surfaced by the wave-5 "run the documented example end-to-end" lens (the same lens behind mcp #86 and chunking #112). Static code hunts had all gone empty; running the shipped examples is what keeps yielding in the saturated state.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** two more findings from the same wave landed in mcp-server-cookbook (filesystem-sandbox-py drops `isError`; internal-tools-bridge README fresh-clone numbers stale) — being worked serially this run.

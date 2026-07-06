@@ -151,7 +151,7 @@ await registry.invoke(
       { severity: "concern", file: "src/retrieve.py", line_start: 14, line_end: 22,
         message: "RRF k constant deserves a comment." },
     ],
-    recommendation: "approve with comments",
+    recommendation: "approve_with_comments",
   },
   { mode: "replay", fixturesDir: "fixtures/sample-prs", approvals },
 );
