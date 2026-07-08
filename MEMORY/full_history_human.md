@@ -649,3 +649,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the "retry/fallback kind-gating parity" lens (the two recovery layers must agree on which error kinds are recoverable) is swept on aop — the only repo with this two-layer construct. Don't re-sweep elsewhere.
+
+## 2026-07-08 — Issue #97: MemoryStore nested-object aliasing lets callers mutate stored trace history
+**Duration:** ~30 min · **Branch:** `session/2026-07-08-0348-issue-97`
+
+- `MemoryStore.writeRun`/`getRun` did `events: [...events]` — a shallow copy of only the array. Every event object (and its nested `step`/`plan`/`observation`/`ToolError` payload) stayed shared by reference, so a caller holding a returned event, or the executor still holding the objects it passed to `writeRun`, could mutate the stored trace history. The class docstring claimed the opposite ("callers can't mutate the stored state by holding a reference"). It was also a MemoryStore↔PgStore parity break: PgStore serializes each payload to JSONB (`JSON.stringify`) so it's fully isolated; MemoryStore (what the store tests and demo server run against) was not.
+- Fixed by deep-copying events via `JSON.parse(JSON.stringify(...))` on both boundaries — chosen over `structuredClone` specifically to match PgStore's JSONB round-trip semantics exactly (it honors `toJSON`, e.g. `ToolError.toJSON`), closing the parity break rather than introducing a new divergence. Events are JSON-serializable by construction.
+- Reproduced firsthand: 2 of 3 new store tests fail on pre-fix code (read-side "TAMPERED", write-side "TAMPERED_VIA_INPUT"); the third is a cost-bearing-event round-trip losslessness guard. Full suite 333 → 336 (pg-store skipped — needs Postgres), `tsc` clean.
+
+**Why this work, this session:** the NIGHT run's final wave (3 hunts on genuinely un-hunted surfaces) surfaced this — the other two (mcp github-gists auth/SSRF, mcp internal-tools-bridge injection) came back honestly empty. Second aop issue of the run, but a distinct surface (trace store vs the executor #95 fallback gate) — this is the two-backend-parity aliasing lens (serializing backend isolates for free, by-reference one breaks parity), same class as lco #131 cache-poisoning.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the two-backend-parity aliasing lens is now swept on aop's trace store. Not reachable in the shipped UI read path today (it JSON-stringifies immediately), but the write-side + idempotent-replay path is, and the contract was documented-and-false — worth the fix.

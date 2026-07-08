@@ -297,4 +297,50 @@ describe("MemoryStore", () => {
     // Confirm `events` is intentionally elided from the list payload.
     expect((list[0] as { events?: unknown }).events).toBeUndefined();
   });
+
+  it("read-side: mutating a returned event does not corrupt stored history (#97)", async () => {
+    // A shallow `[...events]` copies only the array; nested event objects stay
+    // shared, so a caller mutating a returned event corrupts the store.
+    const store = new MemoryStore();
+    await store.writeRun({ run_id: "r-alias", pr: PR, events: makeRunEvents(), review: review() });
+
+    const first = await store.getRun("r-alias");
+    const stepEvent = first?.events.find((e) => e.kind === "step_started");
+    (stepEvent as { step: { rationale: string } }).step.rationale = "TAMPERED";
+
+    const second = await store.getRun("r-alias");
+    const reread = second?.events.find((e) => e.kind === "step_started");
+    expect((reread as { step: { rationale: string } }).step.rationale).toBe("r");
+  });
+
+  it("write-side: mutating the caller's input after writeRun does not corrupt stored history (#97)", async () => {
+    const store = new MemoryStore();
+    const events = makeRunEvents();
+    const inputStep = events.find((e) => e.kind === "step_started") as {
+      step: { rationale: string };
+    };
+    await store.writeRun({ run_id: "r-alias2", pr: PR, events, review: review() });
+
+    // Mutate the object the caller still holds a reference to.
+    inputStep.step.rationale = "TAMPERED_VIA_INPUT";
+
+    const detail = await store.getRun("r-alias2");
+    const stored = detail?.events.find((e) => e.kind === "step_started");
+    expect((stored as { step: { rationale: string } }).step.rationale).toBe("r");
+  });
+
+  it("round-trips an observation event carrying a cost payload after deep copy (#97)", async () => {
+    // Guard that the JSON deep-copy is lossless for a nested cost-bearing event
+    // (parity with PgStore's JSONB round-trip).
+    const store = new MemoryStore();
+    await store.writeRun({ run_id: "r-cost", pr: PR, events: makeRunEvents(), review: review() });
+    const detail = await store.getRun("r-cost");
+    expect(detail?.total_cost).toEqual({
+      input_tokens: 50,
+      output_tokens: 10,
+      dollars: 0.0002,
+    });
+    const obsEvent = detail?.events.find((e) => e.kind === "observation");
+    expect(obsEvent).toBeDefined();
+  });
 });
