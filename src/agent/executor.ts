@@ -1,7 +1,7 @@
 import type { ToolRegistry } from "../tools/registry.js";
-import { ToolError, type ToolContext } from "../tools/types.js";
+import { ToolError, type ToolContext, type ToolErrorKind } from "../tools/types.js";
 import type { Planner } from "./planner.js";
-import { type SleepFn, withRetry } from "./retry.js";
+import { DEFAULT_RETRYABLE_KINDS, type SleepFn, withRetry } from "./retry.js";
 import type { Trace } from "./trace.js";
 import type { Observation, PlannerState, PlannedStep, ReplanReason, Review } from "./types.js";
 
@@ -164,6 +164,24 @@ export class AgentRun {
       // the denial so the planner decides via the existing replan path, where
       // `approval_denied` is already modeled as a distinct ReplanReason.
       if (err.kind === "approval_denied" || err.kind === "approval_missing") {
+        return { step, outcome: { kind: "error", error: err } };
+      }
+      // The fallback fires only "on exhaustion" of the primary's retries (the
+      // layer diagram in docs/architecture.md). A non-retryable error kind never
+      // retries — `withRetry` short-circuits it immediately (retry.ts) — so
+      // nothing is ever exhausted and there is nothing for the fallback to
+      // recover. Routing it to the fallback anyway is wrong on two counts:
+      // (a) validation kinds are deterministic per input, so a second tool run
+      // with the same input is futile; (b) worse, an `output_validation` failure
+      // means the primary's run() ALREADY committed its side effect, so the
+      // fallback DOUBLE-executes. Surface it to the replan path instead, mirroring
+      // the approval-kind gate above (#95). The retryable set is the primary
+      // tool's own policy (default: `internal` only).
+      const primaryRetryable = new Set<ToolErrorKind>(
+        this.registry.get(primaryName).annotations?.retry?.retryableErrorKinds ??
+          DEFAULT_RETRYABLE_KINDS,
+      );
+      if (!primaryRetryable.has(err.kind)) {
         return { step, outcome: { kind: "error", error: err } };
       }
       let fallbackName: string | undefined;
