@@ -141,11 +141,26 @@ function summarize(input: WriteRunInput): Omit<RunSummary, "total_cost"> {
 }
 
 /**
+ * Deep-copy a list of trace events. A plain `[...events]` copies only the
+ * array — every event *object* (and its nested `step`/`plan`/`observation`/
+ * `ToolError` payload) stays shared by reference, so a caller holding a
+ * returned event (or the objects it passed to `writeRun`) could mutate the
+ * stored history. Round-tripping through JSON isolates every level AND matches
+ * `PgStore`'s JSONB serialization semantics exactly (it honors each object's
+ * `toJSON`, e.g. `ToolError.toJSON`), so the two backends stay in parity.
+ * Events are JSON-serializable by construction — PgStore stores them as JSONB.
+ */
+function cloneEvents(events: readonly TraceEvent[]): TraceEvent[] {
+  return JSON.parse(JSON.stringify(events)) as TraceEvent[];
+}
+
+/**
  * In-memory `TraceStore` for tests and the demo server. Same contract
  * as `PgStore`; tests assert against this without spinning up Postgres.
  *
- * Defensive shallow-copies on write+read so callers can't mutate the
- * stored state by holding a reference.
+ * Defensive DEEP copies on write+read so callers can't mutate the stored
+ * state by holding a reference — neither by mutating the objects they passed
+ * to `writeRun` nor by mutating an event returned from `getRun`.
  */
 export class MemoryStore implements TraceStore {
   private readonly runs = new Map<string, RunDetail>();
@@ -156,7 +171,7 @@ export class MemoryStore implements TraceStore {
     const detail: RunDetail = {
       ...summary,
       total_cost,
-      events: [...input.events],
+      events: cloneEvents(input.events),
     };
     this.runs.set(input.run_id, detail);
   }
@@ -184,6 +199,6 @@ export class MemoryStore implements TraceStore {
   async getRun(runId: string): Promise<RunDetail | null> {
     const detail = this.runs.get(runId);
     if (!detail) return null;
-    return { ...detail, events: [...detail.events] };
+    return { ...detail, events: cloneEvents(detail.events) };
   }
 }
