@@ -793,6 +793,154 @@ describe("AgentRun — retry and fallback", () => {
       expect(obs[0].observation.outcome.error.kind).toBe("approval_missing");
     }
   });
+
+  it("does NOT route a non-retryable output_validation error to the fallback (would double-execute side effects, #95)", async () => {
+    // The fallback fires "on exhaustion" of the primary's retries (docs
+    // architecture.md). Validation kinds are non-retryable (retry.ts), so the
+    // primary short-circuits with ZERO retries — nothing is ever exhausted.
+    // Routing to the fallback anyway is wrong on two counts: (a) the primary's
+    // run() already committed its side effect before output validation failed,
+    // so the fallback DOUBLE-executes; (b) the primary's real error is swallowed
+    // (the observation reports the fallback's success as "ok").
+    const sideEffects: string[] = [];
+    const primary: Tool<typeof postIn, typeof postOut> = {
+      name: "primaryPost",
+      description: "commits a side effect, then returns a shape that fails its outputSchema",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      annotations: { fallbackTo: "altPost" },
+      async run(input) {
+        sideEffects.push(`primary posted: ${input.body}`);
+        // Wrong shape — registry output validation throws output_validation
+        // AFTER run() already ran (the side effect is committed).
+        return { wrong: "shape" } as unknown as { posted: boolean };
+      },
+    };
+    const altPost: Tool<typeof postIn, typeof postOut> = {
+      name: "altPost",
+      description: "the alternate — MUST NOT run on a non-retryable validation error",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      async run(input) {
+        sideEffects.push(`alt posted: ${input.body}`);
+        return { posted: true };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(primary);
+    registry.register(altPost);
+
+    const initial: Plan = {
+      goal: "post the comment",
+      steps: [{ rationale: "send it", tool: "primaryPost", input: { body: "the-comment" } }],
+    };
+    const revised: Plan = { goal: "give up", steps: [] };
+    const planner = new ScriptedPlanner(initial, [() => revised]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    // The fallback must NOT have run — only the primary's single side effect.
+    expect(sideEffects).toEqual(["primary posted: the-comment"]);
+    expect(trace.ofKind("fallback_used")).toHaveLength(0);
+    // The primary's output_validation error must surface, not be masked as ok.
+    const obs = trace.ofKind("observation");
+    expect(obs[0]?.observation.outcome.kind).toBe("error");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.kind).toBe("output_validation");
+    }
+  });
+
+  it("does NOT route a non-retryable input_validation error to the fallback (#95)", async () => {
+    let altRan = false;
+    const strictIn = z.object({ n: z.number().int().positive() });
+    const primary: Tool<typeof strictIn, typeof pingOut> = {
+      name: "strictPrimary",
+      description: "rejects its input; registry throws input_validation before run()",
+      inputSchema: strictIn,
+      outputSchema: pingOut,
+      annotations: { fallbackTo: "strictAlt" },
+      async run() {
+        return { pong: "unreachable" };
+      },
+    };
+    const alt: Tool<typeof strictIn, typeof pingOut> = {
+      name: "strictAlt",
+      description: "same strict input — a second attempt with the same bad input is futile",
+      inputSchema: strictIn,
+      outputSchema: pingOut,
+      async run() {
+        altRan = true;
+        return { pong: "alt" };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(primary);
+    registry.register(alt);
+
+    const initial: Plan = {
+      goal: "call with bad input",
+      steps: [{ rationale: "bad input", tool: "strictPrimary", input: { n: -1 } }],
+    };
+    const revised: Plan = { goal: "give up", steps: [] };
+    const planner = new ScriptedPlanner(initial, [() => revised]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(altRan).toBe(false);
+    expect(trace.ofKind("fallback_used")).toHaveLength(0);
+    const obs = trace.ofKind("observation");
+    expect(obs[0]?.observation.outcome.kind).toBe("error");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.kind).toBe("input_validation");
+    }
+  });
+
+  it("STILL falls back on a retryable internal error (fix must not disable the fallback, #95)", async () => {
+    // Guard against over-correction: the fallback exists precisely for
+    // transient/internal failures, and that path must keep working.
+    let altRan = false;
+    const primary: Tool<typeof pingIn, typeof pingOut> = {
+      name: "internalPrimary",
+      description: "fails with a retryable internal error",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      annotations: { retry: { maxAttempts: 2, backoffMs: 1 }, fallbackTo: "internalAlt" },
+      async run() {
+        throw new ToolError("internalPrimary", "internal", "transient");
+      },
+    };
+    const alt: Tool<typeof pingIn, typeof pingOut> = {
+      name: "internalAlt",
+      description: "recovers the transient failure",
+      inputSchema: pingIn,
+      outputSchema: pingOut,
+      async run(input) {
+        altRan = true;
+        return { pong: `alt-${input.msg}` };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(primary);
+    registry.register(alt);
+
+    const plan: Plan = {
+      goal: "transient primary, fallback covers",
+      steps: [{ rationale: "primary is flaky", tool: "internalPrimary", input: { msg: "x" } }],
+    };
+    const planner = new ScriptedPlanner(plan);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs" };
+
+    await new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR);
+
+    expect(altRan).toBe(true);
+    expect(trace.ofKind("fallback_used")).toHaveLength(1);
+    expect(trace.ofKind("observation")[0]?.observation.outcome.kind).toBe("ok");
+  });
 });
 
 // ---------------------------------------------------------------------
