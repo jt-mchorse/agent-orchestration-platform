@@ -636,3 +636,16 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** two more findings from the same wave landed in mcp-server-cookbook (filesystem-sandbox-py drops `isError`; internal-tools-bridge README fresh-clone numbers stale) — being worked serially this run.
+
+## 2026-07-08 — Issue #95: executor fallback fires on non-retryable validation errors
+**Duration:** ~35 min · **Branch:** `session/2026-07-08-0328-issue-95`
+
+- `runStepWithRetryAndFallback` routed **every** non-approval `ToolError` to the declared `fallbackTo` tool — including `input_validation`/`output_validation`, which the retry layer treats as non-retryable (`DEFAULT_RETRYABLE_KINDS = ["internal"]`) and short-circuits with zero retries. But `docs/architecture.md` says the fallback fires "on exhaustion" of the primary's retries — a non-retryable kind never exhausts, yet the fallback ran anyway. Two failures: for `output_validation` the primary's `run()` had **already committed its side effect** before output validation failed, so firing the fallback **double-executed** the action; and the primary's real error was **swallowed** (the observation reported the fallback's success as `outcome: ok`, the cause surviving only in the `fallback_used` trace).
+- Fixed by gating the fallback on the primary error kind being retryable (its policy's `retryableErrorKinds ?? DEFAULT_RETRYABLE_KINDS`), mirroring the #69 approval-kind gate; non-retryable kinds now surface to the replan path. Preserves the existing fallback-on-`internal` behavior.
+- Reproduced firsthand with 3 new executor tests (2 fail pre-fix): `output_validation` no longer double-executes and surfaces as the step outcome; `input_validation` doesn't fire the fallback; a retryable `internal` error STILL falls back. Full suite 333 → 336 (pg-store skipped — needs Postgres), `tsc --noEmit` clean.
+
+**Why this work, this session:** static queue exhausted; this NIGHT run's six parallel fresh-lens dogfood hunts surfaced it (retry/fallback/HITL-correctness lens), one of two real hits. The #69 fix had gated only the two approval kinds from the fallback; the retry layer separately excludes validation kinds, and the fallback layer had no such gate — no test had ever exercised fallback with a validation error.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the "retry/fallback kind-gating parity" lens (the two recovery layers must agree on which error kinds are recoverable) is swept on aop — the only repo with this two-layer construct. Don't re-sweep elsewhere.
