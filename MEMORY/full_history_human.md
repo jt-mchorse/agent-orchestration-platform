@@ -662,3 +662,15 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the two-backend-parity aliasing lens is now swept on aop's trace store. Not reachable in the shipped UI read path today (it JSON-stringifies immediately), but the write-side + idempotent-replay path is, and the contract was documented-and-false — worth the fix.
+
+## 2026-07-09 — Issue #99: MemoryStore pr/total_cost reference aliasing
+**Duration:** ~30 min · **Branch:** `session/2026-07-09-1521-issue-99` · **PR:** #100
+
+- `MemoryStore` deep-copied the `events` array (the #97 fix) but still stored the caller's `input.pr` by reference and returned run summaries via a shallow spread, so callers could corrupt committed trace state by mutating the nested `pr` or `total_cost` objects — contradicting the class docstring and breaking parity with `PgStore` (which rebuilds both from row columns on every read).
+- Added `cloneSummaryRefs` and applied it at the `writeRun` ingress and `getRun`/`listRuns` egress seams. Three regression tests (read-side pr/total_cost, write-side input.pr, listRuns) fail on pre-fix code and pass after; full suite 342 pass / 5 skip, `tsc` clean.
+
+**Why this work, this session:** the static + parallel-hunt queue was globally saturated (all 8 dogfood hunts this run returned EMPTY); this real bug surfaced from my own firsthand read of the trace store — the aop hunt agent had a false negative, having assumed #97's `cloneEvents` closed the whole parity seam.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the two-backend-parity aliasing lens is now fully swept on aop's trace store (#97 events + #99 pr/total_cost). No mutable nested objects remain in `RunSummary`/`RunDetail`; don't re-sweep this seam.

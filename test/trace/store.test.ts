@@ -343,4 +343,51 @@ describe("MemoryStore", () => {
     const obsEvent = detail?.events.find((e) => e.kind === "observation");
     expect(obsEvent).toBeDefined();
   });
+
+  it("read-side: mutating a returned run's pr/total_cost does not corrupt stored state (#99)", async () => {
+    // #97 deep-copied `events` but `getRun` returned the summary via a shallow
+    // spread, so the nested `pr` and `total_cost` objects stayed shared — a
+    // caller mutating a returned detail corrupted the store and every later read.
+    const store = new MemoryStore();
+    await store.writeRun({ run_id: "r-alias-pr", pr: PR, events: makeRunEvents(), review: review() });
+
+    const first = await store.getRun("r-alias-pr");
+    first!.pr.owner = "HACKED";
+    first!.pr.number = 9999;
+    first!.total_cost.dollars = 123456;
+
+    const second = await store.getRun("r-alias-pr");
+    expect(second!.pr.owner).toBe("jt-mchorse");
+    expect(second!.pr.number).toBe(1);
+    expect(second!.total_cost.dollars).toBeCloseTo(0.0002, 6);
+  });
+
+  it("write-side: mutating the caller's input.pr after writeRun does not corrupt stored state (#99)", async () => {
+    // `summarize` stored `input.pr` by reference (ingress aliasing) — parity
+    // break vs PgStore, which serializes pr to columns.
+    const store = new MemoryStore();
+    const localPr: PlannerState["pr"] = { owner: "jt-mchorse", repo: "test", number: 1 };
+    await store.writeRun({ run_id: "r-alias-pr2", pr: localPr, events: makeRunEvents(), review: review() });
+
+    // Mutate the object the caller still holds a reference to.
+    localPr.owner = "TAMPERED_VIA_INPUT";
+    localPr.number = 9999;
+
+    const detail = await store.getRun("r-alias-pr2");
+    expect(detail!.pr.owner).toBe("jt-mchorse");
+    expect(detail!.pr.number).toBe(1);
+  });
+
+  it("read-side: mutating a listRuns summary's pr/total_cost does not corrupt stored state (#99)", async () => {
+    const store = new MemoryStore();
+    await store.writeRun({ run_id: "r-alias-list", pr: PR, events: makeRunEvents(), review: review() });
+
+    const listed = await store.listRuns();
+    listed[0]!.pr.owner = "HACKED";
+    listed[0]!.total_cost.input_tokens = 999999;
+
+    const reread = await store.listRuns();
+    expect(reread[0]!.pr.owner).toBe("jt-mchorse");
+    expect(reread[0]!.total_cost.input_tokens).toBe(50);
+  });
 });

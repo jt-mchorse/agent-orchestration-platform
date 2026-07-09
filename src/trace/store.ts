@@ -155,6 +155,25 @@ function cloneEvents(events: readonly TraceEvent[]): TraceEvent[] {
 }
 
 /**
+ * Return a summary with fresh copies of its two mutable nested objects,
+ * `pr` and `total_cost`. Every other field is an immutable primitive.
+ *
+ * `cloneEvents` (above) closes the aliasing hazard on the event log (#97),
+ * but the summary's `pr` and `total_cost` objects were still shared by
+ * reference: `writeRun` stored the caller's `input.pr` directly (ingress),
+ * and `getRun`/`listRuns` returned the stored objects via a shallow spread
+ * (egress), so a caller could mutate committed trace state by holding a
+ * reference — exactly what the `MemoryStore` docstring promises it can't.
+ * `PgStore` rebuilds both objects from row columns on every read, so
+ * copying them here keeps the two backends in parity. A per-field spread is
+ * enough because `pr` (`owner`/`repo`/`number`) and `total_cost`
+ * (`input_tokens`/`output_tokens`/`dollars`) are flat objects of primitives.
+ */
+function cloneSummaryRefs<T extends RunSummary>(summary: T): T {
+  return { ...summary, pr: { ...summary.pr }, total_cost: { ...summary.total_cost } };
+}
+
+/**
  * In-memory `TraceStore` for tests and the demo server. Same contract
  * as `PgStore`; tests assert against this without spinning up Postgres.
  *
@@ -168,11 +187,14 @@ export class MemoryStore implements TraceStore {
   async writeRun(input: WriteRunInput): Promise<void> {
     const summary = summarize(input);
     const total_cost = aggregateCost(input.events);
-    const detail: RunDetail = {
+    // `cloneSummaryRefs` isolates `pr` from the caller's `input.pr` (ingress);
+    // `total_cost` is already fresh from `aggregateCost`, and `events` is
+    // deep-copied by `cloneEvents`. See #97 for the sibling event-log fix.
+    const detail: RunDetail = cloneSummaryRefs({
       ...summary,
       total_cost,
       events: cloneEvents(input.events),
-    };
+    });
     this.runs.set(input.run_id, detail);
   }
 
@@ -191,7 +213,9 @@ export class MemoryStore implements TraceStore {
       .map((d) => {
         const { events: _events, ...rest } = d;
         void _events;
-        return rest;
+        // Fresh `pr`/`total_cost` so a caller mutating a returned summary
+        // can't corrupt the stored run or another reader's view (egress).
+        return cloneSummaryRefs(rest);
       });
     return all.slice(offset, offset + limit);
   }
@@ -199,6 +223,8 @@ export class MemoryStore implements TraceStore {
   async getRun(runId: string): Promise<RunDetail | null> {
     const detail = this.runs.get(runId);
     if (!detail) return null;
-    return { ...detail, events: cloneEvents(detail.events) };
+    // Deep-copy `events` and freshen `pr`/`total_cost` so a caller mutating
+    // the returned detail can't corrupt the stored run or a later read (egress).
+    return cloneSummaryRefs({ ...detail, events: cloneEvents(detail.events) });
   }
 }
