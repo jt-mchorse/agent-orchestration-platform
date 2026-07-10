@@ -674,3 +674,13 @@ in portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the two-backend-parity aliasing lens is now fully swept on aop's trace store (#97 events + #99 pr/total_cost). No mutable nested objects remain in `RunSummary`/`RunDetail`; don't re-sweep this seam.
+
+## 2026-07-10 — Issue #101: CLI approval stdin-EOF deadlock (~25 min, night)
+
+**What got done.** `readSingleLine` attached `input.once("end")`/`once("close")` on every read. Node fires `end`/`close` exactly once per stream, so after stdin EOF the first approval resolved via the one-shot `onEnd`, but the next `readSingleLine` re-attached listeners on an already-ended stream — neither ever re-fires and no `data` arrives, so the promise never settled and `requestApproval` hung, deadlocking the run on its next destructive-tool approval. This is the EOF cause of the same "2nd approval hangs forever" symptom #85 fixed for the residual-drop cause. Verified firsthand with a `PassThrough` repro (the second approval races to TIMEOUT).
+
+Tracked an `ended` flag in the provider closure via a persistent `once("end")`/`once("close")` listener, compute `alreadyEnded` (flag OR `input.readableEnded`) at the start of each `requestApproval`, and short-circuit `readSingleLine` to the fail-closed empty-line resolution when the stream is already ended. Added a test locking "≥2 approvals after stdin EOF resolve deny, never hang" (PassThrough + Promise.race guard, like the #85 test); it hangs to the guard pre-fix. Full suite (343) + typecheck green.
+
+**Why prioritized.** Static priority:high queue globally exhausted; surfaced by a second-wave sibling-incomplete-fix hunt agent and verified firsthand. The CLI-approval HITL-no-deadlock contract now covers both causes (residual-drop #85, EOF #101).
+
+**Open questions / blockers.** None — PR ready for review.

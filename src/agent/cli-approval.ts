@@ -47,12 +47,22 @@ function defaultFormat(req: ApprovalRequest): string {
 function readSingleLine(
   input: Readable,
   carry: string,
+  alreadyEnded: boolean,
 ): Promise<{ line: string; carry: string }> {
   // A full line may already be sitting in the carry from a previous read; if so
   // resolve synchronously without touching the stream.
   const buffered = carry.indexOf("\n");
   if (buffered !== -1) {
     return Promise.resolve({ line: carry.slice(0, buffered), carry: carry.slice(buffered + 1) });
+  }
+  // The stream already reached EOF on a prior read. Node fires `end`/`close`
+  // exactly once, so no `data`/`end`/`close` will ever arrive again — attaching
+  // the listeners below would leave the promise unsettled forever, hanging the
+  // 2nd+ approval after stdin EOF (a HITL deadlock). This is the EOF sibling of
+  // the residual-drop deadlock #85 fixed. Resolve fail-closed with the residual
+  // carry as the final line, exactly like the one-shot `onEnd` path does.
+  if (alreadyEnded) {
+    return Promise.resolve({ line: carry, carry: "" });
   }
   return new Promise<{ line: string; carry: string }>((resolve) => {
     let buf = carry;
@@ -91,10 +101,20 @@ export function createCliApprovalProvider(opts: CliApprovalOptions = {}): Approv
   const format = opts.format ?? defaultFormat;
   // Residual bytes read past one approval's newline, carried to the next.
   let carry = "";
+  // Track EOF across sequential approvals. Node emits `end`/`close` exactly
+  // once; a persistent listener records it so a later `readSingleLine` knows
+  // not to attach one-shot listeners that will never fire (#101).
+  let ended = false;
+  const markEnded = () => {
+    ended = true;
+  };
+  input.once("end", markEnded);
+  input.once("close", markEnded);
   return {
     async requestApproval(req: ApprovalRequest): Promise<ApprovalDecision> {
       output.write(format(req));
-      const read = await readSingleLine(input, carry);
+      const alreadyEnded = ended || input.readableEnded === true;
+      const read = await readSingleLine(input, carry, alreadyEnded);
       carry = read.carry;
       const answer = read.line.trim().toLowerCase();
       if (answer === "y" || answer === "yes") {
