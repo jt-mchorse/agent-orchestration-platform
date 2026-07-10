@@ -243,4 +243,40 @@ describe("createCliApprovalProvider", () => {
     expect(d1.approved).toBe(true);
     expect(d2).toEqual({ approved: false, reason: 'operator answered "n"' });
   });
+
+  it("does not hang on the 2nd+ approval after stdin EOF (#101, EOF sibling of #85)", async () => {
+    // Node fires `end`/`close` exactly once. Pre-fix, the first approval after
+    // EOF resolved via the one-shot `onEnd`, but the next `readSingleLine`
+    // re-attached `once("end")`/`once("close")` on an already-ended stream —
+    // neither ever re-fires, no `data` arrives, so the promise never settled and
+    // the run deadlocked. This is the EOF cause of the same "2nd approval hangs"
+    // symptom #85 fixed for the residual-drop cause. Both post-EOF approvals must
+    // resolve fail-closed (deny), never hang. Promise.race guards against a
+    // regression re-introducing the hang.
+    const input = new PassThrough();
+    const output = new Writable({ write(_c, _e, cb) { cb(); } });
+    const provider = createCliApprovalProvider({ input, output });
+
+    const first = provider.requestApproval({ toolName: "t1", reason: "r", input: {} });
+    input.write("y\n");
+    const d1 = await first;
+    expect(d1.approved).toBe(true);
+
+    input.end(); // EOF; `end` fires once and never again
+    await new Promise((r) => setTimeout(r, 20));
+
+    const guard = (label: string) =>
+      new Promise((r) => setTimeout(() => r({ approved: label }), 1000));
+    const d2 = await Promise.race([
+      provider.requestApproval({ toolName: "t2", reason: "r", input: {} }),
+      guard("TIMEOUT-d2"),
+    ]);
+    const d3 = await Promise.race([
+      provider.requestApproval({ toolName: "t3", reason: "r", input: {} }),
+      guard("TIMEOUT-d3"),
+    ]);
+
+    expect(d2).toEqual({ approved: false, reason: 'operator answered ""' });
+    expect(d3).toEqual({ approved: false, reason: 'operator answered ""' });
+  });
 });
