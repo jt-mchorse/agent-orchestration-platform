@@ -155,8 +155,9 @@ class AgentRun {
 }
 
 class Trace {
-  // Append-only event log: run_started · plan_emitted ·
-  // step_started · observation · re_plan_triggered · finalized | aborted.
+  // Append-only event log: run_started · plan_emitted · step_started ·
+  // observation · retry_attempted · fallback_used · re_plan_triggered ·
+  // finalized | aborted.
   // Pluggable clock for deterministic tests; the same shape #6 will
   // persist to Postgres.
 }

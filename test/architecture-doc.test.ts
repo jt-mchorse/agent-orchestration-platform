@@ -444,3 +444,43 @@ describe("docs/architecture.md names only symbols that exist (#87 / portfolio-op
     expect([...SYMBOL_SOURCE_DIRS]).toEqual(["src", "mcp-server", "scripts"]);
   });
 });
+
+// #105: the illustrative `class Trace` snippet enumerates the append-only
+// event-log kinds. That list drifted to 7 while the real `TraceEvent` union
+// (src/agent/trace.ts) grew to 9 with the #5 recovery layer (retry_attempted,
+// fallback_used) — and it even contradicted this same doc's "nine variants"
+// prose. Tie the doc's enumeration to the union's `kind:` literals so a future
+// variant added to the union forces the snippet (and the count) to update.
+describe("docs/architecture.md Trace event-log kinds match the TraceEvent union (#105)", () => {
+  const md = readFileSync(DOC_PATH, "utf8");
+  const traceSrc = readFileSync(resolve(REPO_ROOT, "src/agent/trace.ts"), "utf8");
+  const unionKinds = [...traceSrc.matchAll(/kind:\s*"([a-z_]+)"/g)]
+    .map((m) => m[1])
+    .filter((k): k is string => k !== undefined);
+
+  it("discovers the real union kinds as ground truth", () => {
+    // Guards against the extraction regex silently matching nothing.
+    expect(unionKinds.length).toBeGreaterThanOrEqual(9);
+    expect(unionKinds).toContain("retry_attempted");
+    expect(unionKinds).toContain("fallback_used");
+  });
+
+  it("the architecture-doc Trace snippet names every union kind", () => {
+    const missing = [...new Set(unionKinds)].filter((k) => !md.includes(k));
+    expect(missing).toEqual([]);
+  });
+
+  it("the doc's stated variant count matches the union size", () => {
+    // The prose says "the union has nine variants"; keep that number honest.
+    const distinct = new Set(unionKinds).size;
+    const numberWords: Record<number, string> = {
+      7: "seven",
+      8: "eight",
+      9: "nine",
+      10: "ten",
+      11: "eleven",
+    };
+    const word = numberWords[distinct] ?? String(distinct);
+    expect(md).toContain(`${word} variants`);
+  });
+});
