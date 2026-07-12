@@ -1187,3 +1187,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-12T09:58Z
+issue: 105
+duration_min: 15
+focus: architecture_md_trace_snippet_lists_7_event_kinds_but_traceevent_union_has_9_internally_inconsistent_with_nine_variants_prose_doc_drift
+phase: night_session_phase_b_issue_9
+delta:
+  files_changed: 2   # docs/architecture.md (Trace snippet comment) + test/architecture-doc.test.ts (3-test describe block)
+  tests_added: 3     # union kinds ground-truth; doc names every union kind; doc variant-count word matches union size
+context_for_next_session:
+  - shipped_105_pr_ready_aop_architecture_md_116_says_the_union_has_nine_variants_but_illustrative_class_Trace_snippet_158_159_enumerated_only_7_run_started_plan_emitted_step_started_observation_re_plan_triggered_finalized_aborted_missing_retry_attempted_and_fallback_used_added_by_5_recovery_layer_traceevent_union_trace_ts_18_39_has_9_kinds_stale_snippet_internally_inconsistent
+  - found_by_wave6_aop_mcp_doc_drift_agent_LOW_confidence_but_VERIFIED_FIRSTHAND_grep_c_kind_trace_ts_9_sed_116_nine_variants_vs_158_7_item_list_real_inconsistency_not_cosmetic
+  - fix_added_retry_attempted_fallback_used_to_snippet_comment_all_9_in_union_order_plus_lock_test_describe_block_reads_trace_ts_kind_literals_asserts_doc_names_every_union_kind_and_the_number_word_nine_variants_matches_union_size_ties_doc_to_code
+  - TS2345_gotcha_matchAll_map_m1_is_string_undefined_under_strict_filter_k_is_string_k_not_undefined_and_numberWords_distinct_nullish_String_distinct_fixed_tsc_clean
+  - full_suite_348_pass_5_skip_arch_test_20_to_23_tsc_clean_NINTH_hit_this_run_top_of_night_target_5_9
+decisions_made: []
+followups: []
+---

@@ -694,3 +694,14 @@ Captured the reconstruction and `return` only when non-null, else `continue`. Ho
 **Why prioritized.** Distinct seam from the already-fixed #97/#98/#99/#100 (store aliasing) and #101 (EOF) — the `read_file_at_ref` search-completeness vein (#91) with a still-bare null-patch branch. Found via a targeted sibling hunt, verified firsthand by code trace + a sibling-modeled test.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-12 — Issue #105: architecture.md Trace snippet lists 7 event kinds but the union has 9
+**Duration:** ~15 min · **Branch:** `session/2026-07-12-0957-issue-105`
+
+- The illustrative `class Trace` snippet enumerated 7 event-log kinds while the real `TraceEvent` union has 9 (missing `retry_attempted`/`fallback_used` from the #5 recovery layer) — and it contradicted the same doc's line 116 ("nine variants"). Added the two missing kinds and a lock test that reads the `kind:` literals from `src/agent/trace.ts` and asserts the doc names every union kind and that its stated variant-count word matches the union size.
+
+**Why this work, this session:** Ninth hit of the run — the doc-drift lens on an internally-inconsistent architecture snippet; tied to code with a regression test so it can't re-drift.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Phase A merge PR for #105.
