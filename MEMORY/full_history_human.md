@@ -684,3 +684,13 @@ Tracked an `ended` flag in the provider closure via a persistent `once("end")`/`
 **Why prioritized.** Static priority:high queue globally exhausted; surfaced by a second-wave sibling-incomplete-fix hunt agent and verified firsthand. The CLI-approval HITL-no-deadlock contract now covers both causes (residual-drop #85, EOF #101).
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-12 — Issue #103: read_file_at_ref abandons search on a patch:null added entry (~15 min, night)
+
+**What got done.** `tryReconstructFromAnyFixture` (`src/tools/read-file-at-ref.ts:111`) returned `reconstructAddedFileFromPatch(file.patch)` directly, so an `added` file with `patch: null` — GitHub's shape for **binary/large added files** — yielded `null` and abandoned the fixture walk. A *later* fixture holding the same file with a real add patch was never consulted, so a recoverable file reported `not_found`. This is the null-patch sibling of **#91**, which changed `return null` → `continue` at line 110 for the status-mismatch case (the loop matches fixtures on `repo`/`pr.head` only, so the same file at the same head appears across fixtures with different base-relative statuses).
+
+Captured the reconstruction and `return` only when non-null, else `continue`. Honors the search-all-fixtures contract for the null-patch case without fabricating success (still `not_found` when *every* matching added entry is `patch:null`). 2 tests in the #91 describe block. Full suite 345 pass, typecheck clean. `patch:null` on an added file is a valid, already-tested fixture shape (`fixtureFileSchema` has `patch: z.string().nullable()`; a test asserts `reconstructAddedFileFromPatch(null)` is null).
+
+**Why prioritized.** Distinct seam from the already-fixed #97/#98/#99/#100 (store aliasing) and #101 (EOF) — the `read_file_at_ref` search-completeness vein (#91) with a still-bare null-patch branch. Found via a targeted sibling hunt, verified firsthand by code trace + a sibling-modeled test.
+
+**Open questions / blockers.** None — PR ready for review.
