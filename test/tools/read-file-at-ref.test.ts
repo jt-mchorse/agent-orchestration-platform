@@ -112,6 +112,59 @@ describe("read_file_at_ref searches all fixtures for an added entry (#91)", () =
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("reconstructs from a later fixture when an earlier added entry has patch:null", async () => {
+    // GitHub emits patch:null for binary/large added files. The alphabetically-
+    // first fixture has the file `added` but with patch:null (unreconstructable);
+    // the second has it `added` with a full patch. Pre-fix the null-patch match
+    // short-circuited with `return null` and threw not_found; the fix `continue`s
+    // to the reconstructable entry — the null-patch sibling of the #91 branch.
+    const dir = await mkdtemp(path.join(tmpdir(), "arf-91c-"));
+    const nullPatchFirst = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "main" },
+      files: [{ filename: "src/x.ts", status: "added", patch: null }],
+    };
+    const fullPatchSecond = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "develop" },
+      files: [{ filename: "src/x.ts", status: "added", patch: "@@ -0,0 +1,2 @@\n+hello\n+world" }],
+    };
+    await writeFile(path.join(dir, "a-binary.json"), JSON.stringify(nullPatchFirst));
+    await writeFile(path.join(dir, "b-full.json"), JSON.stringify(fullPatchSecond));
+    try {
+      const result = await readFileAtRefTool.run(
+        { owner: "o", repo: "r", ref: "ref1", path: "src/x.ts" },
+        { mode: "replay", fixturesDir: dir },
+      );
+      expect(result.source).toBe("patch_added");
+      expect(result.content).toBe("hello\nworld");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still raises not_found when every added entry has patch:null", async () => {
+    // The fix must not fabricate success: if no matching fixture carries a
+    // reconstructable patch, the tool still reports not_found after exhausting all.
+    const dir = await mkdtemp(path.join(tmpdir(), "arf-91d-"));
+    const onlyNullPatch = {
+      repo: "o/r",
+      pr: { head: "ref1", base: "main" },
+      files: [{ filename: "src/x.ts", status: "added", patch: null }],
+    };
+    await writeFile(path.join(dir, "only-null.json"), JSON.stringify(onlyNullPatch));
+    try {
+      await expect(
+        readFileAtRefTool.run(
+          { owner: "o", repo: "r", ref: "ref1", path: "src/x.ts" },
+          { mode: "replay", fixturesDir: dir },
+        ),
+      ).rejects.toBeInstanceOf(ToolError);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("reconstructAddedFileFromPatch (#61)", () => {

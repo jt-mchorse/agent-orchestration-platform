@@ -108,7 +108,14 @@ async function tryReconstructFromAnyFixture(
     // function name promises; returning null here abandoned the search on the
     // first non-`added` match and reported not_found for a recoverable file (#91).
     if (file.status !== "added") continue;
-    return reconstructAddedFileFromPatch(file.patch);
+    // GitHub emits `patch: null` for binary/large added files, so an `added`
+    // match isn't guaranteed to be reconstructable. `reconstructAddedFileFromPatch`
+    // returns null there — `continue` (not `return`) so a *later* fixture holding
+    // the same file with a real add patch is still consulted, honoring the
+    // search-all-fixtures contract for the null-patch case too (sibling of the
+    // status-mismatch #91 branch above).
+    const reconstructed = reconstructAddedFileFromPatch(file.patch);
+    if (reconstructed !== null) return reconstructed;
   }
   return null;
 }
