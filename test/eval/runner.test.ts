@@ -1,8 +1,37 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverCases, evaluateAll, runAgentOnFixture } from "../../src/eval/runner.js";
+import {
+  commentTargetError,
+  discoverCases,
+  evaluateAll,
+  runAgentOnFixture,
+} from "../../src/eval/runner.js";
 
 const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "fixtures", "sample-prs");
+
+describe("commentTargetError", () => {
+  it("rejects a missing --repo or --pr", () => {
+    expect(commentTargetError(null, 42)).toMatch(/requires --repo/);
+    expect(commentTargetError("org/repo", null)).toMatch(/requires --repo/);
+    expect(commentTargetError("", 42)).toMatch(/requires --repo/);
+  });
+
+  it("rejects a truthy-but-invalid --pr that would reach the GitHub API (#107)", () => {
+    // Negative / non-finite / non-integer PR numbers are truthy, so a bare
+    // falsy guard let them slip into `.../issues/${pr}/comments`. Each must now
+    // fail up front with a clear message.
+    for (const bad of [-5, Number.POSITIVE_INFINITY, 3.5, Number.NaN]) {
+      const err = commentTargetError("org/repo", bad);
+      expect(err, `--pr ${bad}`).toMatch(/--pr must be a positive integer/);
+      expect(err, `--pr ${bad}`).toContain(String(bad));
+    }
+  });
+
+  it("accepts a valid positive-integer --pr", () => {
+    expect(commentTargetError("org/repo", 1)).toBeNull();
+    expect(commentTargetError("org/repo", 42)).toBeNull();
+  });
+});
 
 describe("discoverCases", () => {
   it("returns one case per fixture/golden pair under the directory", async () => {

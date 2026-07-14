@@ -13,7 +13,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { renderEvalMarkdown, upsertStickyComment } from "../eval/comment.js";
-import { discoverCases, evaluateAll } from "../eval/runner.js";
+import { commentTargetError, discoverCases, evaluateAll } from "../eval/runner.js";
 import { atomicWriteFile } from "../io/atomic-write.js";
 
 interface CLIArgs {
@@ -93,11 +93,17 @@ async function main(): Promise<number> {
   if (args.dryRun) return 0;
   if (!args.comment) return 0;
 
-  if (!args.repo || !args.pr) {
-    console.error("::error::--comment requires --repo owner/name and --pr <n>");
+  // `--pr` is `Number(...)`-coerced (line 44), so a bare falsy check only rejects
+  // NaN/0 — a negative, non-finite, or non-integer PR number is truthy and would
+  // otherwise flow into `upsertStickyComment` → a GitHub API URL
+  // `.../issues/${pr}/comments` unchecked. `commentTargetError` enforces the
+  // positive-integer contract (sibling of RetryPolicy/ExecutorOptions #29/#31).
+  const targetErr = commentTargetError(args.repo, args.pr);
+  if (targetErr) {
+    console.error(`::error::${targetErr}`);
     return 2;
   }
-  const id = await upsertStickyComment(args.repo, args.pr, md);
+  const id = await upsertStickyComment(args.repo as string, args.pr as number, md);
   console.log(`sticky comment id=${id} upserted on ${args.repo}#${args.pr}`);
   return 0;
 }

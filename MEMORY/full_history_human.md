@@ -705,3 +705,14 @@ Captured the reconstruction and `return` only when non-null, else `continue`. Ho
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Phase A merge PR for #105.
+
+## 2026-07-14 (night) — Issue #107: eval-runner --pr accepts negative/non-finite/non-integer values that reach the GitHub API
+**Duration:** ~20 min · **Branch:** `session/2026-07-14-0550-issue-107` · **PR:** #108
+
+`eval-runner.ts` coerces `--pr` with a bare `Number()`, and the `--comment` guard only rejected a *falsy* value (`NaN` from `--pr abc`, or `0`). A truthy-but-invalid PR number — negative, non-finite, or non-integer (`--pr -5` / `Infinity` / `3.5`) — slipped through into `upsertStickyComment` and a GitHub API URL `.../issues/${pr}/comments`, turning an operator typo into a confusing API error. Fixed by extracting a side-effect-free `commentTargetError()` validator into `src/eval/runner.ts` (the bin runs `main()` on import, so it isn't unit-testable directly) that enforces the same finite-positive-integer contract the repo applies to `RetryPolicy.maxAttempts` (`retry.ts`) and `ExecutorOptions.maxReplans` (`executor.ts`, #29/#31). Verified firsthand in a node repl — and corrected the hunt agent's mis-analysis (it claimed `--pr NaN` reaches the API, but `NaN` is falsy and already caught; the real gap is negative/non-finite/non-integer only). Three unit tests; full suite (351) green, typecheck + build clean. Deferred the agent's second flag (trace-server `PORT` env coercion) — Node's `server.listen()` already throws a clear RangeError, so it fails cleanly; not churn-worthy.
+
+**Why this work, this session:** Sixth hit of the night run — surfaced by the aop recent-fix sibling hunt (numeric-validation lens, sibling of #29/#31) and firsthand-verified/corrected before filing.
+
+**Open questions / blockers:** none — PR #108 ready for review.
+
+**Next session:** Phase A merge PR for #107.

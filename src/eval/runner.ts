@@ -163,3 +163,27 @@ export async function discoverCases(fixturesDir: string): Promise<EvalCase[]> {
   }
   return out.sort((a, b) => a.fixture_id.localeCompare(b.fixture_id));
 }
+
+/**
+ * Validate the `--comment` target for the eval runner: `--repo owner/name`
+ * present and `--pr` a positive integer. Returns an operator-facing error
+ * message, or `null` when the target is valid.
+ *
+ * `--pr` is `Number(...)`-coerced in the CLI, so a truthy-but-invalid value —
+ * a negative, non-finite, or non-integer PR number (`--pr -5`, `--pr Infinity`,
+ * `--pr 3.5`) — would otherwise slip past a bare falsy check and reach the
+ * GitHub API URL (`.../issues/${pr}/comments`) unchecked, turning an operator
+ * typo into a confusing API error. Enforce the same finite-integer contract the
+ * repo applies to `RetryPolicy.maxAttempts` and `ExecutorOptions.maxReplans`
+ * (#29/#31). A falsy `--pr` (`NaN` from `--pr abc`, or `0`) reports as
+ * "must be a positive integer" rather than "missing" for a clearer diagnostic.
+ */
+export function commentTargetError(repo: string | null, pr: number | null): string | null {
+  if (!repo || pr === null) {
+    return "--comment requires --repo owner/name and --pr <n>";
+  }
+  if (!Number.isInteger(pr) || pr < 1) {
+    return `--pr must be a positive integer; got ${pr}`;
+  }
+  return null;
+}
