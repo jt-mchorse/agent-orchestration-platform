@@ -716,3 +716,16 @@ Captured the reconstruction and `return` only when non-null, else `continue`. Ho
 **Open questions / blockers:** none — PR #108 ready for review.
 
 **Next session:** Phase A merge PR for #107.
+
+## 2026-07-14 (night) — Issue #109: commentTargetError validates --pr but not --repo format
+**Duration:** ~20 min · **Branch:** `session/2026-07-14-0722-issue-109` · **PR:** #110
+
+`commentTargetError` (`src/eval/runner.ts`) validated `--pr` as a positive integer (#108) and checked `--repo` for presence, but never validated that `--repo` matches `owner/name`. A malformed but non-empty slug (`myrepo`, `has space/x`, `a/b/c`, `/x`, `org/`) is truthy, so it slipped past the `!repo` guard into the GitHub API URL `.../repos/${repo}/issues/${pr}/comments` and surfaced as a confusing 4xx instead of an up-front validation error — the exact "operator typo → confusing API error" failure mode the docstring already cites as the motivation for the `--pr` check. A sibling-incomplete-fix of #108 (the adjacent `--pr` param in the same function) and #29/#31.
+
+Fixed by exporting the existing `REPO_FORMAT` regex from `validate.ts` — already used to enforce `owner/name` on the fixture-validation path — and applying it in `commentTargetError` (single source of truth, no duplicated contract). Verified firsthand via `tsx`: all five malformed slugs passed pre-fix and error post-fix; `org/repo` and `my-org/my.repo` still pass. Lock tests cover both directions; lint + typecheck clean, full suite (353 passed, pg-store skipped) green.
+
+**Why this work, this session:** Third hit of the night run, surfaced by the aop sibling-incomplete-fix dogfood hunt and verified firsthand. This is the weaker sibling of #108 (impact is a clearer diagnostic, not corruption), but a genuine completeness gap with the enforcement regex already in-repo — filed priority:med.
+
+**Open questions / blockers:** none — PR #110 ready for review.
+
+**Next session:** Phase A merge PR for #109.
