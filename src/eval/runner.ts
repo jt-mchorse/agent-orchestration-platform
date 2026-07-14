@@ -8,6 +8,7 @@ import { buildDefaultRegistry } from "../index.js";
 import type { ToolContext } from "../tools/types.js";
 import type { ReviewScore } from "./score.js";
 import { scoreReview } from "./score.js";
+import { REPO_FORMAT } from "./validate.js";
 
 /**
  * One evaluation: run the agent against a fixture PR, score its
@@ -177,10 +178,19 @@ export async function discoverCases(fixturesDir: string): Promise<EvalCase[]> {
  * repo applies to `RetryPolicy.maxAttempts` and `ExecutorOptions.maxReplans`
  * (#29/#31). A falsy `--pr` (`NaN` from `--pr abc`, or `0`) reports as
  * "must be a positive integer" rather than "missing" for a clearer diagnostic.
+ *
+ * `--repo` is validated the same way: presence alone isn't enough — a malformed
+ * but non-empty slug (`myrepo`, `has space/x`, `a/b/c`, `/x`, `org/`) would slip
+ * past `!repo` into the API URL `.../repos/${repo}/issues/${pr}/comments` and
+ * surface as a confusing GitHub 4xx. Enforce the SAME `owner/name` contract the
+ * fixture-validation path uses (`REPO_FORMAT`, #109, sibling of #108's `--pr`).
  */
 export function commentTargetError(repo: string | null, pr: number | null): string | null {
   if (!repo || pr === null) {
     return "--comment requires --repo owner/name and --pr <n>";
+  }
+  if (!REPO_FORMAT.test(repo)) {
+    return `--repo must match 'owner/name'; got ${repo}`;
   }
   if (!Number.isInteger(pr) || pr < 1) {
     return `--pr must be a positive integer; got ${pr}`;

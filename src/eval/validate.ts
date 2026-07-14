@@ -51,7 +51,10 @@ const VALID_RECOMMENDATIONS = new Set([
 ]);
 const VALID_FINDING_SEVERITIES = new Set(["blocker", "concern", "nit", "praise"]);
 const VALID_FILE_STATUSES = new Set(["added", "modified", "removed", "renamed"]);
-const REPO_FORMAT = /^[^/\s]+\/[^/\s]+$/;
+// The `owner/name` contract for a GitHub repo slug. Exported so the `--comment`
+// CLI path (`commentTargetError` in runner.ts) enforces the SAME format the
+// fixture-validation path does — one regex, no drift between the two checks.
+export const REPO_FORMAT = /^[^/\s]+\/[^/\s]+$/;
 
 // ---------------------------------------------------------------------------
 // Public entry points
