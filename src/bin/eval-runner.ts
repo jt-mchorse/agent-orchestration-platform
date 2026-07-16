@@ -58,7 +58,19 @@ async function main(): Promise<number> {
     ? args.resultsDir
     : path.join(repoRoot, args.resultsDir);
 
-  const cases = await discoverCases(fixturesDir);
+  // A missing/unreadable fixtures dir must surface as the same clean exit-2
+  // operator-error as the empty-dir case below, not a raw ENOENT traceback at
+  // exit 1 — `validate.ts` translates ENOENT the same way (0/1/2 uniform, see
+  // docs/architecture.md). `discoverCases` calls `fs.readdir` unguarded.
+  let cases;
+  try {
+    cases = await discoverCases(fixturesDir);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const detail = code === "ENOENT" ? "not found" : (err as Error).message;
+    console.error(`::error::cannot read fixtures dir ${fixturesDir}: ${detail}`);
+    return 2;
+  }
   if (cases.length === 0) {
     console.error(`::error::no fixture/golden pairs found under ${fixturesDir}`);
     return 2;
@@ -108,7 +120,13 @@ async function main(): Promise<number> {
   return 0;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// `main()` resolves to the intended exit code (0 ok / 2 operator error). Without
+// wiring it to `process.exit`, a resolved promise exits 0 and every non-zero
+// signal — including the #108/#110 `--comment` target validation — is swallowed.
+// Mirrors `validate.ts`.
+main()
+  .then((code) => process.exit(code))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
