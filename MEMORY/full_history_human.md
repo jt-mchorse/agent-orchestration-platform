@@ -729,3 +729,9 @@ Fixed by exporting the existing `REPO_FORMAT` regex from `validate.ts` — alrea
 **Open questions / blockers:** none — PR #110 ready for review.
 
 **Next session:** Phase A merge PR for #109.
+
+## 2026-07-16 (night) — eval-runner CLI exit-code plumbing (#111)
+
+`src/bin/eval-runner.ts` returned the right 0/1/2 exit codes from `main()`, but the entrypoint was `main().catch(...)` with no `.then((code) => process.exit(code))`. On a resolved promise Node exits 0, so every non-zero signal was silently swallowed — including the `--comment` target validation that #108/#110 added (it returns 2, but the process still exited 0). A second coupled defect: a missing `--fixtures-dir` threw an unguarded ENOENT from `discoverCases`' `fs.readdir`, leaking a raw traceback at exit 1 where the sister `validate.ts` produces a clean exit-2.
+
+Fixed by wiring `main().then((code) => process.exit(code))` (mirroring `validate.ts`) and wrapping the `discoverCases` call to translate ENOENT/read errors into a clean `::error::` line + `return 2`. Added a spawn-based CLI test file (the bin was never spawned in tests before) covering empty dir, missing dir, bad `--comment` target, and dry-run. Verified all four exit codes firsthand pre/post-fix. PR #112.
