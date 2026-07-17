@@ -80,25 +80,39 @@ async function main(): Promise<number> {
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = path.join(resultsDir, `eval-${stamp}.json`);
-  await atomicWriteFile(
-    out,
-    JSON.stringify(
-      {
-        composite_mean: run.composite_mean,
-        recommendation_accuracy: run.recommendation_accuracy,
-        findings_f1_mean: run.findings_f1_mean,
-        cases: run.cases.map((c) => ({
-          fixture_id: c.fixture_id,
-          score: c.score,
-          actual: c.actual,
-          golden: c.golden,
-        })),
-      },
-      null,
-      2,
-    ),
-    "utf-8",
-  );
+  // `--results-dir` is operator input, the write-seam sibling of the fixtures
+  // read guarded above. An unwritable/uncreatable dir makes `atomicWriteFile`'s
+  // recursive `mkdir`/rename throw (ENOTDIR when a path component is a file,
+  // EACCES, ENOENT), which without this guard fell through to the top-level
+  // `.catch` as a raw traceback at exit 1 — the same operator-error the #111
+  // read guard and `validate.ts` surface as a clean exit 2 (cross-repo write-seam
+  // contract: llm-cost-optimizer#163, python-async-llm-pipelines#85).
+  try {
+    await atomicWriteFile(
+      out,
+      JSON.stringify(
+        {
+          composite_mean: run.composite_mean,
+          recommendation_accuracy: run.recommendation_accuracy,
+          findings_f1_mean: run.findings_f1_mean,
+          cases: run.cases.map((c) => ({
+            fixture_id: c.fixture_id,
+            score: c.score,
+            actual: c.actual,
+            golden: c.golden,
+          })),
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const detail = code ? `${code}` : (err as Error).message;
+    console.error(`::error::cannot write results to ${out}: ${detail}`);
+    return 2;
+  }
   console.log(md);
   console.log(`\neval results: ${out}`);
 

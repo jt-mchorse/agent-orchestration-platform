@@ -8,7 +8,7 @@
 // These tests pin the process-level exit-code contract (0/1/2 uniform with the
 // sister `validate.ts` CLI, docs/architecture.md).
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -90,6 +90,25 @@ describe("eval-runner CLI exit-code contract (#111)", () => {
     async () => {
       const r = await runCLI("--dry-run");
       expect(r.code).toBe(0);
+    },
+    20_000,
+  );
+
+  it(
+    "exits 2 with a clean message (no raw traceback) when --results-dir is unwritable (#113)",
+    async () => {
+      // Write-seam sibling of #111: the fixtures read past, `atomicWriteFile` on
+      // an operator `--results-dir` whose parent component is a FILE fails its
+      // recursive mkdir with ENOTDIR. Runs against the committed fixtures
+      // (--dry-run) so we reach the write; the write happens before the dry-run
+      // return. Must be a clean exit-2 line, not a leaked ENOTDIR stack.
+      const blocker = path.join(emptyDir, "afile");
+      await writeFile(blocker, "not a dir", "utf-8");
+      const r = await runCLI("--dry-run", "--results-dir", path.join(blocker, "sub"));
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain("cannot write results to");
+      expect(r.stderr).not.toMatch(/at async (main|atomicWriteFile)/);
+      expect(r.stderr).not.toMatch(/Error: ENOTDIR/);
     },
     20_000,
   );
