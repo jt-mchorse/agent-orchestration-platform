@@ -747,3 +747,18 @@ it's readily reachable. Wrapped it to emit `::error::cannot write results` and
 return 2, mirroring the read guard and the cross-repo write-seam contract
 (lco#163, pyasync#85). Test spawns the bin with a results-dir whose parent is a
 file. Shipped as PR #114.
+
+## 2026-07-21 — eval-runner fixture/golden JSON.parse guard (#115, PR #116)
+
+The eval-runner's 0/1/2 exit contract guards `discoverCases`' directory read (#111)
+and the `--results-dir` write seam (#113), but the per-file content read +
+`JSON.parse` *between* them was bare: a corrupt or vanished fixture/golden `.json`
+threw a raw `SyntaxError`/`ENOENT` through the unguarded `evaluateAll` call to the
+top-level `.catch` at exit 1. Doc-drift facet: `architecture.md` claimed the opt-in
+`validate.ts` pre-flight "closes the JSON.parse gap in runner.ts", but the
+`npm run eval` path never calls it. Added a typed `EvalInputError` + `_readJsonFile`
+helper guarding both reads, caught at the CLI boundary → exit 2 (a genuine agent
+error still exits 1), and corrected the doc. Two tests. Lesson: a read-guard on a
+directory and a write-guard on output can sandwich an unguarded per-file content
+read in the middle — check the middle process-read when the bookends are guarded;
+and when a doc says "X closes a gap," verify X is actually on the hot path.
