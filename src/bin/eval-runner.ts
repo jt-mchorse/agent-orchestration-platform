@@ -13,7 +13,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { renderEvalMarkdown, upsertStickyComment } from "../eval/comment.js";
-import { commentTargetError, discoverCases, evaluateAll } from "../eval/runner.js";
+import { commentTargetError, discoverCases, EvalInputError, evaluateAll } from "../eval/runner.js";
 import { atomicWriteFile } from "../io/atomic-write.js";
 
 interface CLIArgs {
@@ -75,7 +75,23 @@ async function main(): Promise<number> {
     console.error(`::error::no fixture/golden pairs found under ${fixturesDir}`);
     return 2;
   }
-  const run = await evaluateAll(cases);
+  // Each case's fixture/golden `.json` is operator input, the file-content read
+  // sibling of the `discoverCases` readdir guard above (a corrupt or vanished
+  // file threw a raw SyntaxError/ENOENT that fell through to the top-level
+  // `.catch` at exit 1). `evaluateAll` now raises a typed `EvalInputError` for
+  // those; surface it as the same clean exit 2, matching `validate.ts`'s 0/1/2
+  // contract. A non-`EvalInputError` (a genuine agent/runtime bug) still
+  // propagates to exit 1 unchanged.
+  let run;
+  try {
+    run = await evaluateAll(cases);
+  } catch (err) {
+    if (err instanceof EvalInputError) {
+      console.error(`::error::${err.message}`);
+      return 2;
+    }
+    throw err;
+  }
   const md = renderEvalMarkdown(run);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");

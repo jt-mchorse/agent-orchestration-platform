@@ -95,6 +95,46 @@ describe("eval-runner CLI exit-code contract (#111)", () => {
   );
 
   it(
+    "exits 2 with a clean message (no raw traceback) on a corrupt fixture JSON",
+    async () => {
+      // File-content read sibling of the #111 readdir guard: `discoverCases`
+      // pairs the case, then `runAgentOnFixture`'s `JSON.parse` on the corrupt
+      // fixture threw a raw SyntaxError that fell through to exit 1. Must be a
+      // clean exit-2 operator-error line.
+      await writeFile(path.join(emptyDir, "c1.json"), '{"pr": {"number": 1', "utf-8");
+      await writeFile(
+        path.join(emptyDir, "c1.golden.json"),
+        '{"golden_review": {"summary": "s", "findings": [], "recommendation": "approve_with_comments"}}',
+        "utf-8",
+      );
+      const r = await runCLI("--fixtures-dir", emptyDir, "--dry-run");
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain("invalid JSON in fixture");
+      expect(r.stderr).not.toMatch(/at async (runAgentOnFixture|evaluateAll|main)/);
+      expect(r.stderr).not.toMatch(/SyntaxError/);
+    },
+    20_000,
+  );
+
+  it(
+    "exits 2 with a clean message (no raw traceback) on a corrupt golden JSON",
+    async () => {
+      // The golden read (`evaluateAll`) is the paired sibling of the fixture read.
+      await writeFile(
+        path.join(emptyDir, "c2.json"),
+        '{"pr": {"number": 1, "title": "t", "changed_files": 1}, "repo": "o/n", "files": []}',
+        "utf-8",
+      );
+      await writeFile(path.join(emptyDir, "c2.golden.json"), "{not valid json", "utf-8");
+      const r = await runCLI("--fixtures-dir", emptyDir, "--dry-run");
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain("invalid JSON in golden");
+      expect(r.stderr).not.toMatch(/SyntaxError/);
+    },
+    20_000,
+  );
+
+  it(
     "exits 2 with a clean message (no raw traceback) when --results-dir is unwritable (#113)",
     async () => {
       // Write-seam sibling of #111: the fixtures read past, `atomicWriteFile` on

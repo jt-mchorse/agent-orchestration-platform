@@ -36,6 +36,38 @@ export interface EvalRun {
 }
 
 /**
+ * Thrown when a fixture/golden input file can't be read or parsed — an
+ * operator-input error the eval-runner CLI surfaces as a clean exit 2.
+ *
+ * `discoverCases`' `readdir` (the directory read) is already guarded to exit 2
+ * (#111) and the `--results-dir` write seam to exit 2 (#113), but the per-file
+ * content read + `JSON.parse` *between* them (`runAgentOnFixture` / `evaluateAll`)
+ * was bare: a corrupt fixture/golden `.json` threw a raw `SyntaxError` (or ENOENT
+ * if a file vanished after discovery) that fell through to the top-level `.catch`
+ * as an exit-1 traceback, breaking the 0/1/2 contract. `validate.ts` (#39) is the
+ * opt-in collecting validator an operator runs *ahead* of a run; this closes the
+ * same gap on the `run` path itself so a bad file is a clean operator error there
+ * too.
+ */
+export class EvalInputError extends Error {}
+
+async function _readJsonFile<T>(filePath: string, kind: string): Promise<T> {
+  let text: string;
+  try {
+    text = await fs.readFile(filePath, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const detail = code === "ENOENT" ? "not found" : (err as Error).message;
+    throw new EvalInputError(`cannot read ${kind} ${filePath}: ${detail}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    throw new EvalInputError(`invalid JSON in ${kind} ${filePath}: ${(err as Error).message}`);
+  }
+}
+
+/**
  * Run the agent against `fixture_path` and return the synthesized review.
  *
  * Uses a `ScriptedPlanner` because no LLM-driven `AnthropicPlanner` is
@@ -48,12 +80,11 @@ export interface EvalRun {
  * and the rest of the runner is unchanged.
  */
 export async function runAgentOnFixture(fixture_path: string): Promise<Review> {
-  const fixtureText = await fs.readFile(fixture_path, "utf-8");
-  const fixture = JSON.parse(fixtureText) as {
+  const fixture = await _readJsonFile<{
     pr: { number: number; title: string; changed_files: number };
     repo: string;
     files: Array<{ filename: string; status: string }>;
-  };
+  }>(fixture_path, "fixture");
   const [owner, repoName] = fixture.repo.split("/");
   if (!owner || !repoName) {
     throw new Error(`fixture.repo must be 'owner/name'; got ${fixture.repo}`);
@@ -123,8 +154,8 @@ function _buildScriptedReview(
 export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
   const results: EvalCaseResult[] = [];
   for (const c of cases) {
-    const goldenText = await fs.readFile(c.golden_path, "utf-8");
-    const golden = (JSON.parse(goldenText) as { golden_review: Review }).golden_review;
+    const golden = (await _readJsonFile<{ golden_review: Review }>(c.golden_path, "golden"))
+      .golden_review;
     const actual = await runAgentOnFixture(c.fixture_path);
     const score = scoreReview(actual, golden);
     results.push({ fixture_id: c.fixture_id, actual, golden, score });

@@ -85,8 +85,12 @@ flowchart TD
   or POSTs a new one.
 - **`validate.ts` (#39)** — `validateFixture(path)` /
   `validateGolden(path)` walk one of the eval-runner's input JSON files
-  in collecting mode and surface every malformed row in one pass.
-  Closes the fail-fast `JSON.parse` gap in `runner.ts` (lines 50, 125);
+  in collecting mode and surface every malformed row in one pass — the
+  opt-in *pre-flight* an operator runs ahead of a run. The `run` path
+  itself guards the same reads inline: `runner.ts` raises `EvalInputError`
+  on a corrupt/unreadable fixture or golden `.json`, which the eval-runner
+  surfaces as a clean exit 2 (the file-content sibling of the
+  `discoverCases` readdir guard). This is the
   first TypeScript port of the validator pattern shipped in
   `llm-eval-harness`, `prompt-regression-suite`, `embedding-model-shootout`,
   and `chunking-strategies-lab` this week. Drives `npm run validate --
