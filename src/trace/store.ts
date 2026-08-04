@@ -100,6 +100,69 @@ export interface TraceStore {
   getRun(runId: string): Promise<RunDetail | null>;
 }
 
+/** Resolved pagination window: `limit` positive, `offset` non-negative. */
+export interface PaginationWindow {
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Validate and default a `listRuns` pagination window.
+ *
+ * `listRuns` was the one public API in this repo without the positive-integer
+ * contract that `AgentRun`'s `maxReplans`, the eval runner's `--pr` (#107) and
+ * the tools' bounds all enforce — and the omission was worse here than a raw
+ * throw would be, because `MemoryStore` paginates with `Array.slice`, whose
+ * behaviour on a bad value is *silently wrong* rather than an error (#117):
+ *
+ * ```
+ * baseline      -> r3,r2,r1
+ * {limit:-1}    -> r3,r2     // silently drops the oldest run
+ * {limit:2.5}   -> r3,r2     // silently truncates
+ * {limit:NaN}   -> (empty)   // looks like "no runs exist"
+ * {offset:-1}   -> r1        // the OLDEST run, skipping the two newest
+ * ```
+ *
+ * The `offset:-1` row is the sharp one: not an error and not a prefix, but a
+ * *different* page than any valid offset returns. A caller paginating with a
+ * computed offset that goes negative gets a plausible page of the wrong rows —
+ * the same "drop or duplicate a run across page boundaries" corruption the
+ * `run_id` tie-breaker in the sort was added to prevent, reached through the
+ * arguments instead.
+ *
+ * Lives beside the `TraceStore` interface, and is called by every
+ * implementation, so a backend added later inherits the check rather than
+ * re-deriving it. `PgStore` would have surfaced most of these as a Postgres
+ * error (`LIMIT must not be negative`) rather than bad data, which is the
+ * two-backend divergence #97 and llm-cost-optimizer#131 are shaped like;
+ * validating here makes both agree regardless.
+ *
+ * Throws rather than clamping on purpose. The UI clamps at its own boundary
+ * (`clampNumber` in `src/ui/server.ts`), which is right for HTTP query params;
+ * a library caller passing `-1` has a bug and should hear about it.
+ */
+export function assertPaginationOpts(
+  opts: { limit?: number; offset?: number } = {},
+): PaginationWindow {
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
+  if (!Number.isSafeInteger(limit) || limit <= 0) {
+    throw new RangeError(
+      `listRuns: limit must be a positive integer; got ${describe(opts.limit)}`,
+    );
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new RangeError(
+      `listRuns: offset must be a non-negative integer; got ${describe(opts.offset)}`,
+    );
+  }
+  return { limit, offset };
+}
+
+function describe(value: unknown): string {
+  return typeof value === "number" ? String(value) : `${typeof value} ${String(value)}`;
+}
+
 function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
   // `aborted` is the explicit budget-exhaustion signal from the executor.
   // It's emitted *before* `finalized`, so we check for it first.
@@ -199,8 +262,9 @@ export class MemoryStore implements TraceStore {
   }
 
   async listRuns(opts: { limit?: number; offset?: number } = {}): Promise<RunSummary[]> {
-    const limit = opts.limit ?? 50;
-    const offset = opts.offset ?? 0;
+    // Before `slice` gets hold of them — a bad value there is a silently wrong
+    // page, not an error (#117).
+    const { limit, offset } = assertPaginationOpts(opts);
     const all = [...this.runs.values()]
       // Tie-break on the unique run_id so equal started_at timestamps (two runs
       // started in the same ms) get a deterministic, stable order — otherwise

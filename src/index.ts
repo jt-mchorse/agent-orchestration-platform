@@ -46,8 +46,10 @@ export {
 } from "./agent/executor.js";
 export {
   aggregateCost,
+  assertPaginationOpts,
   MemoryStore,
   type AggregatedCost,
+  type PaginationWindow,
   type RunDetail,
   type RunSummary,
   type TraceStore,

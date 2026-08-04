@@ -14,7 +14,14 @@
  * surface, not a customer-facing data store).
  */
 
-import { aggregateCost, type RunDetail, type RunSummary, type TraceStore, type WriteRunInput } from "./store.js";
+import {
+  aggregateCost,
+  assertPaginationOpts,
+  type RunDetail,
+  type RunSummary,
+  type TraceStore,
+  type WriteRunInput,
+} from "./store.js";
 import type { TraceEvent } from "../agent/trace.js";
 
 // Minimal subset of `pg.Pool` we use, captured as an interface so this
@@ -117,9 +124,10 @@ export class PgStore implements TraceStore {
   }
 
   async listRuns(opts: { limit?: number; offset?: number } = {}): Promise<RunSummary[]> {
+    // Same contract as MemoryStore, from the same validator, so the two
+    // backends of this interface can't disagree about a bad window (#117).
+    const { limit, offset } = assertPaginationOpts(opts);
     const pool = await this.getPool();
-    const limit = opts.limit ?? 50;
-    const offset = opts.offset ?? 0;
     const { rows } = await pool.query<RunRow>(
       `SELECT run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
               total_cost_dollars, total_input_tokens, total_output_tokens, recommendation, summary
