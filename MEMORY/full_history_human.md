@@ -762,3 +762,59 @@ error still exits 1), and corrected the doc. Two tests. Lesson: a read-guard on 
 directory and a write-guard on output can sandwich an unguarded per-file content
 read in the middle — check the middle process-read when the bookends are guarded;
 and when a doc says "X closes a gap," verify X is actually on the hot path.
+
+## 2026-08-04 — Issue #117: `slice` never throws, which is the whole problem
+
+`TraceStore.listRuns({ limit, offset })` validated neither argument, and
+`MemoryStore` implements pagination with `Array.prototype.slice`. `slice` never
+throws. Give it a negative, a fraction, or `NaN` and it returns *something* — so
+every bad window produced wrong data rather than an error.
+
+Against three runs, newest first:
+
+```
+baseline      -> r3,r2,r1
+{limit:-1}    -> r3,r2     silently drops the oldest run
+{limit:2.5}   -> r3,r2     silently truncates
+{limit:NaN}   -> (empty)   looks like "no runs exist"
+{offset:-1}   -> r1        the OLDEST run, skipping the two newest
+```
+
+The offset row is the one that made me file this. It isn't an error and it isn't
+a prefix — it's a *different page* than any valid offset returns, because
+`slice(-1, …)` counts from the end. A caller paginating with a computed offset
+that dips negative gets a plausible-looking page of the wrong rows. That is
+precisely the "paginated reads can drop or duplicate a run across page
+boundaries" corruption the `run_id` tie-breaker in the sort was added to prevent,
+arrived at through the arguments rather than the sort.
+
+Worth generalising: `Array.slice` used as a paginator is a silent-wrong-data site
+whenever its arguments aren't validated. Unlike a database `LIMIT`, it has no
+opinion about a negative.
+
+`MemoryStore` is exported from `src/index.ts`, so this is public API. The UI is
+*not* the exposed path — `clampNumber` in `src/ui/server.ts` already clamps, and
+I added a test pinning that `?limit=-1&offset=-5` still returns 200 rather than
+turning the new throw into a 500. And `listRuns` was the one public API in this
+repo without the positive-integer contract that `AgentRun`'s `maxReplans`, the
+eval runner's `--pr` and the tools' bounds all enforce.
+
+`assertPaginationOpts` lives beside the `TraceStore` interface it enforces, both
+backends call it, and it's exported so an external backend inherits it. It throws
+rather than clamps: clamping belongs at an HTTP boundary, and a library caller
+passing `-1` has a bug worth hearing about.
+
+One thing I couldn't verify and said so in both the issue and the PR. `PgStore`
+passes the same values into `LIMIT $1 OFFSET $2`, and Postgres rejects a negative
+`LIMIT`, so the two backends disagreed — one errors, one returns wrong rows.
+There's no Docker or `psql` on this machine and `PgStore`'s tests skip without
+`DATABASE_URL`, so that half is reasoning from documented Postgres behaviour, not
+a measurement. It doesn't change the fix, and the new `PgStore` test asserts the
+guard fires *before* a pool is opened, so it holds with no database at all.
+
+Same two test habits as the embedding-shootout work earlier today, and they keep
+earning their place: one test reproduces the wrong rows rather than only
+asserting the throw, and the lock counts `assertPaginationOpts` per `listRuns`
+implementation instead of naming the two that exist.
+
+381 passed. Shipped as PR #118.

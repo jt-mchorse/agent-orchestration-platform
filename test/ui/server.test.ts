@@ -146,6 +146,26 @@ describe("trace server", () => {
     expect(body.offset).toBe(1);
   });
 
+  it("GET /api/runs clamps an out-of-range window instead of 500ing", async () => {
+    // `listRuns` now throws on a bad window (#117). The server must keep
+    // clamping *before* it calls, so a hand-typed `?limit=-1&offset=-5` stays a
+    // 200 with the defaults rather than surfacing the new RangeError as a 500.
+    await ctx.store.writeRun({
+      run_id: "clamp-1",
+      pr: PR,
+      events: sampleEvents(),
+      review: review(),
+    });
+    for (const query of ["?limit=-1&offset=-5", "?limit=abc", "?limit=0", "?limit=1e9"]) {
+      const r = await fetch(ctx.url + "/api/runs" + query);
+      const body = (await r.json()) as { runs: Array<{ run_id: string }>; limit: number; offset: number };
+      expect(r.status, query).toBe(200);
+      expect(body.limit, query).toBeGreaterThanOrEqual(1);
+      expect(body.offset, query).toBeGreaterThanOrEqual(0);
+      expect(Number.isSafeInteger(body.limit), query).toBe(true);
+    }
+  });
+
   it("GET /api/runs/:id returns the full event log", async () => {
     await ctx.store.writeRun({
       run_id: "abc",
