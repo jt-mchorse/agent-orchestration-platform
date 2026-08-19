@@ -874,3 +874,60 @@ order. My first probe passed the kind first, so `err instanceof ToolError` held
 but the kind was wrong, nothing retried, and the recorded-sleeps array came back
 empty — which I nearly read as the bug being absent. Read the constructor before
 trusting an empty probe.
+
+## 2026-08-19 — the eval score depended on the order findings were listed (#120)
+
+`src/eval/score.ts` sorts candidate finding pairs with
+`pairs.sort((p, q) => q.sim - p.sim)` — score-descending, no tiebreak. That
+shape is recorded in portfolio memory as a class fixed twice already
+(chunking-strategies-lab#68 for cosine ties, rag-production-kit#40 for RRF
+ties), so the question wasn't whether it was a bug but whether I could make the
+score actually move.
+
+The method is the part worth keeping. My first two hand-built tie cases both
+came out invariant, because the descending sort makes the greedy robust unless
+the tie sits at the *top* of the list. Rather than reason harder, I wrote a
+search over 3×3 distinct-message configurations from a small token vocabulary,
+permuting both arrays, and it found cases immediately. When you believe a class
+is present but can't construct it, search the space.
+
+```
+A = [a / b / a b]
+
+G = [a b / a b c / a c d]   ->  2 matches   f1 0.6667   composite 0.8667
+G = [a b / a c d / a b c]   ->  3 matches   f1 1.0000   composite 1.0000
+```
+
+The actuals are byte-identical; only the golden order differs. One ordering
+reports a perfect score for the same review.
+
+The key design point: the tiebreak is on **content** — `(severity, message)` of
+both findings — not on `p.a - q.a`. An index tiebreak would make the result
+independent of the sort's *stability* but not of the input order, which is the
+actual defect. A tiebreak that references array positions cannot fix an
+order-dependence bug. And it uses plain code-unit comparison rather than
+`localeCompare`, because that call's locale-dependence is the open, JT-gated
+question in #119 in this same repo.
+
+Two things I was careful to state rather than let a reviewer discover. First,
+this makes the greedy **deterministic**, not **optimal** — the measured case now
+consistently reports `0.6667` rather than `1.0000`, because that is what greedy
+yields under the deterministic order. Swapping greedy for Hungarian assignment
+would be a D-011 revisit, not a bug fix. Second, the returned
+`actual_index`/`golden_index` *must* follow the permutation, since a caller uses
+them to look the finding back up; it is the score that must not move. Getting
+that backwards would be a worse bug than the one being fixed, so it has its own
+named test.
+
+D-011 is completed rather than revisited: it fixes greedy 1:1 matching keyed by
+severity at a 0.30 Jaccard threshold and says nothing about tie ordering. Only
+equally-scoring pairs change relative order, and there's a test for each of
+D-011's three properties plus one asserting that descending similarity still
+dominates the tiebreak.
+
+No committed-artifact drift: `docs/eval_snapshot.md` is locked to the live
+renderer by `test/readme-snapshot.test.ts`, and that test still passes.
+
+Small gotcha for next time: `FindingSeverity` is `blocker | concern | nit |
+praise`, not high/medium/low. My first test helper defaulted to `"high"` and
+`tsc` caught it.
