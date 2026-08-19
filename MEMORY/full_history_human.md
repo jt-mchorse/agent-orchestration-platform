@@ -818,3 +818,59 @@ asserting the throw, and the lock counts `assertPaginationOpts` per `listRuns`
 implementation instead of naming the two that exist.
 
 381 passed. Shipped as PR #118.
+
+## 2026-08-19 — the setTimeout clamp, transferred from a sibling repo (#122)
+
+An hour earlier in this same run I shipped ai-app-integration-tests#97: Node
+clamps any `setTimeout` delay above `2**31 - 1` to 1 ms, and that repo's retry
+helper never bounded its backoff by it. I wrote the aop sibling down as a
+follow-up — and then actually went and checked it, which is the part that
+mattered. Grepping every TypeScript repo for `setTimeout` call sites, nextjs and
+mcp pass fixed delays; aop computes an exponential.
+
+Worth recording that this class is **JavaScript-only**. Python's
+`asyncio.sleep` has no clamp — `asyncio.sleep(1e308)` simply waits — so the
+eight Python repos cannot have it and shouldn't be swept.
+
+The mechanism here is different from the aiapp version, which is why it's a
+separate issue. This repo *has* a cap, `backoffMaxMs` — but it is optional with
+no default, while the docstring says "clamped by `backoffMaxMs`" as though a cap
+always applies. And a cap set *above* the limit is a cap that doesn't protect:
+`2147483647` slept fully, `2147483648` slept 1 ms.
+
+The best part was a falsified promise. The in-loop comment says the reported
+`backoffMs` "is the actually-slept value so the trace event matches reality
+(not the abstract formula)". Measured:
+
+```
+backoffMs=1000        -> reported 1000 ms,       wall 1003 ms   AGREES
+backoffMs=3600000000  -> reported 3600000000 ms, wall    0 ms   DISAGREES
+```
+
+`onAttempt` becomes `retry_attempted` events, which `PgStore.writeRun` persists
+and the trace UI renders. So the trace claimed a 41.7-day backoff for something
+that took under a millisecond — in the repo whose entire point is a trustworthy
+trace.
+
+Why `#29`'s `validatePolicy` sweep couldn't see it: that sweep covered the
+numeric domain — integer, finite, sign — and every offending value here is
+finite and positive. Same reason aiapp's own `#24` sweep missed its version. A
+numeric-domain sweep cannot see a platform representation limit.
+
+The detail that mattered most in the fix: the schedule guard applies the cap
+**exactly as the loop does** (`min(rawPeak, backoffMaxMs)`), not the raw
+exponential alone. `{ maxAttempts: 26, backoffMs: 1000, multiplier: 2,
+backoffMaxMs: 60_000 }` overflows raw but is genuinely bounded by the 60 s cap,
+and rejecting it would break a working configuration. A guard has to model the
+code it guards, not a simplification of it. There's a named test.
+
+And there is no separate reporting fix. Once an over-limit sleep is
+unconstructible, the reported number and the real sleep agree by construction —
+so the false comment becomes true rather than being deleted, which is the
+cleanest way to resolve a false prose assertion.
+
+One gotcha: `ToolError`'s constructor is `(toolName, kind, message)` in that
+order. My first probe passed the kind first, so `err instanceof ToolError` held
+but the kind was wrong, nothing retried, and the recorded-sleeps array came back
+empty — which I nearly read as the bug being absent. Read the constructor before
+trusting an empty probe.
