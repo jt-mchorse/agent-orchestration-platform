@@ -120,17 +120,78 @@ export function matchFindings(
   actuals: Finding[],
   goldens: Finding[],
 ): Array<{ actual_index: number; golden_index: number; similarity: number }> {
-  const pairs: Array<{ a: number; g: number; sim: number }> = [];
+  const pairs: Array<{ a: number; g: number; sim: number; key: string }> = [];
   for (let ai = 0; ai < actuals.length; ai += 1) {
     for (let gi = 0; gi < goldens.length; gi += 1) {
       const actual = actuals[ai] as Finding;
       const golden = goldens[gi] as Finding;
       if (actual.severity !== golden.severity) continue;
       const sim = jaccard(actual.message, golden.message);
-      if (sim >= JACCARD_MATCH_THRESHOLD) pairs.push({ a: ai, g: gi, sim });
+      // Tie-break key, carried alongside the pair (#120). Built from the two
+      // findings' own CONTENT, not their array positions, so it is stable under
+      // permutation of either input array.
+      //
+      // U+0000 is written as the two-character escape `\u0000`, never as a raw
+      // byte. A literal NUL in the source makes git classify this file as
+      // BINARY, which costs every textual diff, blame and merge on it. The
+      // resulting string value is identical either way.
+      //
+      // The separator is NOT claimed to make the concatenation injective:
+      // `message` is free-form and JSON can carry a U+0000 inside a string, so
+      // two distinct pairs can in principle produce one key. That is tolerable
+      // and not worth a length prefix -- a collision only makes those two pairs
+      // compare equal again, i.e. it degrades to the pre-fix tie for that one
+      // input. What the tiebreak requires is that the key be a deterministic
+      // function of the two findings' content, and that holds unconditionally.
+      if (sim >= JACCARD_MATCH_THRESHOLD) {
+        pairs.push({
+          a: ai,
+          g: gi,
+          sim,
+          key: `${actual.severity}\u0000${actual.message}\u0000${golden.severity}\u0000${golden.message}`,
+        });
+      }
     }
   }
-  pairs.sort((p, q) => q.sim - p.sim);
+  // Descending similarity, then the content key (#120). Sorting on `sim` alone
+  // left ties in nested-loop insertion order — i.e. the order the findings
+  // happened to be LISTED — and the greedy walk below consumes pairs in that
+  // order, so which findings ended up matched depended on the listing.
+  //
+  // Measured on the pre-fix source, same three actuals and same three goldens,
+  // distinct messages, all `severity: "high"`, only the golden order differing:
+  //
+  //   A = [a / b / a b]
+  //   G = [a b / a b c / a c d]  ->  2 matches, f1 0.6667, composite 0.8667
+  //   G = [a b / a c d / a b c]  ->  3 matches, f1 1.0000, composite 1.0000
+  //
+  // One ordering reported a PERFECT score for the same review. The mechanism
+  // needs a tie at the top of the list: when `(A0,G1)` and `(A0,G2)` score
+  // equally and `G1` is the only viable partner for some other actual, taking
+  // `(A0,G1)` first strands that actual and taking `(A0,G2)` first does not.
+  // Equal Jaccard values are ordinary here — `tokenize` reduces each message to
+  // a token Set, so a general finding, a specific one, and a combined one
+  // routinely tie against several goldens.
+  //
+  // The tiebreak is on CONTENT, not on `p.a - q.a`. An index tiebreak would make
+  // the result independent of the sort's stability but NOT of the input order,
+  // which is the actual defect. Same reasoning and same fix shape as
+  // chunking-strategies-lab#68 (tie-break on the chunk's stable identity) and
+  // rag-production-kit#40 (tie-break on doc id): for a measurement lab the score
+  // must be a pure function of the two finding sets.
+  //
+  // Plain code-unit `<` comparison, deliberately not `localeCompare` — the
+  // locale-dependence of that call is the open question in #119, and there is no
+  // reason to introduce it here.
+  //
+  // D-011 is completed, not revisited: only EQUALLY-scoring pairs change relative
+  // order, so the greedy 1:1 walk and the severity lock are untouched.
+  pairs.sort((p, q) => {
+    if (q.sim !== p.sim) return q.sim - p.sim;
+    if (p.key < q.key) return -1;
+    if (p.key > q.key) return 1;
+    return 0;
+  });
   const usedA = new Set<number>();
   const usedG = new Set<number>();
   const out: Array<{ actual_index: number; golden_index: number; similarity: number }> = [];
