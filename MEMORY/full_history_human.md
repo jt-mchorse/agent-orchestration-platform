@@ -931,3 +931,43 @@ renderer by `test/readme-snapshot.test.ts`, and that test still passes.
 Small gotcha for next time: `FindingSeverity` is `blocker | concern | nit |
 praise`, not high/medium/low. My first test helper defaulted to `"high"` and
 `tsc` caught it.
+
+## 2026-08-20 — the tie-break separator was a literal NUL byte (#120, Phase A repair)
+
+PR #121 reached Phase A with every check green and `mergeable=MERGEABLE`,
+`mergeStateStatus=CLEAN`. Its diff said `Binary files a/src/eval/score.ts and
+b/src/eval/score.ts differ`. The tie-break key from #120 used U+0000 as its
+separator, and it had been committed as a *literal* NUL rather than as the
+`\u0000` escape. Git treats any blob with a NUL in its first 8000 bytes as
+binary — so the one file whose ordering semantics were the entire point of the
+PR had no reviewable diff, no blame, and no three-way merge.
+
+Nothing in the toolchain could have caught it. The *string* is identical either
+way, so `tsc`, `vitest` and every lint rule are structurally blind to the
+difference; the only observable is the encoding of the source itself. The check
+therefore has to read source bytes, which is what the new
+`test/no-raw-control-bytes-in-source.test.ts` does — scoped to the byte classes
+git's own binary heuristic reacts to, with tab, LF and CR excluded.
+
+Before fixing it I pulled every changed file of all eleven PRs that run had left
+open and scanned them for control bytes. Only `score.ts` hit. Worth noting that
+mcp-server-cookbook#140 — a PR entirely *about* control-character trim parity —
+came back clean, because that one built every character from a codepoint.
+
+Two things fell out. First, the round-trip hazard runs in both directions: the
+operator notes record literals being silently *lost* on the way in, making a real
+divergence look like agreement; this is the other half, a literal that survived
+and got committed. The new test file tripped on its own docstring, because the
+escapes I typed into it arrived as raw bytes. Second, I corrected a prose claim I
+had written in the #120 comment: it said the concatenation was injective because
+U+0000 cannot appear in either half. `message` is free-form and JSON can carry a
+U+0000 inside a string, so a collision is constructible. I left the separator
+alone — a collision only makes those two pairs compare equal again, degrading to
+the pre-fix tie for one pathological input — and rewrote the comment to state the
+property the tie-break actually needs: determinism as a function of content.
+
+**Why this work, this session:** it blocked the merge of #121 in Phase A.
+
+**Open questions / blockers:** none.
+
+**Next session:** #119 (MemoryStore `localeCompare` ordering) is still JT-gated.
