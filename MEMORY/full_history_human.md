@@ -1042,3 +1042,51 @@ helper returns.
 
 **Tests.** 24 new; 17 fail against a two-line narrowed revert. Suite 415 → 439
 green (5 pg tests skip without `DATABASE_URL`), `tsc` clean.
+
+## 2026-08-25 — `?limit=` returned one run instead of fifty (#126)
+
+**What got done.** `/api/runs` resolved its `limit`/`offset` window through
+`clampNumber`, which was not consistently lenient: it fell back for some
+malformed values and clamped others to `lo`, and it could not tell an absent
+parameter from a present-but-empty one. `?limit=` returned **one** run, because
+the guard tested `raw === null` — which is *absent* — while a present-but-empty
+value is `""` and `Number("") === 0`, which the clamp then lifted to `lo`. And
+`?limit=0x10` yielded 16 while `?limit=1_000` yielded 50: two non-decimal
+spellings, opposite verdicts, from inheriting `Number()`'s domain instead of
+stating one. The rule is now uniform — absent, empty, malformed, or below the
+minimum all yield the documented default; above the maximum still clamps.
+
+**The lesson here is a process one.** I filed and planned a *strict* contract —
+400 for a malformed parameter — implemented it, and it broke two pre-existing
+tests. One carried a written rationale with an issue reference: "`listRuns` now
+throws on a bad window (#117). The server must keep clamping *before* it calls,
+so a hand-typed query stays a 200 with the defaults rather than surfacing the new
+`RangeError` as a 500." That is a prior decision, even without a D-NNN, and
+overturning it on my own is what the memory protocol exists to prevent. I posted
+a correction on the issue *before* opening the PR, narrowed the fix to what
+nobody had chosen, and filed the posture question as a decision-revisit (#127)
+for JT.
+
+**The narrowing turned out stronger than the override.** That existing test's own
+comment says a bad window "stays a 200 **with the defaults**" — and the code did
+not do that: `?limit=-1` returned 1, not 50. So the narrowed fix makes the prior
+comment *true* rather than contradicting it. When a prior test blocks you, read
+its comment for a claim the code does not honour.
+
+**The check that made me confident:** every pre-existing test passes unchanged.
+Not one assertion edited or relaxed. That is what distinguishes respecting a
+prior decision from quietly working around it.
+
+**Open questions.** #127 — whether a malformed query parameter should be a 400 at
+all. My recommendation is in the issue, with the case against.
+
+**Also probed and left alone.** `eval/runner.ts`'s three aggregate means fall back
+to `0` when there are no cases — the bottom of a [0,1] score range — but the CLI
+guards `cases.length === 0` at exit 2, so the branch is unreachable through the
+binary. And `discoverCases` sorts on `localeCompare`, which is the same class as
+the open, JT-gated #119.
+
+**Tests.** 22 new (`test/ui/runs-query-params.test.ts`), driven through the real
+HTTP handler rather than a copy of the private helper. Neutering only the
+empty-string early return and the below-`lo` return turns 5 of 32 red while the
+controls stay green. Suite 439 → 461 green, `tsc` clean, prettier clean.
