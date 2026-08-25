@@ -1,3 +1,4 @@
+import { firstNonBlank } from "../io/env.js";
 import type { EvalRun } from "./runner.js";
 
 /**
@@ -92,16 +93,36 @@ export interface UpsertOptions {
 
 const DEFAULT_API_BASE = "https://api.github.com";
 
+/** Environment variables consulted, in precedence order. */
+export const TOKEN_ENV_NAMES = ["GITHUB_TOKEN", "GH_TOKEN"] as const;
+
 function resolveToken(opts: UpsertOptions): string {
-  if (opts.token) return opts.token;
-  const env = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
-  if (!env) {
+  // Was `if (opts.token) ...` followed by `process.env.GITHUB_TOKEN ??
+  // process.env.GH_TOKEN`. The first line is a truthy check and is correct --
+  // an empty `opts.token` falls through to the environment. The second used
+  // `??`, which fires on null/undefined only, and the two disagreed about the
+  // same idea one line apart (#124).
+  //
+  // Measured:
+  //   GITHUB_TOKEN='' + GH_TOKEN set     THROWS "GitHub token missing ..."
+  //   GITHUB_TOKEN='  ' + GH_TOKEN set   -> "  "  sent as `Bearer   `
+  //
+  // The first threw an error naming, among others, the variable that WAS
+  // correctly set. The second is worse: `"  "` is truthy, so it slipped past
+  // the `!env` guard below and turned a clear "token missing" into a 401.
+  //
+  // `firstNonBlank` applies one rule to the whole chain, `opts.token`
+  // included, so the precedence is expressed by argument order and every
+  // element is judged the same way.
+  const token = firstNonBlank([opts.token, ...TOKEN_ENV_NAMES.map((n) => process.env[n])], "");
+  if (!token) {
     throw new Error(
-      "GitHub token missing: pass `token` or set GITHUB_TOKEN / GH_TOKEN. " +
+      `GitHub token missing: pass \`token\` or set ${TOKEN_ENV_NAMES.join(" / ")}. ` +
+        "An empty or whitespace-only value counts as missing. " +
         "In Actions, `permissions: pull-requests: write` makes this automatic.",
     );
   }
-  return env;
+  return token;
 }
 
 function authHeaders(token: string): Record<string, string> {

@@ -265,6 +265,35 @@ contract (`@modelcontextprotocol/sdk`) and Postgres bindings (`pg`,
 declared as an `optionalDependency` so hermetic CI doesn't pull it)
 are the only required deps; everything else is dev-tooling.
 
+## Cross-cutting: environment fallback chains (#124)
+
+`src/io/env.ts` is the package-level reader every environment-driven
+fallback goes through. `??` fires on `null`/`undefined` only, so a
+set-but-empty variable used to be passed along verbatim and whatever
+came next in the chain was never consulted. Two sites had that shape and
+two did not:
+
+```
+src/bin/trace-server.ts   Number(process.env.PORT) || 8766          correct
+test/trace/pg-store.test  DATABASE_URL ? it : it.skip               correct
+src/eval/comment.ts       process.env.GITHUB_TOKEN ?? GH_TOKEN      bug
+src/trace/pg-store.ts     opts.x ?? process.env.DATABASE_URL ?? d   bug
+```
+
+Measured on `resolveToken`: `GITHUB_TOKEN=''` with `GH_TOKEN` set threw
+"GitHub token missing", naming in its own text the variable that *was*
+correctly set; and `GITHUB_TOKEN='  '` was truthy, so it slipped past the
+`!env` guard and went out as `Authorization: Bearer   ` — a 401 from
+GitHub instead of a clear diagnostic. `GITHUB_TOKEN` is not automatic in
+an Actions job, and `env: GITHUB_TOKEN: ${{ secrets.X }}` with an unset
+secret expands to an empty string rather than to unset, so this is an
+ordinary state rather than a contrived one.
+
+`firstNonBlank` applies one rule to a whole chain, explicit options
+included, so precedence is expressed by argument order and every element
+is judged the same way. The same treatment now reaches `PgStore`'s
+`postgresql://agent:agent@localhost:5433/agent_trace` default.
+
 ## Cross-cutting: atomic file writes (#33)
 
 `src/io/atomic-write.ts` is the package-level helper every operator-

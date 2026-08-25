@@ -971,3 +971,74 @@ property the tie-break actually needs: determinism as a function of content.
 **Open questions / blockers:** none.
 
 **Next session:** #119 (MemoryStore `localeCompare` ordering) is still JT-gated.
+
+---
+
+## 2026-08-24 — Issue #124: an empty `GITHUB_TOKEN` blocked its own fallback
+
+**How it was found.** Fourth repo this run in the sweep for
+`process.env.X ?? "default"` — after nextjs#104, ai-app-integration-tests#101 and
+mcp-server-cookbook#145. One grep, four separate issues.
+
+But the sharper version of the lens isn't the grep. It is: **enumerate every env
+read in the repo and compare their conventions.** This repo had four sites and
+three conventions, and the majority was already right:
+
+```
+src/bin/trace-server.ts   Number(process.env.PORT) || 8766          correct
+test/trace/pg-store.test  DATABASE_URL ? it : it.skip               correct
+src/eval/comment.ts       process.env.GITHUB_TOKEN ?? GH_TOKEN      bug
+src/trace/pg-store.ts     opts.x ?? process.env.DATABASE_URL ?? d   bug
+```
+
+And the tightest instance of "the same job done properly elsewhere" I have seen:
+**one line apart, inside one function.**
+
+```ts
+if (opts.token) return opts.token;                            // truthy — correct
+const env = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN; // nullish — wrong
+```
+
+**Two defects, and the second is worse.** Measured:
+
+```
+GITHUB_TOKEN='' + GH_TOKEN set     THROWS "GitHub token missing ... set GITHUB_TOKEN / GH_TOKEN"
+GITHUB_TOKEN='  ' + GH_TOKEN set   -> "  "   sent as `Authorization: Bearer   `
+```
+
+The first is at least loud, but its message names — among the remedies — the
+variable that *is* correctly set, so an operator reading it has no route to the
+real cause. The second is silent: `"  "` is truthy, so it passes the existing
+`!env` guard and goes out as a credential, turning a clear "token missing" into
+a 401 from GitHub. Worth asking of every emptiness guard whether whitespace
+passes it.
+
+**Reachability.** `GITHUB_TOKEN` is *not* automatically present in a GitHub
+Actions job — it must be mapped, and `env: GITHUB_TOKEN: ${{ secrets.X }}` with
+an unset or misspelled secret expands to an **empty string, not to unset**. That
+is the single most common way an environment variable ends up empty in CI.
+Locally, `GH_TOKEN` is the `gh` CLI's own convention, so "GH_TOKEN correct,
+GITHUB_TOKEN empty" is an ordinary state.
+
+**One thing I could not measure, and said so.** `PgStore`'s chain has the same
+shape, and an empty `DATABASE_URL` bypasses the documented
+`postgresql://agent:agent@localhost:5433/agent_trace` default. What `pg` then
+*connects to* I could not establish — `pool.options` doesn't expose the parsed
+values and this repo's pg tests skip without `DATABASE_URL`. So I claimed only
+what I could prove and made the fix independent of the unknown: the documented
+default is what the operator expects, whatever `pg` would have done. Same
+discipline as #119.
+
+**An API-shape choice worth reusing.** `firstNonBlank` takes a list of *values*,
+not of env names, so an explicit option can be threaded in ahead of the
+environment. Precedence becomes argument order — which is what let
+`opts.token` and `opts.connectionString` keep their precedence while being
+judged by the same rule as everything after them.
+
+**Test shape worth reusing.** The `resolveToken` tests capture the
+`Authorization` header through the injected `fetchImpl` rather than calling the
+private helper. The property under test is what reaches the wire, not what a
+helper returns.
+
+**Tests.** 24 new; 17 fail against a two-line narrowed revert. Suite 415 → 439
+green (5 pg tests skip without `DATABASE_URL`), `tsc` clean.

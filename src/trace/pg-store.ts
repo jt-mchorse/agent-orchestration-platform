@@ -14,6 +14,7 @@
  * surface, not a customer-facing data store).
  */
 
+import { firstNonBlank } from "../io/env.js";
 import {
   aggregateCost,
   assertPaginationOpts,
@@ -39,6 +40,9 @@ export interface PgStoreOptions {
   pool?: PoolLike;
 }
 
+/** Documented local default, matching `docker compose` and `init.sql`. */
+export const DEFAULT_CONNECTION_STRING = "postgresql://agent:agent@localhost:5433/agent_trace";
+
 export class PgStore implements TraceStore {
   private pool: PoolLike | null = null;
   private readonly opts: PgStoreOptions;
@@ -50,8 +54,19 @@ export class PgStore implements TraceStore {
 
   private async getPool(): Promise<PoolLike> {
     if (this.pool) return this.pool;
-    const connectionString =
-      this.opts.connectionString ?? process.env.DATABASE_URL ?? "postgresql://agent:agent@localhost:5433/agent_trace";
+    // `??` fires on null/undefined only, so an empty `DATABASE_URL` -- or an
+    // empty `opts.connectionString` -- used to be handed to `new Pool()`
+    // verbatim, bypassing the documented default below (#124). One rule for
+    // the whole chain; precedence is argument order.
+    //
+    // Deliberately not claiming what `pg` does with `""`: establishing that
+    // needs a running Postgres, and this repo's pg tests skip without
+    // `DATABASE_URL`. The fix stands on the documented default being what the
+    // operator expects, which does not depend on that unknown.
+    const connectionString = firstNonBlank(
+      [this.opts.connectionString, process.env.DATABASE_URL],
+      DEFAULT_CONNECTION_STRING,
+    );
     // Dynamic import keeps `pg` out of the require/import graph until
     // actually needed; module is optional from the package consumer's POV.
     const mod = await import("pg" as unknown as string).catch(() => null);
