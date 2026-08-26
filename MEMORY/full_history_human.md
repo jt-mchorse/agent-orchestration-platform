@@ -1090,3 +1090,51 @@ the open, JT-gated #119.
 HTTP handler rather than a copy of the private helper. Neutering only the
 empty-string early return and the below-`lo` return turns 5 of 32 red while the
 controls stay green. Suite 439 → 461 green, `tsc` clean, prettier clean.
+
+## 2026-08-26 — an upsert that updated 8 of 11 columns (#129)
+
+**What got done.** `PgStore.writeRun`'s statement listed 12 columns in the
+INSERT and 8 in the `DO UPDATE SET`. `run_id` is correctly excluded as the
+conflict key; `pr_owner`, `pr_repo` and `pr_number` were simply missing. So a
+re-write under an existing `run_id` kept the old pull request while updating
+everything else.
+
+**The lens was two implementations of one interface — the fourth time tonight.**
+And this repo states the property itself: `PgStore.listRuns`'s comment says "so
+the two backends of this interface can't disagree". A repo that writes down a
+parity claim has handed you the test oracle.
+
+**The transferable finding: an upsert's `DO UPDATE SET` is a subset of its
+INSERT column list until someone checks.** Count both lists and diff them; the
+conflict key is the only column that should be absent. Any `ON CONFLICT ... DO
+UPDATE` anywhere has this question, and it is a purely structural check — no
+database needed.
+
+**And the structural test is worth more than the fix.** It drives the real
+`writeRun` through a fake pool, parses the emitted SQL, and asserts every non-key
+INSERT column appears in the UPDATE list — so the *next* column added and
+forgotten fails there. A three-column fix would have been a one-time repair. When
+a bug is one list falling out of sync with another list, test the sync, not the
+items. There is also a companion asserting `run_id` is *not* self-updated, so
+nobody satisfies the completeness check by adding a no-op — a completeness
+assertion needs a partner forbidding the degenerate way to pass it.
+
+**The severity argument was not staleness, it was self-contradiction.** The same
+transaction deletes and re-inserts `trace_events`, whose `run_started` event
+carries the *new* `pr`. So the `runs` row and its own event log named different
+pull requests, and `getRun` returned both in one object. When a partial update
+sits beside a full replace in one transaction, look for a row that disagrees with
+its own children.
+
+**A gotcha that cost a cycle.** The SQL lives in a JS template literal, so a
+backtick in my explanatory SQL comment terminated the string — esbuild reported
+"Expected ')' but found 'getRun'". The comment now says so.
+
+**An honesty split, stated in the issue, the PR and the test.** No Postgres in
+this environment, so the column omission is proven hermetically and the
+end-to-end behaviour is asserted by a `pg-integration` test that CI runs. I did
+not claim to have measured the second half.
+
+**Tests.** 9 new. Removing the three columns again turns 3 of 8 red with the
+MemoryStore, parameter and event-log controls green. Suite 466 → 475 (469 passed,
+6 pg-gated skips), tsc clean.
