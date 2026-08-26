@@ -89,6 +89,38 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     }
   });
 
+  it_pg("a re-write under the same run_id replaces the whole row, pr included", async () => {
+    // #129: the upsert listed 12 columns in the INSERT and 8 in the
+    // DO UPDATE SET, so pr_owner / pr_repo / pr_number kept their old values
+    // while everything else updated -- and the same transaction re-inserted the
+    // event log carrying the NEW pr, so getRun returned one object naming two
+    // different pull requests. MemoryStore replaces the whole run (Map.set), so
+    // this is the parity assertion the hermetic half cannot make.
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    const runId = await uniqueRunId();
+    const OTHER: PlannerState["pr"] = { owner: "acme", repo: "beta", number: 99 };
+    try {
+      const first = makeEvents();
+      await store.writeRun({ run_id: runId, pr: PR, events: first, review: review() });
+      expect((await store.getRun(runId))?.pr).toEqual(PR);
+
+      const second = makeEvents();
+      second[0] = { ts: 1_700_000_000_000, kind: "run_started", pr: OTHER };
+      await store.writeRun({ run_id: runId, pr: OTHER, events: second, review: review() });
+
+      const detail = await store.getRun(runId);
+      expect(detail?.pr).toEqual(OTHER);
+
+      // And the row agrees with its own event log -- the inconsistency is what
+      // made the stale columns worse than merely stale.
+      const started = detail?.events.find((e) => e.kind === "run_started");
+      expect(started).toBeTruthy();
+      expect((started as Extract<TraceEvent, { kind: "run_started" }>).pr).toEqual(detail?.pr);
+    } finally {
+      await store.close();
+    }
+  });
+
   it_pg("listRuns orders newest-first across multiple writes", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });

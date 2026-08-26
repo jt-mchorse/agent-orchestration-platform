@@ -95,6 +95,17 @@ export interface WriteRunInput {
  * surface; the store is the at-rest surface.
  */
 export interface TraceStore {
+  /**
+   * Persist a finalized run.
+   *
+   * **A re-write under an existing `run_id` replaces the whole run** (#129) —
+   * every field of `WriteRunInput`, not a subset. `MemoryStore` gets this from
+   * `Map.set`; `PgStore`'s upsert has to list every non-key column in its
+   * `ON CONFLICT ... DO UPDATE SET`, and for a while it listed 8 of 11, so a
+   * replay kept the old `pr` while its own re-inserted event log carried the
+   * new one. An implementation that cannot replace the whole row must not
+   * silently keep half of it.
+   */
   writeRun(input: WriteRunInput): Promise<void>;
   listRuns(opts?: { limit?: number; offset?: number }): Promise<RunSummary[]>;
   getRun(runId: string): Promise<RunDetail | null>;

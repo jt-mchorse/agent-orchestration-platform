@@ -95,6 +95,25 @@ export class PgStore implements TraceStore {
                            recommendation, summary)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (run_id) DO UPDATE SET
+           -- Every non-key column, not a subset (#129). Postgres leaves an
+           -- unlisted column at its existing value, and pr_owner / pr_repo /
+           -- pr_number were missing -- so a re-write kept the OLD pull request
+           -- while updating everything else, including the trace_events log
+           -- below, whose run_started event carries the NEW one. getRun then
+           -- returned one object naming two different PRs: pr from the stale
+           -- runs row, events[0].pr from the fresh log. MemoryStore.writeRun is
+           -- a whole-row replace (Map.set), so the two backends of this
+           -- interface disagreed about what writeRun means for an existing
+           -- run_id -- exactly what listRuns' comment below says must not
+           -- happen.
+           --
+           -- NOTE: no backticks in this comment. It sits inside a JS template
+           -- literal, so one would terminate the string.
+           -- test/trace/upsert-column-parity.test.ts parses this statement and
+           -- fails if a non-key INSERT column is ever missing here again.
+           pr_owner     = EXCLUDED.pr_owner,
+           pr_repo      = EXCLUDED.pr_repo,
+           pr_number    = EXCLUDED.pr_number,
            started_at   = EXCLUDED.started_at,
            finalized_at = EXCLUDED.finalized_at,
            status       = EXCLUDED.status,
