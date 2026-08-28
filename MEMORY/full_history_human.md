@@ -1138,3 +1138,46 @@ not claim to have measured the second half.
 **Tests.** 9 new. Removing the three columns again turns 3 of 8 red with the
 MemoryStore, parameter and event-log controls green. Suite 466 → 475 (469 passed,
 6 pg-gated skips), tsc clean.
+
+## 2026-08-28 - issue #131: the sweep wrote down its own scope, and the scope was wrong
+
+Both open issues here are decision revisits, so this was a hunt. I started with the
+two-backend parity grid that had paid earlier tonight in another repo, and found it
+closed: the pagination contract is genuinely centralised, called by both stores, and
+the ordering divergence is already filed as its own decision revisit. So I went to
+the least-touched file instead.
+
+The environment-variable helper opens by listing the repo's env-reading sites -
+"this repo had four env-reading sites and three conventions" - and describes the bug
+it fixed in two of them. Counting the real population took ten seconds and found six.
+The two it missed both read the same variable, and both carry the exact guard the
+fix was written to replace: a truthiness check that a string of spaces walks
+straight through. The helper's own docstring says so, about a different variable.
+
+One of the two lives in a directory the sweep never looked at. My own first grep
+reproduced that blind spot - I searched the package directory, found one missed
+site, then widened to the repository root and found the second.
+
+The harm is not the blank string; that one the old guard does reject. It is a
+correct path carrying incidental whitespace, the kind you get from a dotenv line or
+a command substitution with a trailing newline. That is accepted, and then joined
+into a filesystem path, where it becomes a *relative* path under a directory
+literally named two spaces. The operator sees a file-not-found error several frames
+away, naming a path with invisible characters at both ends.
+
+So trimming is half the fix rather than a detail, and I gave it its own revert arm:
+a version that rejects blanks but returns the untrimmed value fixes the rejection
+and keeps the broken path, and three tests catch that.
+
+Two things about the guard itself are worth remembering. It has two clauses covering
+the same case, because the first is already true for an empty string - which reads
+as thoroughness and is the opposite. And both copies are byte-identical, the same
+hand-copied-rule shape that produced a divergence in another repo earlier tonight.
+
+I also corrected both places the false enumeration lives, and then replaced the
+enumeration with a discovery, because a comment cannot enforce a population and a
+written list is exactly how these two sites survived a whole sweep. My first version
+of that rule was stated negatively and immediately flagged two files that are
+correct - they read the environment on purpose, to put an explicit option ahead of
+it. Restating it as "a helper must be present" is a lesson already in my notes that
+I still had to relearn by writing the wrong version first.
