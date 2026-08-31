@@ -138,3 +138,27 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The helper is a stable API; future evolution is a localized rewrite.
 
 **Related issues:** #33
+
+## D-014 — A malformed boot-time numeric env var is fatal (2026-08-31)
+**Decision:** `PORT` (and any future boot-time numeric env var) is validated at the seam using the portfolio's shared integer grammar. Unset or blank falls back to the default; anything else that is not a plain base-10 integer in range throws. `PORT=0` is honoured.
+
+**Why:** `Number(process.env.PORT) || 8766` implements "reject the values that are falsy, pass through the values that are truthy", which is not the same rule as "accept a valid port". Measured: `8080` → 8080 and `""` / `"  "` → 8766, both correct; but `0` → 8766, so the standard "let the OS pick a free port" request was unreachable; `abc` and `8080abc` silently became 8766; and `-1` and `70000` passed straight through and threw several frames later inside `listen`. The invalid values that got rejected were the ones truthiness happens to catch.
+
+Fatal rather than warned-and-defaulted because `PORT` is boot-time operator input, read once, on a terminal with stderr in front of the operator. Failing fast costs one restart; absorbing costs a server on the wrong port with no signal. That is the argument `commentTargetError` (#107) and `AgentRun.maxReplans` already won in this repo.
+
+**This deliberately does not settle #127**, which asks the same absorb-or-reject question about a `/api/runs` query parameter. That is request-time, per-request, and reachable by anyone, where absorb-and-default has a real case. A boot-time env var and an HTTP query parameter are different seams.
+
+The grammar is the one `mcp-server-cookbook` settled in #98/#137/#152 and enforces across three servers — trim, gate on `^[+-]?\d+$`, bound the magnitude with `BigInt` before `Number` can lose precision, then parse — so the two repos do not solve one problem two ways. It rejects `0x10`, `1e3`, `8080.0`, `1_000`, `5s`, and `9007199254740993` (which `Number` silently reads one lower). One deliberate divergence: unset **or blank** falls back, where mcp's throws on `""`, because a set-but-empty variable being treated as unset is #124's contract for this repo.
+
+**The exemption that hid it** is worth recording on its own. `test/io/env-read-population.test.ts` listed `src/bin/trace-server.ts` as a deliberate direct reader of `process.env`, because it "resolves a numeric port through `Number(...) || default`, which has no blank-but-truthy hazard because `Number("  ")` is `0`, i.e. falsy". Every word of that is true — and it excused the whole site from the rule while a different defect sat in the same expression. A true reason for an over-broad exclusion is harder to spot than a false one, because re-reading confirms it. The question to ask of an exemption is not "is the reason true" but "does the reason cover everything the exemption covers".
+
+**Alternatives considered:**
+- Warn and fall back on a malformed `PORT` — rejected: a silently plausible result is the failure mode this repo rejects elsewhere.
+- Leave `0` unreachable — rejected: it is the standard ephemeral-port request.
+- Let `listen` keep rejecting `-1` and `70000` — rejected: that was a prior session's deferral reasoning, and it covers 2 of the 5 invalid cases.
+- A bespoke grammar for this repo — rejected: mcp already settled one.
+- Deciding #127 at the same time — rejected: different seam.
+
+**Reversibility:** Cheap — one helper and one call site.
+
+**Related issues:** #132, #124, #131, #127

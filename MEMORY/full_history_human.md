@@ -1181,3 +1181,18 @@ of that rule was stated negatively and immediately flagged two files that are
 correct - they read the environment on purpose, to put an explicit option ahead of
 it. Restating it as "a helper must be present" is a lesson already in my notes that
 I still had to relearn by writing the wrong version first.
+
+## 2026-08-31 — Issue #132: `PORT` resolution rejected falsy values, not invalid ones
+**Duration:** ~1 session block · **Branch:** `session/2026-08-31-0805-issue-132`
+
+- `Number(process.env.PORT) || 8766` implements "reject the values that are falsy, pass through the values that are truthy". `PORT=0` — the standard "let the OS pick a free port" — was unreachable; `PORT=abc` and `PORT=8080abc` silently became 8766; `-1` and `70000` passed straight through and threw several frames later inside `listen`. The invalid values that got rejected were the ones truthiness happens to catch.
+- Replaced with `resolveIntEnv` / `resolvePort` in `src/io/env.ts`, using the integer grammar `mcp-server-cookbook` already settled across three servers, with one written-down divergence: unset **or blank** falls back here, because that is #124's contract for this repo. Recorded as D-014, scoped to boot-time env vars and explicitly not settling #127's request-time question.
+- **The exemption that hid it had a completely true reason.** `env-read-population.test.ts` excused this site because `Number("  ")` is `0`, i.e. falsy, so it has no blank-but-truthy hazard. All true — and it excused the whole site from the rule while a different defect sat in the same expression. The same line was labelled `correct` in four documents.
+- **The anti-vacuous check failed the first time, and that was the useful part.** Reverting the call site while leaving the `resolvePort` import in place turned nothing red: the population rule is a file-level text heuristic satisfied by the mention alone. So the call site now has its own lock, stated both positively and negatively, and the revert turns two tests red.
+- 38 new tests, 487 → 525 green; typecheck and build clean.
+
+**Why this work, this session:** it was the repo's only open issue that wasn't a decision-revisit, and the decision it asked for is cheap and reversible.
+
+**Open questions / blockers:** none. #127 and #119 remain JT-gated and are untouched.
+
+**Next session:** #127 if a decision is taken.
