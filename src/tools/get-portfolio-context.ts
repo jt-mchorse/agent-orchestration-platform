@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { z } from "zod";
 import { createPortfolioContextServer } from "../../mcp-server/portfolio-context/server.js";
+import { resolvePortfolioRoot } from "../io/env.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
 const inputSchema = z.object({
@@ -31,8 +32,12 @@ export type GetPortfolioContextConnect = () => Promise<{
 }>;
 
 async function defaultConnect(): Promise<{ client: Client; cleanup: () => Promise<void> }> {
-  const portfolioRoot = process.env["PORTFOLIO_ROOT"];
-  if (!portfolioRoot || portfolioRoot.length === 0) {
+  // `resolvePortfolioRoot` trims and treats blank as unset (#131). The guard
+  // here used to be `!root || root.length === 0`, which accepts `"  "` — the
+  // exact blank-but-truthy case #124 fixed for tokens — and then joins it into
+  // a filesystem path.
+  const portfolioRoot = resolvePortfolioRoot();
+  if (portfolioRoot === undefined) {
     throw new ToolError(
       "get_portfolio_context",
       "internal",

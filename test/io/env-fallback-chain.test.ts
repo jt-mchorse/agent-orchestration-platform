@@ -1,12 +1,21 @@
 /**
  * A set-but-empty environment variable does not defeat its own fallback (#124).
  *
- * This repo had four env-reading sites and three conventions:
+ * This repo had **six** env-reading sites and four conventions. #124 enumerated
+ * four of them and fixed the two it labelled BUG; the two it missed both read
+ * `PORTFOLIO_ROOT`, and `mcp-server/` was outside its scope entirely (#131):
  *
- *     src/bin/trace-server.ts   Number(process.env.PORT) || 8766        correct
- *     test/trace/pg-store.test  DATABASE_URL ? it : it.skip             correct
- *     src/eval/comment.ts       process.env.GITHUB_TOKEN ?? GH_TOKEN    BUG
- *     src/trace/pg-store.ts     opts.x ?? process.env.DATABASE_URL ?? d BUG
+ *     src/bin/trace-server.ts        Number(process.env.PORT) || 8766        correct
+ *     test/trace/pg-store.test       DATABASE_URL ? it : it.skip             correct
+ *     src/eval/comment.ts            process.env.GITHUB_TOKEN ?? GH_TOKEN    BUG (#124)
+ *     src/trace/pg-store.ts          opts.x ?? process.env.DATABASE_URL ?? d BUG (#124)
+ *     src/tools/get-portfolio-context.ts   !root || root.length === 0        BUG (#131)
+ *     mcp-server/portfolio-context/bin.ts  !root || root.length === 0        BUG (#131)
+ *
+ * The count is now discovered, not asserted: `test/io/env-read-population.test.ts`
+ * walks the source for `process.env` reads and requires each to go through this
+ * module, so a seventh site is covered by a test written today rather than by
+ * someone remembering to update this comment.
  *
  * `??` fires on `null`/`undefined` only. Measured on `resolveToken` before the
  * fix:
