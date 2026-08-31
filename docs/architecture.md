@@ -274,11 +274,20 @@ came next in the chain was never consulted. Two sites had that shape and
 two did not:
 
 ```
-src/bin/trace-server.ts   Number(process.env.PORT) || 8766          correct
+src/bin/trace-server.ts   Number(process.env.PORT) || 8766          bug (#132)
 test/trace/pg-store.test  DATABASE_URL ? it : it.skip               correct
 src/eval/comment.ts       process.env.GITHUB_TOKEN ?? GH_TOKEN      bug
 src/trace/pg-store.ts     opts.x ?? process.env.DATABASE_URL ?? d   bug
 ```
+
+The `PORT` row read `correct` for three months, and it was correct *about
+this table's subject*: `Number("  ")` is `0`, which is falsy, so a blank
+value does fall through to the default. That true statement also excused
+the site from the population check in
+`test/io/env-read-population.test.ts`, while a different defect sat in the
+same expression — see **D-014**. The question to ask of an exemption is
+not "is the reason true" but "does the reason cover everything the
+exemption covers".
 
 Measured on `resolveToken`: `GITHUB_TOKEN=''` with `GH_TOKEN` set threw
 "GitHub token missing", naming in its own text the variable that *was*
