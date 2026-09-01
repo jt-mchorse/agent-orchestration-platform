@@ -33,7 +33,7 @@ registry, #3 planner loop, #6 trace UI, #7 eval) have hermetic local inputs.
 ## Architecture
 
 See [`docs/architecture.md`](docs/architecture.md) for the full diagram
-and the design decisions behind each component (D-002…D-013). In
+and the design decisions behind each component (D-002…D-014). In
 short: **input → planner → executor (with tool calls) → re-planner on
 unexpected output → HITL checkpoint → posted review**, with every step
 logged to a trace store and scorable against committed golden answer keys.

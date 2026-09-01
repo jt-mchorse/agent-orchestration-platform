@@ -11,6 +11,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { resolvePort } from "../io/env.js";
 import { MemoryStore } from "../trace/store.js";
 import { PgStore } from "../trace/pg-store.js";
 import { createTraceServer } from "../ui/server.js";
@@ -116,9 +117,16 @@ async function maybeSeedMemoryStore(store: MemoryStore): Promise<void> {
   await store.writeRun(sampleB);
 }
 
+/** Port the README documents (`http://localhost:8766/`). */
+const DEFAULT_PORT = 8766;
+
 async function main(): Promise<void> {
   const useMemory = process.argv.includes("--memory");
-  const port = Number(process.env.PORT) || 8766;
+  // `Number(process.env.PORT) || 8766` until #132: it rejected the values
+  // that are falsy rather than the ones that are invalid, so `PORT=0` (the
+  // standard "pick a free port") was unreachable while `PORT=abc` and
+  // `PORT=8080abc` silently became the default. D-014.
+  const port = resolvePort(DEFAULT_PORT);
 
   let store: TraceStore;
   if (useMemory) {

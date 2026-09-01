@@ -5,7 +5,7 @@
  * four of them and fixed the two it labelled BUG; the two it missed both read
  * `PORTFOLIO_ROOT`, and `mcp-server/` was outside its scope entirely (#131):
  *
- *     src/bin/trace-server.ts        Number(process.env.PORT) || 8766        correct
+ *     src/bin/trace-server.ts        Number(process.env.PORT) || 8766        BUG (#132)
  *     test/trace/pg-store.test       DATABASE_URL ? it : it.skip             correct
  *     src/eval/comment.ts            process.env.GITHUB_TOKEN ?? GH_TOKEN    BUG (#124)
  *     src/trace/pg-store.ts          opts.x ?? process.env.DATABASE_URL ?? d BUG (#124)

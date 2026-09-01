@@ -5,12 +5,16 @@
  * four of them and fixed the two it labelled BUG; the two it missed both read
  * `PORTFOLIO_ROOT`, and `mcp-server/` was outside its scope entirely (#131):
  *
- *     src/bin/trace-server.ts        Number(process.env.PORT) || 8766        correct
+ *     src/bin/trace-server.ts        Number(process.env.PORT) || 8766        BUG (#132)
  *     test/trace/pg-store.test       DATABASE_URL ? it : it.skip             correct
  *     src/eval/comment.ts            process.env.GITHUB_TOKEN ?? GH_TOKEN    BUG (#124)
  *     src/trace/pg-store.ts          opts.x ?? process.env.DATABASE_URL ?? d BUG (#124)
  *     src/tools/get-portfolio-context.ts   !root || root.length === 0        BUG (#131)
  *     mcp-server/portfolio-context/bin.ts  !root || root.length === 0        BUG (#131)
+ *
+ * The PORT row read `correct` until #132. It is correct about the
+ * blank-but-truthy class this module is named for, and wrong about every other
+ * invalid value: see `resolveIntEnv` below.
  *
  * The count is now discovered, not asserted: `test/io/env-read-population.test.ts`
  * walks the source for `process.env` reads and requires each to go through this
@@ -117,4 +121,98 @@ export function firstNonBlank(candidates: readonly (string | undefined)[], fallb
  */
 export function resolvePortfolioRoot(env: NodeJS.ProcessEnv = process.env): string | undefined {
   return firstNonBlankEnv(["PORTFOLIO_ROOT"], env);
+}
+
+/**
+ * Resolve a numeric environment variable, or `fallback` when it is unset or
+ * blank. Throws `RangeError` on anything else that is not a plain base-10
+ * integer inside `[min, max]`.
+ *
+ * ### Why this exists
+ *
+ * `src/bin/trace-server.ts` read `Number(process.env.PORT) || 8766`, and this
+ * module's own table labelled that site **correct**. It was correct about the
+ * class #124 was chasing — `Number("  ")` is `0`, which is falsy, so a blank
+ * value really does fall through to the default — and that true statement
+ * excused the site from the population check in
+ * `test/io/env-read-population.test.ts` while a different defect sat in the
+ * same expression (#132). A true reason for an over-broad exclusion is harder
+ * to spot than a false one, because re-reading confirms it.
+ *
+ * What `Number(...) || default` actually implements is "reject the values that
+ * are falsy, pass through the values that are truthy", which is not the same
+ * rule as "accept a valid port". Measured:
+ *
+ *     "8080"      ->  8080    ok
+ *     "" / "  "   ->  8766    ok, the #124 contract
+ *     "0"         ->  8766    port 0 means "let the OS pick a free port" - overridden
+ *     "abc"       ->  8766    a typo silently becomes the default
+ *     "8080abc"   ->  8766    ditto, and this one looks like it should work
+ *     "-1"        ->  -1      truthy, so it passes through and listen() throws
+ *     "70000"     ->  70000   out of range, same
+ *
+ * The invalid values that got rejected were the ones truthiness happens to
+ * catch. A prior session deferred this on the grounds that "`server.listen()`
+ * already throws a clear RangeError, so it fails cleanly" — true of `-1` and
+ * `70000`, and false of the other three.
+ *
+ * ### The grammar
+ *
+ * Trim, gate on `^[+-]?\d+$`, bound the magnitude with `BigInt` *before*
+ * `Number` can lose precision, then parse. That is the grammar
+ * `mcp-server-cookbook` settled in #98/#137/#152 and enforces there across
+ * three servers, so the two repos do not solve one problem two ways. It
+ * rejects `0x10`, `1e3`, `8080.0`, `1_000`, `" 5s"` and `"9007199254740993"`
+ * (which `Number` silently reads one lower) as well as the cases above.
+ *
+ * One deliberate difference from mcp's version: **unset or blank falls back**,
+ * where mcp's throws on `""`. That is #124's contract for this repo — a
+ * set-but-empty variable is treated as unset — and it is what keeps `PORT=`
+ * and `PORT="  "` resolving to the default.
+ *
+ * Throwing rather than warning-and-defaulting: this is boot-time operator
+ * input, read once, with stderr in front of the operator, so failing fast
+ * costs one restart while absorbing costs a server on the wrong port with no
+ * signal. Same argument `commentTargetError` (#107) and `AgentRun.maxReplans`
+ * already won here. It deliberately does **not** settle #127, which asks the
+ * same question about a *request-time* query parameter — per-request and
+ * reachable by anyone, where absorb-and-default has a real case (D-014).
+ */
+export function resolveIntEnv(
+  name: string,
+  fallback: number,
+  { min, max }: { min: number; max: number },
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = env[name];
+  const trimmed = (raw ?? "").trim();
+  if (trimmed.length === 0) return fallback;
+
+  const plainInteger =
+    /^[+-]?\d+$/.test(trimmed) &&
+    BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER) &&
+    BigInt(trimmed) >= -BigInt(Number.MAX_SAFE_INTEGER);
+  const value = plainInteger ? Number(trimmed) : Number.NaN;
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new RangeError(
+      `env ${name} must be an integer in [${min}, ${max}] written in plain base-10 ` +
+        `digits (no unit suffix, no scientific notation, no separators, no hex); ` +
+        `got ${JSON.stringify(raw)}. Leave it unset or empty to use the default ${fallback}.`,
+    );
+  }
+  return value;
+}
+
+/** Lowest and highest values `server.listen(port)` accepts; 0 asks the OS to pick. */
+export const PORT_RANGE = { min: 0, max: 65535 } as const;
+
+/**
+ * Resolve `PORT`, or `fallback` when it is unset or blank (#132).
+ *
+ * `0` is honoured rather than overridden: it is the standard "let the OS pick
+ * a free port" request, which container and test harnesses use, and
+ * `Number(...) || default` could not express it at all.
+ */
+export function resolvePort(fallback: number, env: NodeJS.ProcessEnv = process.env): number {
+  return resolveIntEnv("PORT", fallback, PORT_RANGE, env);
 }

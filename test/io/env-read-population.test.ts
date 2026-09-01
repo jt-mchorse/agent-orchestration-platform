@@ -27,11 +27,20 @@ const SOURCE_DIRS = ["src", "mcp-server"] as const;
  *
  * Naming them is the point: an *asserted* exception is re-examined when it
  * changes, whereas an omission is invisible. `env.ts` is the helper itself —
- * it has to touch `process.env` — and `trace-server.ts` resolves a numeric
- * port through `Number(...) || default`, which has no blank-but-truthy hazard
- * because `Number("  ")` is `0`, i.e. falsy.
+ * it has to touch `process.env`.
+ *
+ * `src/bin/trace-server.ts` was the second entry, excused because it "resolves
+ * a numeric port through `Number(...) || default`, which has no
+ * blank-but-truthy hazard because `Number("  ")` is `0`, i.e. falsy". Every
+ * word of that is true, and it excused the site from this rule while a
+ * different defect sat in the same expression: `PORT=0` was unreachable and
+ * `PORT=abc` silently became the default (#132). A *true* reason for an
+ * exclusion is harder to spot than a false one, because re-reading confirms
+ * it — so the question to ask of an exemption is not "is the reason true" but
+ * "does the reason cover everything the exemption covers". It is now routed
+ * through `resolvePort` and the exemption is gone.
  */
-const DELIBERATE_DIRECT_READERS = new Set(["src/io/env.ts", "src/bin/trace-server.ts"]);
+const DELIBERATE_DIRECT_READERS = new Set(["src/io/env.ts"]);
 
 function tsFilesUnder(dir: string): string[] {
   const out: string[] = [];
@@ -53,7 +62,7 @@ function stripComments(src: string): string {
 }
 
 /** The helpers that make a `process.env` read safe. */
-const ENV_HELPERS = /\b(firstNonBlankEnv|firstNonBlank|resolvePortfolioRoot)\b/;
+const ENV_HELPERS = /\b(firstNonBlankEnv|firstNonBlank|resolvePortfolioRoot|resolveIntEnv|resolvePort)\b/;
 
 /**
  * Files that read `process.env` without routing it through `src/io/env.ts`.
@@ -120,7 +129,13 @@ describe("env-read population", () => {
     const readers = allEnvReaders();
     expect(readers).toContain("src/eval/comment.ts");
     expect(readers).toContain("src/trace/pg-store.ts");
-    expect(readers.length).toBeGreaterThanOrEqual(4);
+    // Was `>= 4` while `src/bin/trace-server.ts` read `process.env.PORT`
+    // directly. #132 routed it through `resolvePort`, so the population of
+    // *direct* readers legitimately shrank by one. The named files above are
+    // what actually makes this arm non-vacuous; the count is a floor under
+    // them, so it moves when the population does rather than being a second
+    // hard-coded list.
+    expect(readers.length).toBeGreaterThanOrEqual(3);
   });
 
   it("both #131 sites resolve PORTFOLIO_ROOT through the shared helper", () => {
