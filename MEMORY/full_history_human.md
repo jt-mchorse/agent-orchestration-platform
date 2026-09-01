@@ -1196,3 +1196,36 @@ I still had to relearn by writing the wrong version first.
 **Open questions / blockers:** none. #127 and #119 remain JT-gated and are untouched.
 
 **Next session:** #127 if a decision is taken.
+
+## 2026-09-01 — Issue #135: a rule that could not see what it was written to catch
+**Branch:** `session/2026-09-01-0759-issue-135`
+
+- The env-read population test asked whether a source file *mentions* one of the
+  env helpers anywhere in its text. An `import` alone answers yes. Reverting the
+  trace server's port resolution to a raw `process.env` read, with the import
+  left in place, left the file at six of six passing — the exact regression it
+  exists to catch.
+- The rule it wanted to state, "the value reaches a helper", is right; text
+  matching cannot see whether a value flows anywhere. It now parses: every
+  `process.env` node must sit inside the argument subtree of a helper call, or
+  be the initializer of a parameter typed `NodeJS.ProcessEnv`. The issue had
+  priced parsing at "a parser dependency in a test"; TypeScript is already a
+  devDependency, because it is the typechecker, so the exact rule was available
+  at the price of the approximate one.
+- The nicest consequence is that the exemption list disappears. `src/io/env.ts`
+  was excused by name; it is now excused by what it does, so a second module
+  adopting the same injection seam is covered and one that abandons it stops
+  being covered, with nobody maintaining a list. That list previously held a
+  second entry whose stated reason was true in every word and which still
+  excused a site with a different defect in the same expression.
+
+**Why this work, this session:** the repo's other open issues are decision
+revisits. This one was filed off the last session's own verification step, and
+a `priority:low` label on "the guard cannot catch the thing it guards" is a
+scoping judgement rather than a severity one.
+
+**Open questions / blockers:** none. Data flow across a variable binding is
+deliberately not modelled — no site writes it, and the rule flags it loudly if
+one ever does, which is the right failure.
+
+**Next session:** #127 and #119 both need decisions from JT.
