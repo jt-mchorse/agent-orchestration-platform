@@ -34,6 +34,38 @@ import { randomBytes } from "node:crypto";
 import { promises as fs, constants as fsc } from "node:fs";
 import path from "node:path";
 
+// Cap the target basename's contribution to the temp filename (#137). The temp
+// name is `.<base>.<pid>.<12-hex>.tmp`, so the affixes are two separator dots,
+// the pid, another dot, 12 hex characters and `.tmp` — base + 25 bytes in the
+// worst case, since a Linux pid can be 7 digits. Prepending a full basename
+// that is itself near NAME_MAX (255 on ext4/APFS) overflows the limit and the
+// write fails ENAMETOOLONG, even though a plain `fs.writeFile` of that same
+// target succeeds. Measured: the threshold is ~231 bytes of basename; at 236 B
+// the plain write is fine and the temp name is 260 B and fails.
+//
+// 200 leaves ~30 bytes of headroom over that arithmetic. Same constant and same
+// shape as the pattern leader this file's docstring already names
+// (`mcp-server-cookbook/servers/filesystem-sandbox/src/atomic_write.ts`, #96)
+// and the Python siblings (`rag-production-kit#128`, and the
+// `_MAX_TEMP_BASE_BYTES` in every `io_utils.atomic_write_text`). This port was
+// copied from the pre-#96 shape and never received the follow-up, so the family
+// claim in the docstring above was prose the code did not honour.
+//
+// The base in the temp name is cosmetic (`ls`-ability); uniqueness comes from
+// the pid + 12 random hex + O_EXCL, so truncating it is safe. Budget is in
+// BYTES because NAME_MAX is a byte limit, and we trim by whole characters so a
+// multi-byte codepoint is never split.
+const MAX_TEMP_BASE_BYTES = 200;
+
+function capBaseForTemp(base: string): string {
+  if (Buffer.byteLength(base, "utf8") <= MAX_TEMP_BASE_BYTES) return base;
+  let out = base;
+  while (out.length > 0 && Buffer.byteLength(out, "utf8") > MAX_TEMP_BASE_BYTES) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 export async function atomicWriteFile(
   target: string,
   data: string | Buffer,
@@ -45,7 +77,7 @@ export async function atomicWriteFile(
   await fs.mkdir(dir, { recursive: true });
 
   const token = randomBytes(6).toString("hex");
-  const tmp = path.join(dir, `.${base}.${process.pid}.${token}.tmp`);
+  const tmp = path.join(dir, `.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
 
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another

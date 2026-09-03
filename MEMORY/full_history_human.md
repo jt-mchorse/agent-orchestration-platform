@@ -1229,3 +1229,64 @@ deliberately not modelled — no site writes it, and the rule flags it loudly if
 one ever does, which is the right failure.
 
 **Next session:** #127 and #119 both need decisions from JT.
+
+## 2026-09-02 — #137: the docstring named a family the code hadn't joined
+
+`atomicWriteFile` built its temp filename from the full target basename:
+
+```ts
+const tmp = path.join(dir, `.${base}.${process.pid}.${token}.tmp`);
+```
+
+Those affixes come to base + 25 bytes in the worst case (a Linux pid can be
+seven digits), so a destination basename near the 255-byte NAME_MAX pushed the
+temp name over and the write failed `ENAMETOOLONG` — for a target a plain
+`fs.writeFile` accepts. Measured on APFS, simulating the exact temp name: at a
+236-byte basename the plain write is fine and the temp name is 260 bytes and
+fails. The threshold is around 231.
+
+**Reachability, said plainly rather than dressed up:** no current caller gets
+there. `eval-runner` builds `eval-${stamp}.json`, `render-eval-snapshot` writes
+`docs/eval_snapshot.md`, and `--results-dir` is operator input only as a
+*directory* — which `path.basename` never sees. This closes a gap in the
+primitive, not a live failure, and the test is what stops it reopening.
+
+**What made it worth closing is the prose.** The file's own docstring positions
+itself in a family: `rag_kit/io_utils.atomic_write_text` (rag#44/#45),
+`eval_harness/io_utils.atomic_write_text` (leh#51, D-015),
+`emb_shootout/io_utils.atomic_write_text` (ems#37), and the TypeScript pattern
+leader `servers/filesystem-sandbox/src/atomic_write.ts` (mcp#37). Every one of
+those four carries a cap; this one did not. The cap landed in mcp#96 and
+rag#128 — *after* this port was copied — so it simply never received the
+follow-up. A helper that names its family in a comment is making a parity
+claim, and that claim is a diff worth running.
+
+The pattern leader even records the reason the guard wasn't carried across:
+"since `write_file` takes a **client-supplied path**, that spurious failure is
+reachable". True there, false here. That is why nobody ported it — and it is
+the general trap: when you port a helper, the *reason* for a guard travels
+worse than the guard does. Ask whether you are copying the reason or the
+property.
+
+The tests are written as a **relation between two calls**, not as a fact about
+the filesystem: for any basename the host's own plain `fs.writeFile` accepts,
+`atomicWriteFile` must accept it too — and a host that refuses the plain write
+skips that row rather than failing. Nothing asserts something only this machine
+believes. Rows at 200/225/231/240/250 bytes, plus a 150×"é" name (300 bytes,
+comfortably under budget in *characters*) that a byte-slice would split
+mid-codepoint. And a maximality assertion, because a cap returning `""`
+satisfies every length check there is.
+
+Reverting the cap turns 4 of the 7 red and leaves the short-name rows green.
+Suite 548 → 555, `tsc --noEmit` clean.
+
+**Why this work, this session:** both of this repo's open issues (#127, #119)
+are JT-gated decision-revisits. This came out of a portfolio-wide sweep of
+`atomic_write` helpers that closed the same class in nine Python repos earlier
+in the run; the two TypeScript ports are its cross-language members.
+
+**Open questions / blockers:** none. Note for future sessions: this repo has no
+`lint` script — the CI gates are `npm run typecheck` and `npm test`.
+
+**Next session:** `ai-app-integration-tests`' `src/io.ts` has the identical
+uncapped helper and the identical family prose.
