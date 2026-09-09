@@ -18,6 +18,9 @@ import { firstNonBlank } from "../io/env.js";
 import {
   aggregateCost,
   assertPaginationOpts,
+  deriveFinalizedAt,
+  deriveStartedAt,
+  deriveStatus,
   type RunDetail,
   type RunSummary,
   type TraceStore,
@@ -83,8 +86,11 @@ export class PgStore implements TraceStore {
   async writeRun(input: WriteRunInput): Promise<void> {
     const pool = await this.getPool();
     const total = aggregateCost(input.events);
-    const startedAt = startedAtIso(input.events);
-    const finalizedAt = finalizedAtIso(input.events);
+    // Imported, not re-derived (#139): `MemoryStore` stores exactly what these
+    // return, so the two backends cannot drift about what a run's start, end
+    // or status is.
+    const startedAt = deriveStartedAt(input.events);
+    const finalizedAt = deriveFinalizedAt(input.events);
     const status = deriveStatus(input.events);
 
     await pool.query("BEGIN", []);
@@ -266,18 +272,3 @@ function payloadOf(event: TraceEvent): Record<string, unknown> {
   return rest;
 }
 
-function startedAtIso(events: TraceEvent[]): string {
-  const start = events.find((e) => e.kind === "run_started");
-  return start ? new Date(start.ts).toISOString() : new Date().toISOString();
-}
-
-function finalizedAtIso(events: TraceEvent[]): string | null {
-  const end = [...events].reverse().find((e) => e.kind === "finalized" || e.kind === "aborted");
-  return end ? new Date(end.ts).toISOString() : null;
-}
-
-function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
-  if (events.some((e) => e.kind === "aborted")) return "aborted";
-  if (events.some((e) => e.kind === "finalized")) return "finalized";
-  return "running";
-}

@@ -126,6 +126,16 @@ for real persistence (`pg` is lazy-imported, kept in
 identically. `aggregateCost(events)` sums each `Observation.cost`
 field across the run, skipping missing values rather than treating
 them as zero so a partial cost report shows as a partial total — D-005.
+"Identically" is enforced rather than asserted: every rule both backends
+need lives once in `src/trace/store.ts` and is imported by `pg-store.ts`
+— `aggregateCost`, `assertPaginationOpts` (#117), and since #139 the
+three derivations over an event log (`deriveStatus`, `deriveStartedAt`,
+`deriveFinalizedAt`) that `PgStore` used to re-declare as byte-equivalent
+copies. `test/trace/derivation-parity.test.ts` carries both halves: a
+behavioural table run through both backends, and a structural rule that
+`pg-store.ts` may declare no function over an event log at all — because
+two identical copies agree by construction, so only the structural arm
+catches the next re-paste.
 
 The viewer (`src/ui/`) is React 18 loaded via ESM CDN + `htm` for
 JSX-free templating. No bundler, no npm-side React dep — same
