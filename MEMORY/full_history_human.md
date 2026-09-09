@@ -1290,3 +1290,48 @@ in the run; the two TypeScript ports are its cross-language members.
 
 **Next session:** `ai-app-integration-tests`' `src/io.ts` has the identical
 uncapped helper and the identical family prose.
+
+## 2026-09-09 — Issue #139: three of the five TraceStore rules were copies
+**Branch:** `session/2026-09-09-0747-issue-139`
+
+`MemoryStore` and `PgStore` are two implementations of one interface. Two of the
+five rules they both need were shared deliberately — `aggregateCost` and
+`assertPaginationOpts`, the latter with a comment saying exactly why ("from the
+same validator, so the two backends of this interface can't disagree"). The
+other three were byte-equivalent copies, and nothing recorded why.
+
+I diffed all three pairs before filing, with comments and whitespace normalized:
+two identical, the third differing in spelling only. So this was filed as
+hygiene with the diff attached rather than as a bug, and it removes no live
+defect. What it removes is the shape that produced one — #129's own comment
+calls a subset-updating upsert the two backends "disagreeing about what
+`writeRun` means".
+
+`deriveStatus` is the costliest of the three to get wrong, because its output is
+*also* constrained at the database. A fourth status invented on the memory side
+passes every hermetic test and fails only in the `DATABASE_URL`-gated job.
+
+The test has two halves and the falsification is what shows neither subsumes the
+other. Re-copying a *drifted* `deriveStatus` turns 3 red. Re-copying an
+*identical* one — the shape the repo actually had — turns 2 red, and only the
+structural arm. A behavioural parity test cannot catch a re-paste, because two
+identical copies agree by construction. When the fix *is* the sharing, the
+structural test is not a bonus; it is the test.
+
+The structural rule discovers its population — a top-level function whose
+parameter is an event log — rather than listing the three from the issue, and on
+its first run it found a fourth: `aggregateCost`, already correct and already
+shared. It is named in the anti-vacuous list rather than filtered out to match
+what I had written down.
+
+**Why this work, this session:** both of this repo's other open issues are
+maintainer-gated decision-revisits, and it had gone six days untouched. This one
+I filed earlier in the same run while hunting, then worked.
+
+**Open questions / blockers:** none for this issue. Deliberately not smuggled in:
+`recommendation` has no `CHECK` constraint while `status` does, and
+`rowToSummary` casts both into their unions — one cast backed by the schema, one
+not. That is a migration and needs its own issue.
+
+**Next session:** the `recommendation` constraint question, if it survives a
+look at whether the free-text column is deliberate.
