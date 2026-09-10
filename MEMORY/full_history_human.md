@@ -1335,3 +1335,62 @@ not. That is a migration and needs its own issue.
 
 **Next session:** the `recommendation` constraint question, if it survives a
 look at whether the free-text column is deliberate.
+
+---
+
+## 2026-09-10 — the refactor shared three rules and an unguarded domain (#141)
+
+**Focus:** the `ts` input domain of the derivations `#140` promoted to shared.
+
+**What got done.** #140, merged at the top of this run, moved `deriveStatus`,
+`deriveStartedAt` and `deriveFinalizedAt` from per-backend copies to one shared
+definition, arguing that the two `TraceStore` backends must not "disagree about
+what `writeRun` means". It achieved exactly that. What it shared was an
+unguarded input domain.
+
+`TraceEvent.ts` is a `number` produced by a public, pluggable `Clock`, and
+nothing validated what a clock returns before `new Date(ts).toISOString()` saw
+it. A non-finite `ts` threw `RangeError: Invalid time value` — naming no
+function, no field and no value — out of *both* backends. That is the parity
+#140 delivered, on a crash; parity on a crash is still parity and still a bug.
+
+The fractional case is the silent one. `1234.5678` survives `MemoryStore`'s
+round trip exactly while the derived summary reads `...01.234Z`, so the stored
+event and the summary disagree about when the run started — and `init.sql`
+declares `ts BIGINT NOT NULL`, which cannot hold it at all, a failure visible
+only in the `DATABASE_URL`-gated job.
+
+**The code pointed at the way in.** The default clock's comment called
+`Date.now()` "monotonic ms-since-epoch". It is not monotonic. A developer who
+takes that requirement seriously reaches for the function that *is* —
+`performance.now()` — which returns a fractional value. The bug and the comment
+that leads a caller to it were in the same file, and the comment is corrected
+here.
+
+**And the fix was two definitions up.** `assertPaginationOpts` is shared for the
+identical stated reason (#117: "from the same validator, so the two backends of
+this interface can't disagree"), validates its numeric inputs with exactly the
+predicate these needed, and throws exactly the error type these threw *by
+accident* — with a message, routed through `describe()`. Two numeric inputs in
+one module should not report differently, so the new guard reuses that shape and
+that helper rather than inventing a second style.
+
+**My own guard was under-broad, and the boundary row caught it.**
+`Number.isSafeInteger` alone admits `MAX_SAFE_INTEGER`, which is *outside*
+`Date`'s ±8.64e15 range, so `toISOString()` still threw. A predicate name is not
+a domain: the rule has to be the intersection of the constraints it must satisfy
+— what `BIGINT` receives exactly, and what `Date` can represent — with a row at
+each constraint's boundary. The second clause is spelled as the round trip
+`Date` actually performs rather than as a magic constant, so it cannot drift.
+
+**Every rejection asserts the message, not the error type.** `new Date(NaN)`
+already threw a `RangeError`; the whole point is that it named nothing. A
+type-only assertion would have passed against the unfixed code.
+
+**Why this was prioritized.** Both open issues here are JT-gated
+decision-revisits, so the surface was the PR merged this morning.
+
+**Open questions / blockers:** none. Deferred: whether `Trace.emit` should
+*also* validate. It is a second choke point on the same rule, and a rule applied
+at two seams wants the shared-definition treatment rather than a copy — worth
+its own look now that the derivation seam is guarded.
