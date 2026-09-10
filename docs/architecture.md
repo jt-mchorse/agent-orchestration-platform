@@ -137,6 +137,35 @@ behavioural table run through both backends, and a structural rule that
 two identical copies agree by construction, so only the structural arm
 catches the next re-paste.
 
+Sharing those three exposed that what they shared was an unguarded input
+domain (#141). `TraceEvent.ts` is a `number` produced by a **public,
+pluggable** `Clock`, and nothing validated what a clock returns before
+`new Date(ts).toISOString()` saw it. Measured: a non-finite `ts` threw
+`RangeError: Invalid time value` — naming no function, no field and no
+value — out of *both* backends, which is the parity #139 delivered, on
+a crash; and a fractional `ts` such as `performance.now()` returns
+survived `MemoryStore`'s round trip exactly while the derived summary
+truncated it, so the stored event and the summary disagreed about when
+the run started. `init.sql` declares `ts BIGINT NOT NULL`, which cannot
+hold a fractional value at all — a failure visible only in the
+`DATABASE_URL`-gated job.
+
+`assertEventTs` now guards it, in the shape `assertPaginationOpts`
+already established one file over: a `RangeError` naming the function,
+the field and the value through the same `describe()` helper. Two
+numeric inputs in one module should not report differently. The rule is
+the **intersection** of two constraints and neither implies the other —
+`Number.isSafeInteger` for what `BIGINT` receives exactly and what
+`toISOString()` renders without dropping a sub-millisecond part, plus
+`Date`'s own range, which is *narrower* than the safe integers
+(`MAX_SAFE_INTEGER` is a safe integer `toISOString()` still refuses).
+Negative stays legal: a pre-epoch instant is a real instant and `BIGINT`
+holds it. `deriveStatus` is deliberately unguarded because it reads only
+`kind`, and that asymmetry is asserted rather than left to be
+re-litigated. The `Clock` comment that called `Date.now()` "monotonic"
+is corrected in the same change — it is not, and it is what pointed a
+reader at `performance.now()`.
+
 The viewer (`src/ui/`) is React 18 loaded via ESM CDN + `htm` for
 JSX-free templating. No bundler, no npm-side React dep — same
 dep-discipline reasoning as the stdlib `http.server` for the SSE demo
