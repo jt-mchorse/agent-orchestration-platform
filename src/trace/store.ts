@@ -174,7 +174,28 @@ function describe(value: unknown): string {
   return typeof value === "number" ? String(value) : `${typeof value} ${String(value)}`;
 }
 
-function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
+/**
+ * The three run-level facts derived from an event log, shared by both
+ * `TraceStore` backends (#139).
+ *
+ * `MemoryStore` stores what these return; `PgStore` writes them to the
+ * `started_at` / `finalized_at` / `status` columns. They were two identical
+ * copies — `pg-store.ts` had its own `deriveStatus`, `startedAtIso` and
+ * `finalizedAtIso` — while `aggregateCost` and `assertPaginationOpts`, the two
+ * other rules both backends need, were already shared. Nothing recorded why
+ * three of the five went the other way.
+ *
+ * The copies agreed on every input, so this removes no live defect. It removes
+ * the shape that produced one: #129's own comment describes a subset-updating
+ * upsert as the two backends "disagreeing about what `writeRun` means", and
+ * #117's says of the pagination window that sharing the validator is what stops
+ * them disagreeing about a bad one. `deriveStatus` is the costliest of the
+ * three to get wrong, because its output is *also* constrained at the database
+ * (`status TEXT NOT NULL CHECK (status IN ('running','finalized','aborted'))`),
+ * so a fourth status invented on the memory side would pass every hermetic test
+ * and fail only in the `DATABASE_URL`-gated job.
+ */
+export function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
   // `aborted` is the explicit budget-exhaustion signal from the executor.
   // It's emitted *before* `finalized`, so we check for it first.
   if (events.some((e) => e.kind === "aborted")) return "aborted";
@@ -182,7 +203,7 @@ function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
   return "running";
 }
 
-function deriveStartedAt(events: TraceEvent[]): string {
+export function deriveStartedAt(events: TraceEvent[]): string {
   // `run_started` is always the first event the executor emits.
   const start = events.find((e) => e.kind === "run_started");
   if (!start) {
@@ -195,7 +216,7 @@ function deriveStartedAt(events: TraceEvent[]): string {
   return new Date(start.ts).toISOString();
 }
 
-function deriveFinalizedAt(events: TraceEvent[]): string | null {
+export function deriveFinalizedAt(events: TraceEvent[]): string | null {
   // Either `finalized` (clean exit) or `aborted` (budget exhaustion)
   // marks the end of a run.
   const end = [...events].reverse().find((e) => e.kind === "finalized" || e.kind === "aborted");
