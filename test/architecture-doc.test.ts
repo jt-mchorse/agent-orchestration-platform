@@ -279,6 +279,13 @@ const SYMBOL_SOURCE_DIRS = ["src", "mcp-server", "scripts"] as const;
 const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "optionalDependencies",
   "optionalDependency",
+  // ECMAScript builtins the #141 paragraph names when explaining why
+  // `assertEventTs`'s rule is the intersection of two constraints. They are
+  // language surface, not this package's, so they can never resolve to a
+  // declaration here -- which is exactly what this set is for.
+  "RangeError",
+  "isSafeInteger",
+  "toISOString",
 ] as const;
 
 // Documented-future symbols the doc forward-references. `AnthropicPlanner` is
@@ -429,7 +436,17 @@ describe("docs/architecture.md names only symbols that exist (#87 / portfolio-op
   });
 
   it("EXTERNAL_SYMBOLS is the exact pinned set", () => {
-    expect([...EXTERNAL_SYMBOLS]).toEqual(["optionalDependencies", "optionalDependency"]);
+    // Widened in #141 by three ECMAScript builtins. This assertion is why that
+    // widening is visible in the diff rather than a silent side effect of a
+    // docs paragraph, which is exactly what an allowlist with no exact-set arm
+    // becomes.
+    expect([...EXTERNAL_SYMBOLS]).toEqual([
+      "optionalDependencies",
+      "optionalDependency",
+      "RangeError",
+      "isSafeInteger",
+      "toISOString",
+    ]);
   });
 
   it("PLANNED_SYMBOLS is the exact pinned set", () => {

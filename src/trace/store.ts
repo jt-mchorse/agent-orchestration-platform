@@ -195,7 +195,82 @@ function describe(value: unknown): string {
  * so a fourth status invented on the memory side would pass every hermetic test
  * and fail only in the `DATABASE_URL`-gated job.
  */
+/**
+ * The `ts` domain, in one place, for both backends (#141).
+ *
+ * #140 promoted the three derivations below from per-backend copies to one
+ * shared definition, on the argument that the two `TraceStore` backends must
+ * not "disagree about what `writeRun` means". What it shared was an unguarded
+ * input domain: `TraceEvent.ts` is a `number` produced by a **public,
+ * pluggable** `Clock`, and nothing validated what a clock returns before
+ * `new Date(ts).toISOString()` saw it. Measured:
+ *
+ *     clock                        emitted        deriveStartedAt
+ *     integral (Date.now)          1700000000000  2023-11-14T22:13:20.000Z
+ *     fractional (performance.now) 1234.5678      1970-01-01T00:00:01.234Z
+ *     NaN                          NaN            THREW RangeError
+ *     Infinity                     Infinity       THREW RangeError
+ *
+ * The non-finite rows threw `RangeError: Invalid time value` — naming no
+ * function, no field and no value — and it escaped `writeRun` on *both*
+ * backends, which is the parity #140 delivered, on a crash. The fractional row
+ * is the silent one: `1234.5678` survives `MemoryStore`'s round trip exactly
+ * while the summary reads `...01.234Z`, so the stored event and the derived
+ * summary disagree about when the run started — and
+ * `infra/postgres/init.sql` declares `ts BIGINT NOT NULL`, which cannot hold
+ * it at all, a failure visible only in the `DATABASE_URL`-gated job.
+ *
+ * The rule is the INTERSECTION of two constraints, and neither implies the
+ * other. `Number.isSafeInteger` is what the `BIGINT` column can receive
+ * exactly and what `toISOString()` renders without dropping a sub-millisecond
+ * part — `Number.isFinite` alone admits `1234.5678`. And `Date`'s own range
+ * (+/-8.64e15) is *narrower* than the safe integers, so `MAX_SAFE_INTEGER` is
+ * a safe integer that `toISOString()` still refuses; the second clause is
+ * spelled as the round trip `Date` actually performs rather than as a
+ * constant.
+ *
+ * Negative is deliberately legal — a pre-epoch instant is a real instant and
+ * `BIGINT` holds it, so refusing it would be new strictness rather than parity
+ * with the column.
+ *
+ * The message shape is `assertPaginationOpts`'s, deliberately. That function
+ * sits two definitions up, is shared for the identical stated reason (#117:
+ * "from the same validator, so the two backends of this interface can't
+ * disagree"), validates its numeric inputs with exactly this predicate, and
+ * throws exactly this error type *with a message*. `ts` threw the same error
+ * type by accident. Two numeric inputs in one file should not report
+ * differently.
+ *
+ * Checked here rather than in `Trace.emit`: `writeRun` accepts an events array
+ * from any caller, so a guard in `emit` would leave
+ * `store.writeRun({ events: [...] })` — the road every test and both stores
+ * already use — unguarded.
+ */
+function assertEventTs(fn: string, event: TraceEvent): number {
+  // Two constraints, not one, and `Number.isSafeInteger` alone is not enough.
+  // `Number.MAX_SAFE_INTEGER` (9.007e15) IS a safe integer and is outside
+  // `Date`'s representable range (+/-8.64e15), so `new Date(ts).getTime()` is
+  // `NaN` and `toISOString()` still throws -- my first spelling of this guard
+  // let it through, and the boundary row in
+  // `test/trace/event-ts-domain.test.ts` is what said so. The renderability
+  // half is written as the round trip it actually needs rather than as a magic
+  // constant, so it cannot drift from what `Date` does.
+  if (!Number.isSafeInteger(event.ts) || Number.isNaN(new Date(event.ts).getTime())) {
+    throw new RangeError(
+      `${fn}: event.ts must be a safe integer (ms since epoch); got ${describe(event.ts)} ` +
+        `on a ${event.kind} event. The clock passed to \`new Trace({ clock })\` must ` +
+        `return whole milliseconds — \`performance.now()\` returns a fractional value, ` +
+        `which \`toISOString()\` truncates and the \`ts BIGINT\` column cannot hold.`,
+    );
+  }
+  return event.ts;
+}
+
 export function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
+  // No `assertEventTs` here, and that is deliberate rather than an omission:
+  // this rule reads only `kind`, so a bad `ts` cannot change its answer. The
+  // two derivations below read `ts` and are guarded (#141).
+  //
   // `aborted` is the explicit budget-exhaustion signal from the executor.
   // It's emitted *before* `finalized`, so we check for it first.
   if (events.some((e) => e.kind === "aborted")) return "aborted";
@@ -213,14 +288,14 @@ export function deriveStartedAt(events: TraceEvent[]): string {
     // timestamp.
     return new Date().toISOString();
   }
-  return new Date(start.ts).toISOString();
+  return new Date(assertEventTs("deriveStartedAt", start)).toISOString();
 }
 
 export function deriveFinalizedAt(events: TraceEvent[]): string | null {
   // Either `finalized` (clean exit) or `aborted` (budget exhaustion)
   // marks the end of a run.
   const end = [...events].reverse().find((e) => e.kind === "finalized" || e.kind === "aborted");
-  return end ? new Date(end.ts).toISOString() : null;
+  return end ? new Date(assertEventTs("deriveFinalizedAt", end)).toISOString() : null;
 }
 
 function summarize(input: WriteRunInput): Omit<RunSummary, "total_cost"> {

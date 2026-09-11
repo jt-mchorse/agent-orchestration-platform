@@ -63,7 +63,13 @@ export class Trace {
   private readonly clock: Clock;
 
   constructor(opts: { clock?: Clock } = {}) {
-    // Default: monotonic ms-since-epoch. Tests pass a deterministic clock.
+    // Default: wall-clock ms since epoch. NOT monotonic -- `Date.now()` moves
+    // with NTP steps and manual clock changes; this comment used to claim it
+    // was, which pointed a reader wanting a genuinely monotonic clock at
+    // `performance.now()`, whose fractional return value the `ts BIGINT`
+    // column cannot hold and `toISOString()` silently truncates (#141).
+    // A clock must return whole milliseconds; `deriveStartedAt` enforces it.
+    // Tests pass a deterministic clock.
     this.clock = opts.clock ?? (() => Date.now());
   }
 
