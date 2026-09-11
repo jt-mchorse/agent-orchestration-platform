@@ -286,10 +286,6 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "RangeError",
   "isSafeInteger",
   "toISOString",
-  // Same family, added by #143: the cost-aggregator paragraph explains why
-  // `Number.isFinite` was the wrong predicate for a `BIGINT` column, and
-  // `isFinite` is a language global rather than anything this package declares.
-  "isFinite",
 ] as const;
 
 // Documented-future symbols the doc forward-references. `AnthropicPlanner` is
@@ -450,10 +446,6 @@ describe("docs/architecture.md names only symbols that exist (#87 / portfolio-op
       "RangeError",
       "isSafeInteger",
       "toISOString",
-      // Widened in #143, consciously: the cost-aggregator paragraph names the
-      // builtin predicate it replaced. The hard pin is what makes adding a
-      // symbol here a reviewed edit rather than silent drift.
-      "isFinite",
     ]);
   });
 

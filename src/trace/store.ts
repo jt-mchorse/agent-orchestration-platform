@@ -55,79 +55,8 @@ export interface RunDetail extends RunSummary {
  * (`RetryPolicy.backoffMs`, the negative-fixture-count guard) while keeping
  * this aggregator's "skip what you can't trust → partial total" posture.
  */
-/**
- * The `runs` columns these aggregates land in, from `infra/postgres/init.sql`:
- *
- *     total_cost_dollars  NUMERIC(12, 6) NOT NULL DEFAULT 0,
- *     total_input_tokens  BIGINT         NOT NULL DEFAULT 0,
- *     total_output_tokens BIGINT         NOT NULL DEFAULT 0,
- *
- * Pinned against the DDL by `test/trace/cost-column-domain.test.ts`, which reads
- * `init.sql`, so these constants cannot drift from the schema they describe (#143).
- */
-const DOLLARS_SCALE = 6;
-const DOLLARS_MAX_EXCLUSIVE = 1_000_000; // NUMERIC(12, 6) holds < 10^(12-6)
-
-/**
- * A token count worth adding: non-negative, and exactly representable in `BIGINT`.
- *
- * `Number.isSafeInteger`, not `Number.isFinite` (#143). The old single predicate
- * was `isFinite(x) && x >= 0` for all three summands, and `total_input_tokens` is
- * `BIGINT`: a fractional count like `1234.5678` was accepted, summed, round-tripped
- * by `MemoryStore` exactly, and could not be stored by `PgStore` at all -- a failure
- * visible only in the `DATABASE_URL`-gated job. That is the same shape, in the same
- * file, one function above the `ts` guard `#141` fixed this morning, and `#142`'s own
- * reasoning transfers verbatim: "`Number.isSafeInteger` is what `BIGINT` receives
- * exactly".
- *
- * A fractional token count is not a small measurement, it is corrupt data -- tokens
- * are counted, not measured -- so skipping it is the right posture and the one this
- * aggregator already documents.
- */
-function isCountableTokens(x: number | undefined): x is number {
-  return typeof x === "number" && Number.isSafeInteger(x) && x >= 0;
-}
-
-/**
- * A dollar amount worth adding: non-negative, finite, and individually storable.
- *
- * Deliberately NOT narrowed to six decimals, which is the other half of #143 and the
- * part worth reading twice. A per-step cost of `1.23e-7` is a real sub-microcent
- * token charge, not corrupt data. Skipping it would lose real money from the total,
- * and rounding each observation to the column's scale would round it to zero and
- * lose the same money -- a thousand of them are a tenth of a cent that belongs in
- * the report. So individual values are summed at full precision and the TOTAL is
- * quantised once, by `quantiseDollars` below.
- *
- * The magnitude bound is different in kind: `NUMERIC(12, 6)` cannot hold `>= 10^6`
- * at all, and no single agent step costs a million dollars, so a value that large is
- * corrupt in the same way a fractional token count is.
- */
-function isCountableDollars(x: number | undefined): x is number {
-  return (
-    typeof x === "number" &&
-    Number.isFinite(x) &&
-    x >= 0 &&
-    x < DOLLARS_MAX_EXCLUSIVE
-  );
-}
-
-/**
- * Round a dollars total to the scale `NUMERIC(12, 6)` stores.
- *
- * Applied in the SHARED aggregator rather than in either backend, because that is
- * what makes the two agree. Before #143, `MemoryStore` stored the full-precision
- * float and `PgStore` handed the same float to a `NUMERIC(12, 6)` column, which
- * rounds it silently -- so `getRun` returned a different `dollars` depending on which
- * backend answered. `#139`/`#140` moved the three derivations into one definition
- * precisely so "the two backends of this interface can't disagree"; this is the same
- * requirement reached through the cost column instead of through `status`.
- *
- * Quantising the total and not each summand is what keeps the sub-microcent charges
- * the `isCountableDollars` comment is about.
- */
-function quantiseDollars(total: number): number {
-  return Number(total.toFixed(DOLLARS_SCALE));
+function isCountableCost(x: number | undefined): x is number {
+  return typeof x === "number" && Number.isFinite(x) && x >= 0;
 }
 
 export function aggregateCost(events: TraceEvent[]): AggregatedCost {
@@ -138,14 +67,11 @@ export function aggregateCost(events: TraceEvent[]): AggregatedCost {
     if (e.kind !== "observation") continue;
     const c: StepCost | undefined = e.observation.cost;
     if (!c) continue;
-    if (isCountableTokens(c.input_tokens)) input += c.input_tokens;
-    if (isCountableTokens(c.output_tokens)) output += c.output_tokens;
-    if (isCountableDollars(c.dollars)) dollars += c.dollars;
+    if (isCountableCost(c.input_tokens)) input += c.input_tokens;
+    if (isCountableCost(c.output_tokens)) output += c.output_tokens;
+    if (isCountableCost(c.dollars)) dollars += c.dollars;
   }
-  // `dollars` quantised once, at the end (#143, D-015). Summing at full precision
-  // and rounding here keeps a sub-microcent per-step charge in the total while
-  // making both backends store the same number.
-  return { input_tokens: input, output_tokens: output, dollars: quantiseDollars(dollars) };
+  return { input_tokens: input, output_tokens: output, dollars };
 }
 
 /**
