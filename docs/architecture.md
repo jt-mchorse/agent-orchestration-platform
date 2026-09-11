@@ -354,3 +354,63 @@ package level (matching the TypeScript portfolio standard set by
 `mcp-server-cookbook/servers/filesystem-sandbox/src/atomic-write.ts`)
 rather than file-private so future writers can adopt it without a
 second implementation.
+
+## Three numeric guards, three domains (#143, D-015)
+
+`src/trace/store.ts` validates three kinds of numeric input, and they do
+not share a domain:
+
+- `assertPaginationOpts` (#117) — safe integers, `limit > 0`, `offset >= 0`.
+- `assertEventTs` (#141) — the intersection of `Number.isSafeInteger` and
+  `Date`'s representable range, because `ts` lands in a `BIGINT` column
+  *and* goes through `toISOString()`.
+- the cost aggregator (#143) — two predicates, below.
+
+The cost aggregator was the loosest of the three while feeding the
+narrowest columns. Until #143 it was a single predicate -- named
+isCountableCost, now removed -- applying `Number.isFinite(x) && x >= 0`
+to all three summands, which land in:
+
+```sql
+total_cost_dollars  NUMERIC(12, 6) NOT NULL DEFAULT 0,
+total_input_tokens  BIGINT         NOT NULL DEFAULT 0,
+total_output_tokens BIGINT         NOT NULL DEFAULT 0,
+```
+
+So a fractional token count was accepted, summed, round-tripped by
+`MemoryStore` exactly, and unstorable by `PgStore` — visible only in the
+`DATABASE_URL`-gated job. That is the sibling of #141, one function above
+the fix it landed, and #142's reasoning transfers word for word:
+"`Number.isSafeInteger` is what `BIGINT` receives exactly".
+
+**The two halves differ on purpose.** A fractional *token* count is
+corrupt data — tokens are counted, not measured — so it is skipped, which
+is the partial-total posture this aggregator documents. A sub-microcent
+*dollar* charge is real money: skipping it, or rounding each observation
+to the column's scale, would both lose it, and ten thousand charges of
+1e-7 are a tenth of a cent that belongs in the report. So dollars are
+summed at full precision and the **total** is quantised once.
+
+Quantised in the shared aggregator rather than in either backend, because
+that is what makes the two agree. `MemoryStore` used to keep the
+full-precision float while `PgStore` handed the same float to a column
+that rounds silently, so `getRun` returned a different `dollars`
+depending on which backend answered — the disagreement #139 and #140
+moved the derivations into one definition to prevent, reached through the
+cost column instead of through `status`.
+
+**A measured limitation, not an assumption.** A single charge below 5e-7
+dollars quantises to zero; `NUMERIC(12, 6)` has no representation for it,
+and it would be zero in the column whether or not the aggregator
+quantised. It is *not skipped* — it enters the sum, which is why ten
+thousand of them come to 0.001 rather than 0. Widening the column's scale
+is a schema decision and is deliberately out of scope; the six-decimal
+floor is pinned by a test so it is a known limitation. The bounds
+themselves are read from `infra/postgres/init.sql` by
+`test/trace/cost-column-domain.test.ts`, so the constants cannot drift
+from the schema they describe.
+
+And the posture is unchanged: `assertEventTs` throws, this aggregator
+skips. #143 narrows the skip and adds no throw, which is the opposite of
+#142's shape and deliberate — an aggregate over many observations should
+degrade to a partial total rather than abort a whole run's write.
