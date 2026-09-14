@@ -162,3 +162,58 @@ The grammar is the one `mcp-server-cookbook` settled in #98/#137/#152 and enforc
 **Reversibility:** Cheap — one helper and one call site.
 
 **Related issues:** #132, #124, #131, #127
+
+## D-015 — cost aggregation: skip corrupt counts, quantise the dollars total once
+
+**Date:** 2026-09-11 · **Reversibility:** cheap · **Issues:** #143 (sibling of #141, #139)
+
+**Decision.** `aggregateCost` guards its three summands with two predicates instead of
+one. Token counts are skipped unless they are non-negative safe integers — the domain
+`BIGINT` holds exactly. Dollar amounts are summed at full precision and the **total**
+is quantised once to six decimals, the scale `NUMERIC(12, 6)` stores.
+
+**Why.** `isCountableCost` was a single `Number.isFinite(x) && x >= 0` for three
+summands landing in three different columns: `total_input_tokens BIGINT`,
+`total_output_tokens BIGINT`, `total_cost_dollars NUMERIC(12, 6)`. So a fractional
+token count was accepted, summed, round-tripped by `MemoryStore` exactly, and could
+not be stored by `PgStore` at all — a failure visible only in the `DATABASE_URL`-gated
+job. That is the same shape, in the same file, one function above the `ts` guard #141
+fixed, and #142's reasoning transfers word for word.
+
+**The two halves get different treatment, and that is the point.** A fractional token
+count is corrupt data — tokens are counted, not measured — so it is skipped, which is
+the posture this aggregator already documents. A sub-microcent dollar charge is real
+money. Skipping it would lose it, and rounding *each observation* to the column's
+scale would round it to zero and lose the same money; ten thousand charges of 1e-7 are
+a tenth of a cent that belongs in the report. So the sum is taken at full precision
+and quantised at the end.
+
+**Quantised in the shared aggregator, not in either backend**, because that is what
+makes the two agree. Before this, `MemoryStore` kept the full-precision float and
+`PgStore` handed the same float to a column that rounds silently, so `getRun` returned
+a different `dollars` depending on which backend answered. #139 and #140 moved the
+three derivations into one definition precisely so "the two backends of this interface
+can't disagree"; this is the same requirement reached through the cost column.
+
+**A limitation I measured rather than assumed.** I expected the quantised total to
+preserve a lone `1.23e-7` charge. It does not — `NUMERIC(12, 6)` has no
+representation below 5e-7, and the value would be zero in the column whether or not
+the aggregator quantised. The test I wrote to assert the opposite is what told me. The
+charge is *not skipped* (it enters the sum), which is the real improvement: ten
+thousand of them come to 0.001 instead of 0. Widening the column's scale is a schema
+change and is explicitly **not** decided here; a test pins the six-decimal floor so it
+is a known limitation rather than a surprise.
+
+**The skip posture is unchanged.** `assertEventTs` throws; this aggregator skips,
+deliberately, because an aggregate over many observations should degrade to a partial
+total rather than abort a whole run's write. This narrows the skip and adds no throw —
+the opposite of #142's shape, for a documented reason.
+
+**Alternatives considered.** One widened predicate (rejected — an integer column and a
+six-decimal column do not share a domain). Skipping a dollars value with more than six
+decimals (rejected — loses real money, and a sub-microcent token charge is the
+ordinary case). Quantising each summand (rejected — rounds every tiny charge to zero).
+Quantising in each backend (rejected — two copies of a rounding rule is how the
+backends drift, which is the defect #139/#140 fixed). Widening the column (not decided
+here). Throwing, like `assertEventTs` (rejected — the partial-total posture is correct
+for an aggregate).
