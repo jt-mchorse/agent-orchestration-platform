@@ -217,3 +217,91 @@ Quantising in each backend (rejected — two copies of a rounding rule is how th
 backends drift, which is the defect #139/#140 fixed). Widening the column (not decided
 here). Throwing, like `assertEventTs` (rejected — the partial-total posture is correct
 for an aggregate).
+
+---
+
+## D-016 — The column-domain rule reaches `pr_number INTEGER`, and the bound lives at the store seam
+
+**Date:** 2026-09-22 · **Reversibility:** cheap · **Issue:** #145 (applies D-015)
+
+**Decision.** `runs.pr_number` is an `INTEGER` column, so a run's `pr.number`
+must be an integer in `[1, 2147483647]`. The bound is a single `MAX_PR_NUMBER`
+derived from the DDL and asserted at the store seam, called by both
+`MemoryStore.writeRun` and `PgStore.writeRun`, with the CLI keeping its own
+message on top.
+
+**Why.** D-015 matched `aggregateCost`'s three summands to their columns —
+`NUMERIC(12, 6)`, `BIGINT`, `BIGINT` — and left the fourth numeric column in the
+same table unreached. `pr_number INTEGER` is the narrowest in the schema at
+2^31-1, while every guard on the value used `Number.isInteger`, whose domain
+runs to `Number.MAX_SAFE_INTEGER` — about 4.2 million times the column's
+ceiling. This was found by running D-015's own stated method against the rest of
+the schema: *read the DDL beside every multi-field guard*, and *grep the module
+for `Number.is*` when a fix says two*.
+
+```
+pr=2147483647         guard=ACCEPTED  storableInINTEGER=true
+pr=2147483648         guard=ACCEPTED  storableInINTEGER=false
+pr=3000000000         guard=ACCEPTED  storableInINTEGER=false
+pr=9007199254740991   guard=ACCEPTED  storableInINTEGER=false
+
+MemoryStore round-tripped pr.number = 3000000000
+```
+
+**The harm is backend parity — D-015's own harm.** D-015 measured that
+"`MemoryStore` kept the full-precision float, `PgStore` handed the same float to
+a `NUMERIC(12,6)` column that rounds silently — `getRun` returned a different
+dollars depending on which backend answered." Here, `MemoryStore` stores `3e9`
+and returns it while `PgStore` hands it to an `INTEGER` column and gets
+`22003 numeric value out of range`: the same input succeeding on one store and
+failing on the other, which is #142's "a failure visible only in the
+`DATABASE_URL`-gated job".
+
+**At the store seam, not only the CLI.** A CLI-only guard leaves the parity gap
+open for every programmatic caller of `writeRun` — built and run, that neighbour
+goes five arms red. The CLI check is kept as well, so an operator typing
+`--pr 3000000000` gets this repo's message rather than a Postgres one *after the
+run has already completed*. Two layers is the existing shape
+(`assertPaginationOpts` plus the CLI), not a new one.
+
+**It throws rather than skipping, which is the opposite of `aggregateCost` on
+purpose.** That aggregator skips because a total over many observations should
+degrade to a partial total rather than abort a write. A run's `pr.number` is not
+one of many observations — it is which pull request the run is *about*. There is
+no partial answer, and a run persisted under a silently-altered PR number is
+worse than one not persisted. Same posture as `assertEventTs`, and the
+no-partial-store property is asserted rather than implied.
+
+**The bound is derived from the DDL, not retyped.** The test parses `init.sql`,
+reads the declared type, and computes `2^(bits-1) - 1`, so D-015's note holds — a
+magic constant copied from a schema is a second copy of the schema. If the column
+ever widens to `BIGINT`, the arm fails loudly instead of leaving a stale,
+too-narrow bound in place.
+
+**The narrow scope is the substance.** `validate.ts`'s integer helper is shared
+by `pr.number`, `additions`, `deletions`, `changed_files` and `changes`, and only
+`pr.number` has an `INTEGER` column behind it — the others are fixture counts
+never persisted to `runs`. Bounding the shared helper would impose a storage
+constraint on fields with no storage; built and run, that neighbour goes one arm
+red, and it is the arm that is green on both trees.
+
+**Reachability.** Not live: GitHub PR numbers are small and nothing in-repo
+generates one. This is the accepted-but-unstorable class D-015 shipped for, and
+it is *loud* on the Pg side rather than silently wrong, which makes it less
+severe than D-015's silent rounding. Filed `priority:med`, not high.
+
+**Also checked, and not a gap.** `trace_events.seq` is `INTEGER` too, but it is
+the loop index in `PgStore.writeRun` — internally generated and bounded by the
+events array length, not operator-supplied. Nothing to guard.
+
+**Alternatives considered:**
+- Bound the shared `validate.ts` integer helper — rejected; built and run, one
+  arm red.
+- Guard only at the CLI — rejected; built and run, five arms red.
+- Use `Number.isSafeInteger` — rejected; built and run, six arms red. That is
+  `BIGINT`'s domain, i.e. what the other two numeric columns take, and therefore
+  the plausible copy from one function away.
+- Skip the bad value the way `aggregateCost` does — rejected; there is no partial
+  answer to which PR a run is about.
+
+**Related issues:** #145, #143, #142, #141

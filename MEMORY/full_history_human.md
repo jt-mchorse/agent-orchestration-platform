@@ -1439,3 +1439,59 @@ in this same run was the richest surface — for the third time this session.
 **Open questions / blockers:** none. Widening `total_cost_dollars`' scale would let the
 report represent sub-5e-7 charges, but that is a schema change and deliberately not
 decided here.
+
+## 2026-09-22 — Issue #145: the fourth column
+**Duration:** see the issue's plan/close comment timestamps · **Branch:** `session/2026-09-22-0811-issue-145`
+
+This one came from reading my own prior note as an instruction rather than as a
+summary. D-015's context line says "read the DDL beside every multi-field guard"
+and "grep the module for `Number.is*` when a fix says two". I ran both literally
+— one grep across `src/` for `Number.is*`, one across the SQL for
+`BIGINT|NUMERIC|INTEGER` — and the fourth column fell out in two commands. A
+memory note phrased as a method is worth more than one phrased as a conclusion.
+
+`runs.pr_number` is `INTEGER`: 32-bit, ceiling 2,147,483,647, and the narrowest
+numeric column in the schema. It sits in the same table as the two `BIGINT`s and
+the `NUMERIC(12,6)` that D-015 did check. Every guard on it used
+`Number.isInteger`, whose domain runs to `Number.MAX_SAFE_INTEGER` — about 4.2
+million times the column's ceiling. Measured, `3000000000` is accepted by every
+gate and round-tripped by `MemoryStore`, and would reach `PgStore`'s column as
+`22003 numeric value out of range`.
+
+Nothing generates a PR number that large, so this is not live — and the parity
+framing is what makes it worth shipping anyway. The same input succeeds on one
+backend and fails on the other, which is exactly the harm D-015 measured for
+dollars and what #142 called "a failure visible only in the
+`DATABASE_URL`-gated job". State reachability honestly and let the parity
+argument carry the severity.
+
+Three design choices, each with a neighbour built and run to show it mattered.
+The bound sits at the **store seam**, called from both `writeRun`
+implementations, because guarding only the CLI leaves every programmatic caller
+unguarded — that neighbour goes five arms red. It **throws** rather than
+skipping, deliberately the opposite of `aggregateCost` twenty lines away: a
+total is made of many observations and can be partial, whereas `pr.number` is
+which pull request the run is *about* and has no partial answer. And the scope
+is **narrow** — `validate.ts`'s integer helper is shared by `pr.number`,
+`additions`, `deletions`, `changed_files` and `changes`, and only `pr.number`
+has a column behind it, so bounding the shared helper would be a storage
+constraint on fields with no storage. That neighbour goes one arm red, and that
+single arm is the entire defence against the tempting one-line fix.
+
+I checked the deferred item rather than leaving it open: `trace_events.seq` is
+`INTEGER` too, but it is the loop index in `PgStore.writeRun` — internally
+generated, bounded by the events array, nothing to guard. Five minutes, and it
+stops the next run re-hunting it.
+
+Two things the tooling caught. My test fixture shape was a guess — I put the
+three counts under a `diff` key and they live under `pr` — so the arm now loads
+a committed fixture and perturbs three fields, which exercises the real schema
+instead of my model of it. And the doc-symbol lock caught `isInteger`, the third
+language global to land in `EXTERNAL_SYMBOLS` after `isSafeInteger` and
+`isFinite`, and the third time a column-domain paragraph has needed one. They
+arrive together because naming the predicate is *how* these paragraphs explain
+the mismatch.
+
+Suite 668 → 681, no pre-existing test modified, `tsc --noEmit` clean.
+
+**Open questions:** none.
