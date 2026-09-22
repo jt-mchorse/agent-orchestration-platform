@@ -18,6 +18,7 @@ import { firstNonBlank } from "../io/env.js";
 import {
   aggregateCost,
   assertPaginationOpts,
+  assertPrNumber,
   deriveFinalizedAt,
   deriveStartedAt,
   deriveStatus,
@@ -84,6 +85,12 @@ export class PgStore implements TraceStore {
   }
 
   async writeRun(input: WriteRunInput): Promise<void> {
+    // Imported, not re-derived (#139), and checked before the pool is even
+    // opened: `MemoryStore` applies the identical bound, so a run either
+    // persists on both backends or on neither (#145). Without it this value
+    // reached `runs.pr_number INTEGER` and came back as a raw Postgres
+    // `22003 numeric value out of range`.
+    assertPrNumber("PgStore.writeRun", input.pr);
     const pool = await this.getPool();
     const total = aggregateCost(input.events);
     // Imported, not re-derived (#139): `MemoryStore` stores exactly what these

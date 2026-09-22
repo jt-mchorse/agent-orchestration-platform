@@ -6,6 +6,7 @@ import { Trace } from "../agent/trace.js";
 import type { Plan, PlannerState, Review } from "../agent/types.js";
 import { buildDefaultRegistry } from "../index.js";
 import type { ToolContext } from "../tools/types.js";
+import { MAX_PR_NUMBER } from "../trace/store.js";
 import type { ReviewScore } from "./score.js";
 import { scoreReview } from "./score.js";
 import { REPO_FORMAT } from "./validate.js";
@@ -225,6 +226,14 @@ export function commentTargetError(repo: string | null, pr: number | null): stri
   }
   if (!Number.isInteger(pr) || pr < 1) {
     return `--pr must be a positive integer; got ${pr}`;
+  }
+  // The ceiling is the `runs.pr_number INTEGER` column, not a taste call
+  // (#145). Checked here as well as at the store seam so an operator typing
+  // `--pr 3000000000` gets this repo's message rather than a raw Postgres
+  // `22003 numeric value out of range` after the run has already completed --
+  // the same two-layer shape `assertPaginationOpts` and the CLI already have.
+  if (pr > MAX_PR_NUMBER) {
+    return `--pr must be at most ${MAX_PR_NUMBER} (the runs.pr_number column); got ${pr}`;
   }
   return null;
 }

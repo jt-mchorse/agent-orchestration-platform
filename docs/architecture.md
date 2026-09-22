@@ -355,7 +355,7 @@ package level (matching the TypeScript portfolio standard set by
 rather than file-private so future writers can adopt it without a
 second implementation.
 
-## Three numeric guards, three domains (#143, D-015)
+## Four numeric guards, four domains (#143 D-015, #145 D-016)
 
 `src/trace/store.ts` validates three kinds of numeric input, and they do
 not share a domain:
@@ -365,6 +365,9 @@ not share a domain:
   `Date`'s representable range, because `ts` lands in a `BIGINT` column
   *and* goes through `toISOString()`.
 - the cost aggregator (#143) — two predicates, below.
+- `assertPrNumber` (#145) — an integer in `[1, 2147483647]`, because
+  `pr_number` is an `INTEGER` column: 32-bit, and the narrowest numeric
+  column in the schema.
 
 The cost aggregator was the loosest of the three while feeding the
 narrowest columns. Until #143 it was a single predicate -- named
@@ -390,6 +393,44 @@ is the partial-total posture this aggregator documents. A sub-microcent
 to the column's scale, would both lose it, and ten thousand charges of
 1e-7 are a tenth of a cent that belongs in the report. So dollars are
 summed at full precision and the **total** is quantised once.
+
+### The fourth column (#145, D-016)
+
+D-015 matched three summands to three columns and left the fourth numeric
+column in the same table unreached:
+
+```sql
+pr_number         INTEGER NOT NULL,
+```
+
+`INTEGER` is 32-bit, so the ceiling is 2,147,483,647 — while every guard on
+`pr.number` used `Number.isInteger`, whose domain runs to
+`Number.MAX_SAFE_INTEGER`. Measured: `3000000000` was accepted by every
+gate and round-tripped by `MemoryStore`, and would have reached `PgStore`'s
+`INTEGER` column as `22003 numeric value out of range`. Same harm D-015
+named — the same input succeeding on one backend and failing on the other.
+
+So the bound sits at the **store seam**: `assertPrNumber` is called by both
+`writeRun` implementations, because a CLI-only guard leaves the gap open for
+every programmatic caller. The CLI keeps its own check too, so an operator
+gets this repo's message rather than a database one after the run has already
+completed.
+
+It **throws** rather than skipping, which is deliberately the opposite of the
+cost aggregator: that degrades to a partial total because a total is made of
+many observations, whereas `pr.number` is which pull request the run is
+*about* and has no partial answer.
+
+`MAX_PR_NUMBER` is derived from the DDL by the test rather than retyped, for
+the same reason the dollars constants are — a magic constant copied from a
+schema is a second copy of it. And the bound is deliberately *not* applied to
+`additions` / `deletions` / `changed_files` / `changes`, which share
+`validate.ts`'s integer helper with `pr.number` but have no column behind
+them: a storage constraint on fields with no storage.
+
+`trace_events.seq` is `INTEGER` as well, and needs no guard — it is the loop
+index in `PgStore.writeRun`, generated internally and bounded by the events
+array.
 
 Quantised in the shared aggregator rather than in either backend, because
 that is what makes the two agree. `MemoryStore` used to keep the

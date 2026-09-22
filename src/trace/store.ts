@@ -69,6 +69,23 @@ const DOLLARS_SCALE = 6;
 const DOLLARS_MAX_EXCLUSIVE = 1_000_000; // NUMERIC(12, 6) holds < 10^(12-6)
 
 /**
+ * The largest pull-request number the `runs` table can hold (#145).
+ *
+ *     pr_number         INTEGER NOT NULL,
+ *
+ * PostgreSQL `INTEGER` is 32-bit signed, so the ceiling is 2^31-1. This is the
+ * **narrowest** numeric column in the schema and the one D-015 did not reach:
+ * it matched `NUMERIC(12, 6)` and `BIGINT` to their guards and left this one
+ * guarded by `Number.isInteger`, whose domain runs to `Number.MAX_SAFE_INTEGER`
+ * -- roughly 4.2 million times the column's ceiling.
+ *
+ * Pinned against the DDL by `test/trace/pr-number-column-domain.test.ts`, which
+ * reads `init.sql` and derives this value, for the reason D-015 recorded: a
+ * magic constant copied from a schema is a second copy of the schema.
+ */
+export const MAX_PR_NUMBER = 2_147_483_647;
+
+/**
  * A token count worth adding: non-negative, and exactly representable in `BIGINT`.
  *
  * `Number.isSafeInteger`, not `Number.isFinite` (#143). The old single predicate
@@ -320,6 +337,37 @@ function describe(value: unknown): string {
  * `store.writeRun({ events: [...] })` — the road every test and both stores
  * already use — unguarded.
  */
+/**
+ * A pull-request number a run can be persisted under (#145).
+ *
+ * Called from BOTH `writeRun` implementations, which is the point. The harm
+ * here is backend parity, exactly as D-015 measured it for dollars:
+ * `MemoryStore` stores `3e9` and returns it, while `PgStore` hands the same
+ * value to an `INTEGER` column that raises `22003 numeric value out of range`
+ * -- the same input succeeding on one store and failing on the other, and (as
+ * #142 put it) "a failure visible only in the `DATABASE_URL`-gated job". A
+ * guard at the CLI alone would leave that gap open for every programmatic
+ * caller of `writeRun`.
+ *
+ * THROWS rather than skipping, and that is the opposite posture to
+ * `aggregateCost` on purpose. That aggregator skips because a total over many
+ * observations should degrade to a partial total rather than abort a write. A
+ * run's `pr.number` is not one of many observations -- it is which pull request
+ * the run is *about*. There is no partial answer, and a run persisted under a
+ * silently-altered PR number is worse than one not persisted. Same posture as
+ * `assertEventTs` below.
+ */
+export function assertPrNumber(fn: string, pr: { number: number }): number {
+  const n = pr.number;
+  if (!Number.isInteger(n) || n < 1 || n > MAX_PR_NUMBER) {
+    throw new TypeError(
+      `${fn}: pr.number must be an integer in [1, ${MAX_PR_NUMBER}] ` +
+        `(the runs.pr_number INTEGER column), got ${String(n)}`,
+    );
+  }
+  return n;
+}
+
 function assertEventTs(fn: string, event: TraceEvent): number {
   // Two constraints, not one, and `Number.isSafeInteger` alone is not enough.
   // `Number.MAX_SAFE_INTEGER` (9.007e15) IS a safe integer and is outside
@@ -429,6 +477,9 @@ export class MemoryStore implements TraceStore {
   private readonly runs = new Map<string, RunDetail>();
 
   async writeRun(input: WriteRunInput): Promise<void> {
+    // Before anything is stored, and in the same place `PgStore.writeRun`
+    // checks it, so the two backends accept exactly the same runs (#145).
+    assertPrNumber("MemoryStore.writeRun", input.pr);
     const summary = summarize(input);
     const total_cost = aggregateCost(input.events);
     // `cloneSummaryRefs` isolates `pr` from the caller's `input.pr` (ingress);
