@@ -290,6 +290,12 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   // `Number.isFinite` was the wrong predicate for a `BIGINT` column, and
   // `isFinite` is a language global rather than anything this package declares.
   "isFinite",
+  // Same family again, added by #145: the D-016 paragraph explains why
+  // `Number.isInteger` was too wide for an `INTEGER` column. Third language
+  // global in this set and the third time a column-domain paragraph has needed
+  // one -- they arrive together because naming the predicate is how these
+  // paragraphs explain the mismatch.
+  "isInteger",
 ] as const;
 
 // Documented-future symbols the doc forward-references. `AnthropicPlanner` is
@@ -454,6 +460,10 @@ describe("docs/architecture.md names only symbols that exist (#87 / portfolio-op
       // builtin predicate it replaced. The hard pin is what makes adding a
       // symbol here a reviewed edit rather than silent drift.
       "isFinite",
+      // And again in #145 / D-016, for the same reason one column over: the
+      // paragraph names `Number.isInteger` to say why it was too wide for an
+      // `INTEGER` column.
+      "isInteger",
     ]);
   });
 
