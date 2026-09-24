@@ -1495,3 +1495,17 @@ the mismatch.
 Suite 668 → 681, no pre-existing test modified, `tsc --noEmit` clean.
 
 **Open questions:** none.
+
+## 2026-09-24 — Issue #147: rendering cannot change the verdict
+**Duration:** ~4 min · **Branch:** `session/2026-09-24-0818-issue-147` · **Decision:** D-017
+
+- The sticky PR comment could contradict itself across its own first two lines. A composite of `0.8499` published `:warning: composite < 0.85` beside `composite **0.850**`; `0.6499` published `:x: composite < 0.65` beside `composite **0.650**`. Both boundaries were reachable.
+- The defect existed only in the *relationship* between two correct things: the classification is right in every colliding case, and so is the number. Each is right on its own, so no assertion on either could ever fire.
+- The three bands moved into one declared table that both the headline and the renderer read. Each boundary previously existed twice — once in a comparison, once spelled into the prose that comparison returns.
+- `renderComposite`'s rule is one step up from the four sibling repos worked this same run: **rendering must not change the verdict**. There is no second number to differ from, so "widen until the two numbers differ" does not apply. Expressed over `bandFor`, so a fourth band is covered the moment it is declared.
+
+**Why this work, this session:** hunted. It is the hardest spelling of the run's dominant class, and the AST population arm written for `llm-eval-harness#252` an hour earlier provably cannot see it — its own docstring says a one-string rule cannot reach a two-string pair, and this is exactly that.
+
+**Open questions / blockers:** none. `docs/eval_snapshot.md` regenerates byte-identically.
+
+**Next session:** two things. The grep that found this was a comparison operator against a *literal* (`composite_mean >= 0.85`), which is invisible to any pattern searching for the word "threshold" — worth adding to the sweep vocabulary. And rounding the comparison to match the display has now been built and rejected in four repos; it is worth naming as a standing anti-pattern.
