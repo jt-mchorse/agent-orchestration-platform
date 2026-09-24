@@ -455,3 +455,42 @@ And the posture is unchanged: `assertEventTs` throws, this aggregator
 skips. #143 narrows the skip and adds no throw, which is the opposite of
 #142's shape and deliberate — an aggregate over many observations should
 degrade to a partial total rather than abort a whole run's write.
+
+## Rendering cannot change the verdict (#147, D-017)
+
+`headlineFor` classified `composite_mean` at full precision into one of
+three bands, and the value itself was published twelve lines below at
+three decimal places. So the sticky PR comment could contradict itself
+across its own first two lines: a composite of `0.8499` published
+`:warning: composite < 0.85` beside `composite **0.850**`, and `0.6499`
+published `:x: composite < 0.65` beside `composite **0.650**`. Both
+boundaries, not just the top one.
+
+No test could have caught it, and the reason is sharper here than in the
+four sibling repos that worked this class the same week. The
+classification is correct in every colliding case — and so is the number.
+Each is right on its own. The defect exists only in the *relationship*
+between them, and nothing asserted a relationship.
+
+The three bands now live in one declared table that both the headline and
+the renderer read. Before this, each boundary existed twice: once in a
+comparison and once spelled into the prose that comparison returns, so
+the two could drift apart and a third band could be added with the
+renderer left behind. `headlineFor` delegates to `bandFor`.
+
+`renderComposite` widens from the published width while the printed
+value would classify into a different band than the measured value —
+equivalently, **rendering must not change the verdict**. That is a
+*different* rule from the sibling repos', which widen until two rendered
+numbers differ. There is no second number here: the headline carries a
+classification and the threshold it names is a string literal, so the
+property is one step up. It is expressed over `bandFor` rather than over
+the boundaries directly, so a fourth band is covered the moment it is
+declared.
+
+Rounding the *comparison* to three places instead was rejected: it makes
+the verdict less precise in order to make the message consistent, which
+is backwards, and it would let a `0.8496` run report a green check.
+
+The empty-run path is deliberately still "no fixtures" rather than a
+band, because a composite mean over zero cases is meaningless.
