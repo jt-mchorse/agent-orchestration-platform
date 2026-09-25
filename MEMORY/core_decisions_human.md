@@ -305,3 +305,22 @@ events array length, not operator-supplied. Nothing to guard.
   answer to which PR a run is about.
 
 **Related issues:** #145, #143, #142, #141
+
+## D-017 — The published composite cannot contradict the headline beside it
+**Date:** 2026-09-24 · **Reversibility:** cheap · **Issues:** #147 (with #7)
+
+`headlineFor` classified `composite_mean` at full precision into one of three bands, and the value itself was published twelve lines below at `toFixed(3)`. So the sticky PR comment could contradict itself across its own first two lines: a composite of `0.8499` published `:warning: composite < 0.85` beside `composite **0.850**`, and `0.6499` published `:x: composite < 0.65` beside `composite **0.650**`. Both boundaries were reachable, not just the top one.
+
+**No test could have caught it, and the reason is sharper here than in the sibling repos.** The classification is correct in every colliding case — and so is the number. Each is right on its own. The defect exists only in the *relationship* between them, and nothing asserted a relationship.
+
+`renderComposite` widens from the published width while the printed value would classify into a different band than the measured value. Equivalently: **rendering must not change the verdict.** The three bands now live in one declared table that both the headline and the renderer read.
+
+**This is a different rule from the four sibling repos, which is why it is its own decision.** `prompt-regression-suite` D-012, `llm-eval-harness` D-026 and `ai-app-integration-tests` D-013 all widen until two rendered *numbers* differ. There is no second number here: the headline carries a classification, and the threshold it names is a string literal. So the property is one step up, and it is expressed over `bandFor` rather than over the boundaries directly — a fourth band is covered the moment it is declared.
+
+**It is also the hardest spelling to sweep for, and the most general sibling arm provably misses it.** In the other four the two operands were interpolated into one string, so an AST sweep for "a threshold and a formatted operand in the same f-string" found them. Here the threshold is a string literal inside the headline and the value is in a different string twelve lines away. `leh#252`'s population arm cannot see this, and its own docstring says as much: a one-string rule cannot reach a two-string pair. It was found by grepping for a comparison operator against a literal, not by the arm.
+
+**One band table, because each boundary existed twice** — once in a `>=` comparison and once spelled into the prose it returns. The comparison and the sentence describing it could drift apart, and a third band could be added with the renderer left behind.
+
+**Rejected outright:** rounding the *comparison* to three places instead of widening the render. That makes the verdict less precise in order to make the message consistent, which is backwards — and it would let a `0.8496` run report a green check. Sixteen arms red.
+
+The empty-run path is deliberately still `no fixtures` rather than a band: `composite_mean` is meaningless with zero cases, and an arm pins that #147 did not turn it into `:x: composite < 0.65`.

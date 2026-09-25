@@ -1698,3 +1698,33 @@ context_for_next_session:
 decisions_made: [D-016]
 followups: []
 ---
+
+---
+session: 2026-09-24T08:22:26Z
+duration_min: 4   # (date -u) minus the plan comment createdAt, computed in the shell
+issue: 147
+focus: rendering_must_not_change_the_verdict_the_headline_and_the_published_composite_could_disagree
+phase: night_session_sixth_issue_hunted_and_filed_this_run
+delta:
+  files_changed: 5
+  tests_added: 55
+  suite: "687 -> 742 collected (736 passed, 6 pre-existing pg skips), all green; tsc --noEmit clean"
+  benchmarks: {}
+measured:
+  reproduced_before_filing_at_BOTH_boundaries: "composite 0.8499 -> headline ':warning: composite < 0.85' beside 'composite **0.850**'. composite 0.6499 -> ':x: composite < 0.65' beside 'composite **0.650**'. Control 0.7 -> consistent."
+  falsification: "plain revert 5 red. Three neighbours built and run - fix the 0.85 boundary only 16 red, a wider fixed toFixed(6) 10 red, round the COMPARISON to three places instead 16 red."
+  snapshot_unmoved: "docs/eval_snapshot.md REGENERATED with npx tsx scripts/render-eval-snapshot.ts and byte-identical; its composite is 0.345, far from both bands."
+  the_two_sites_i_CHECKED_AND_CLEARED: "src/ui/app.js fmtDollars ALREADY returns '<$0.01' for a sub-cent positive and '$0.00' only for an exact zero - correct, not assumed. src/trace/store.ts quantiseDollars is deliberate per D-015 (quantise the total once to the NUMERIC(12,6) scale so both backends agree) - checked, not assumed."
+context_for_next_session:
+  - THE_DEFECT_EXISTED_ONLY_IN_THE_RELATIONSHIP_BETWEEN_TWO_CORRECT_THINGS_and_that_is_a_sharper_form_of_the_untested_by_construction_lens_the_headline_is_right_the_number_is_right_EACH_ON_ITS_OWN_so_neither_an_assertion_on_the_headline_nor_an_assertion_on_the_value_could_EVER_fire_ASK_OF_ANY_TWO_ADJACENT_PUBLISHED_FACTS_WHETHER_ANYTHING_ASSERTS_THEY_AGREE
+  - THIS_IS_THE_HARDEST_SPELLING_OF_THE_RUNS_DOMINANT_CLASS_AND_MY_OWN_MOST_GENERAL_ARM_PROVABLY_MISSES_IT_leh_252s_AST_walk_looks_for_a_threshold_AND_a_formatted_operand_IN_ONE_F_STRING_here_the_THRESHOLD_IS_A_STRING_LITERAL_INSIDE_THE_HEADLINE_and_the_VALUE_IS_IN_A_DIFFERENT_STRING_TWELVE_LINES_AWAY_I_HAD_ALREADY_WRITTEN_THAT_LIMIT_INTO_leh_252s_DOCSTRING_a_one_string_rule_cannot_reach_a_two_string_pair_AND_THEN_FOUND_AN_INSTANCE_OF_EXACTLY_IT_AN_HOUR_LATER_WRITING_DOWN_WHAT_AN_ARM_CANNOT_SEE_IS_A_TO_DO_LIST
+  - AND_THE_GREP_THAT_FOUND_IT_WAS_A_COMPARISON_OPERATOR_AGAINST_A_LITERAL_not_against_a_variable_composite_mean_greater_or_equal_0_85_ADD_THAT_TO_THE_SWEEP_VOCABULARY_a_threshold_hardcoded_in_the_condition_is_invisible_to_every_pattern_that_looks_for_the_WORD_threshold
+  - THE_RULE_HERE_IS_GENUINELY_DIFFERENT_FROM_THE_FOUR_SIBLINGS_AND_SAYING_SO_WAS_THE_WORK_prs_D_012_leh_D_026_aiapp_D_013_all_widen_until_two_rendered_NUMBERS_differ_THERE_IS_NO_SECOND_NUMBER_HERE_the_headline_carries_a_CLASSIFICATION_so_the_property_is_RENDERING_MUST_NOT_CHANGE_THE_VERDICT_expressed_over_bandFor_NOT_over_the_boundary_literals_SO_A_FOURTH_BAND_IS_COVERED_THE_MOMENT_IT_IS_DECLARED_i_gave_it_its_own_D_NNN_rather_than_making_it_look_like_the_same_helper
+  - ROUNDING_THE_COMPARISON_IS_THE_TEMPTING_INVERSION_AND_IT_IS_ALWAYS_WRONG_it_makes_the_VERDICT_less_precise_to_make_the_MESSAGE_consistent_and_here_it_would_let_a_0_8496_run_REPORT_A_GREEN_CHECK_16_ARMS_RED_i_have_now_rejected_this_same_neighbour_in_FOUR_repos_it_is_worth_naming_as_a_standing_anti_pattern
+  - A_BOUNDARY_THAT_APPEARS_TWICE_IS_THE_REAL_ROOT_CAUSE_each_number_was_once_in_a_greater_or_equal_COMPARISON_and_once_SPELLED_INTO_THE_PROSE_THAT_COMPARISON_RETURNS_so_the_condition_and_the_sentence_describing_it_could_drift_A_SENTENCE_THAT_RESTATES_ITS_OWN_CONDITION_IS_A_SECOND_COPY_OF_THAT_CONDITION
+  - I_CLEARED_TWO_SITES_RATHER_THAN_ASSUMING_THEM_fmtDollars_ALREADY_has_the_sub_cent_guard_and_quantiseDollars_is_D_015_ON_PURPOSE_SAYING_WHICH_SITES_YOU_CHECKED_AND_CLEARED_IS_PART_OF_THE_REPORT_otherwise_the_next_run_re_derives_them
+  - GOTCHA_THIS_REPOS_CI_IS_typecheck_PLUS_test_ONLY_there_is_NO_eslint_JOB_and_npm_run_lint_DOES_NOT_EXIST_read_ci_yml_per_repo_SEVENTH_RUN_FOR_THIS_ONE
+  - repo_state_branch_session_2026_09_24_0818_issue_147_one_code_commit_plus_this_memory_commit_docs_eval_snapshot_md_REGENERATED_AND_BYTE_IDENTICAL_so_not_in_the_diff
+decisions_made: [D-017]
+followups: []
+---
