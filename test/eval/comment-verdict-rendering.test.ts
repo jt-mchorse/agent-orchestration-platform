@@ -198,3 +198,139 @@ describe("the rendered comment body cannot contradict its own headline", () => {
     expect(publishedHeadline(md)).not.toContain("composite <");
   });
 });
+
+// ---------------------------------------------------------------------------
+// #149 — the rule is a property of EVERY published composite, not of two lines
+// ---------------------------------------------------------------------------
+//
+// D-017 stated its rule as "the sticky PR comment could contradict itself
+// across its own first two lines". That framing is true, and it scoped the fix
+// to two lines. The rule it actually established — a printed composite must
+// classify into the same band as the measured one — is a property of any
+// published composite, and the per-fixture table column is one.
+//
+// The sharpest part: `runWithComposite` above already builds a SINGLE-fixture
+// run whose `score.composite` and `composite_mean` are the same number. So the
+// fixture this module has used since #147 was already rendering the
+// contradiction — in the table row, three lines under the summary line these
+// tests were reading. Nothing looked at the row.
+
+/** The per-fixture `composite` cell out of the rendered comment's table row. */
+function publishedRowComposite(markdown: string): string {
+  const line = markdown.split("\n").find((l) => l.startsWith("| `alpha`"));
+  expect(line).toBeDefined();
+  const cells = line!
+    .split("|")
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  return cells[cells.length - 1]!;
+}
+
+describe("the per-fixture composite column agrees with the headline (#149)", () => {
+  for (const boundary of BOUNDARIES) {
+    for (const margin of MARGINS) {
+      const composite = boundary - margin;
+      it(`a table cell at ${boundary} - ${margin} classifies as the value does`, () => {
+        const markdown = renderEvalMarkdown(runWithComposite(composite));
+        const cell = publishedRowComposite(markdown);
+        // The property, not the string: the number a reader sees in the table
+        // must fall in the same band as the number that was measured. Asserting
+        // an expected literal would pin today's width instead of the rule, and
+        // #177 (prompt-regression-suite) measured tonight what that costs.
+        expect(bandFor(Number(cell))).toBe(bandFor(composite));
+      });
+    }
+  }
+
+  for (const boundary of BOUNDARIES) {
+    it(`the table cell and the headline agree at ${boundary} - 1e-4`, () => {
+      const composite = boundary - 1e-4;
+      const markdown = renderEvalMarkdown(runWithComposite(composite));
+      // On a single-fixture run the cell and `composite_mean` are the same
+      // number, so the headline is a claim about the cell. `--fixtures-dir` is
+      // operator-supplied, so this run shape is one flag away.
+      const headlineBand = publishedHeadline(markdown).split("· ")[2];
+      expect(bandFor(Number(publishedRowComposite(markdown)))).toBe(headlineBand);
+    });
+  }
+
+  it("the table cell and the summary line never disagree with each other", () => {
+    // Two published renderings of one number. Neither is classified by the
+    // other, which is exactly why nothing compared them — the same "two
+    // adjacent facts, each correct alone" shape #147 was about.
+    for (const boundary of BOUNDARIES) {
+      for (const margin of MARGINS) {
+        const markdown = renderEvalMarkdown(runWithComposite(boundary - margin));
+        expect(publishedRowComposite(markdown)).toBe(publishedComposite(markdown));
+      }
+    }
+  });
+
+  it("an ordinary composite still renders three places in the table", () => {
+    // GREEN against the unfixed tree, deliberately. This is the arm that
+    // rejects a fix which widened the column unconditionally: `0.900` is what
+    // this cell has always published and it must not move.
+    const markdown = renderEvalMarkdown(runWithComposite(0.9));
+    expect(publishedRowComposite(markdown)).toBe("0.900");
+    expect(publishedComposite(markdown)).toBe("0.900");
+  });
+
+  it("the other three published numbers are deliberately NOT in this class", () => {
+    // Answering the question by measuring it rather than by omission.
+    //
+    // `findings_f1`, `summary_length_ratio` and `findings_f1_mean` are rendered
+    // at `.toFixed(3)` and no headline classifies any of them, so there is no
+    // verdict a rounding could contradict.
+    //
+    // `recommendation_accuracy` is the one worth checking rather than waving
+    // past, because it IS a rounded number (`.toFixed(0)`) printed in a comment
+    // whose rows carry a ✅/❌ mark. But that mark is
+    // `recommendation_match === 1` — an exact integer comparison, with no
+    // rounding between the decision and the glyph. Asserted here so the claim
+    // is a test rather than a sentence.
+    const run = runWithComposite(0.9);
+    const marked = run.cases[0]!.score.recommendation_match;
+    expect(Number.isInteger(marked)).toBe(true);
+    const markdown = renderEvalMarkdown(run);
+    expect(markdown).toContain(":white_check_mark: (approve vs approve)");
+  });
+
+  it("no composite in the comment renderer reaches a bare toFixed", async () => {
+    // The population, discovered rather than listed. #149 exists because D-017
+    // named two lines; a rule over the module is what makes a third surface
+    // fail instead of ship.
+    const fs = await import("node:fs/promises");
+    const url = await import("node:url");
+    const path = await import("node:path");
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const source = await fs.readFile(
+      path.join(here, "..", "..", "src", "eval", "comment.ts"),
+      "utf8",
+    );
+    // Strip comments so the prose above (which quotes the old form) is invisible
+    // to the rule, the same way an AST-based arm would be.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    // `renderComposite`'s own body is the one permitted `composite.toFixed(...)`
+    // in the module — it is the implementation of the rule, not a violation of
+    // it. Exempted by slicing the function out rather than by matching its text,
+    // so a second helper cannot hide behind the same exemption.
+    const helperStart = code.indexOf("export function renderComposite(");
+    expect(helperStart).toBeGreaterThan(-1);
+    const helperEnd = code.indexOf("\n}", helperStart);
+    expect(helperEnd).toBeGreaterThan(helperStart);
+    const outsideHelper = code.slice(0, helperStart) + code.slice(helperEnd);
+    const offenders = outsideHelper
+      .split("\n")
+      .filter((line) => /composite[A-Za-z_]*\s*\.toFixed\(/.test(line))
+      .map((line) => line.trim());
+    expect(offenders).toEqual([]);
+    // And the exemption is not a hole: the helper really does contain the call
+    // this rule would otherwise reject, so the slice is load-bearing rather
+    // than decorative.
+    expect(code.slice(helperStart, helperEnd)).toMatch(/composite\.toFixed\(/);
+    // Anti-vacuity: the rule must be looking at a file that renders composites
+    // through the helper at all, or an empty result means nothing.
+    expect(code).toContain("renderComposite(");
+    expect((code.match(/renderComposite\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+});
