@@ -494,3 +494,30 @@ is backwards, and it would let a `0.8496` run report a green check.
 
 The empty-run path is deliberately still "no fixtures" rather than a
 band, because a composite mean over zero cases is meaningless.
+
+**D-018 (#149) extends this to every published composite.** The paragraph
+above states the rule as a property of "the comment's own first two lines",
+and that framing scoped the fix to two lines — the per-fixture table column
+eleven lines below in the same function was still a bare `toFixed(3)`. On a
+single-fixture run `composite_mean` *is* that fixture's composite, so a run
+at `0.8499` published `:warning: composite < 0.85`, then an honest
+`composite **0.8499**`, and then `| ... | 0.850 |` in the table — the same
+number, rounded across the boundary the headline names. Both boundaries,
+and `--fixtures-dir` is operator-supplied, so a one-fixture directory is one
+flag away.
+
+The rule is now enforced by a source-level population arm over this module
+rather than by naming the sites, because naming sites is how the column
+survived #147 in the first place. The arm exempts `renderComposite`'s own
+body by slicing that function out by index — so a second helper cannot hide
+behind the same exemption — and asserts that the sliced region really does
+contain the call it would otherwise reject.
+
+The three other published numbers are deliberately *not* in this class, and
+that is asserted rather than assumed. `findings_f1`,
+`summary_length_ratio` and `findings_f1_mean` are rounded but unclassified,
+so there is no verdict a rounding could contradict.
+`recommendation_accuracy` is the one worth checking — it is a rounded number
+in a comment whose rows carry a check mark — but that mark is
+`recommendation_match === 1`, an exact integer comparison with no rounding
+between the decision and the glyph.

@@ -113,7 +113,13 @@ export function renderEvalMarkdown(run: EvalRun): string {
         `(${escape(c.score.recommendation_actual)} vs ${escape(c.score.recommendation_golden)}) ` +
         `| ${c.score.findings_f1.toFixed(3)} ` +
         `| ${c.score.summary_length_ratio.toFixed(3)} ` +
-        `| ${c.score.composite.toFixed(3)} |`,
+        // Through `renderComposite` too (#149). D-017 routed the summary
+        // line and stated its rule over "the comment's first two lines"; the
+        // rule it actually established is a property of *any* published
+        // composite, and this cell is one. On a single-fixture run this value
+        // IS `composite_mean`, so at 0.8499 the headline said
+        // `composite < 0.85` and this cell said `0.850`.
+        `| ${renderComposite(c.score.composite)} |`,
     );
   }
   lines.push("");

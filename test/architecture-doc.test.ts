@@ -296,6 +296,12 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   // one -- they arrive together because naming the predicate is how these
   // paragraphs explain the mismatch.
   "isInteger",
+  // Fourth language global, added by #149: the D-018 paragraph explains that
+  // the per-fixture composite column was a bare `toFixed(3)` while the summary
+  // line went through `renderComposite`. Naming the primitive is how that
+  // paragraph says which call was wrong, so it arrives for the same reason the
+  // three above did.
+  "toFixed",
 ] as const;
 
 // Documented-future symbols the doc forward-references. `AnthropicPlanner` is
@@ -464,6 +470,11 @@ describe("docs/architecture.md names only symbols that exist (#87 / portfolio-op
       // paragraph names `Number.isInteger` to say why it was too wide for an
       // `INTEGER` column.
       "isInteger",
+      // #149 / D-018: the paragraph names the bare `toFixed(3)` the per-fixture
+      // composite column used, to say which call disagreed with the headline.
+      // Fourth language global here, and the fourth time naming the primitive
+      // was how a paragraph explained a mismatch.
+      "toFixed",
     ]);
   });
 

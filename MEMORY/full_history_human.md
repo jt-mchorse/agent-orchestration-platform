@@ -1509,3 +1509,36 @@ Suite 668 → 681, no pre-existing test modified, `tsc --noEmit` clean.
 **Open questions / blockers:** none. `docs/eval_snapshot.md` regenerates byte-identically.
 
 **Next session:** two things. The grep that found this was a comparison operator against a *literal* (`composite_mean >= 0.85`), which is invisible to any pattern searching for the word "threshold" — worth adding to the sweep vocabulary. And rounding the comparison to match the display has now been built and rejected in four repos; it is worth naming as a standing anti-pattern.
+
+---
+
+### 2026-09-25 — #149: the rule was right, the scope was one line too narrow
+
+This morning's Phase A merged #147, which stopped the eval comment's headline
+and its composite value from disagreeing. Its architecture entry describes the
+problem as the comment contradicting itself "across its own first two lines".
+That sentence is true, and it is also the bug: the rule it established is about
+*any* published composite, and the per-fixture table column — eleven lines below
+in the same function — was still rounding to three places.
+
+On a single-fixture run the mean and the fixture's own score are the same
+number, so a run at `0.8499` printed a headline saying "composite < 0.85", then
+an honest `0.8499`, then `0.850` in the table. Both boundaries, and the fixtures
+directory is a command-line flag, so a one-fixture run is trivially available.
+
+The detail worth keeping: the existing test module's own helper has been
+building exactly that single-fixture run since #147. Every test in the file was
+rendering the bad row, three lines below the line those tests were reading.
+Nothing looked at the row. When a fixture already reproduces a defect, the gap
+is in what the tests read, not in what they feed.
+
+The rule is now enforced over the whole module rather than at a list of sites,
+since naming sites is how the column survived the first time. The one
+complication is that such a rule always has to exempt the helper it mandates —
+done here by slicing that function out by position, so a second helper can't
+hide behind the same exemption.
+
+Two documentation locks fired on the way, and the second is good design: adding
+a JavaScript builtin to the doc's allowlist also trips an arm pinning that
+allowlist's exact contents, so widening it is a reviewed edit in two places
+rather than a side effect of writing a paragraph.

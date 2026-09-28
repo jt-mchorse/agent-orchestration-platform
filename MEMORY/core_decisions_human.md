@@ -324,3 +324,73 @@ events array length, not operator-supplied. Nothing to guard.
 **Rejected outright:** rounding the *comparison* to three places instead of widening the render. That makes the verdict less precise in order to make the message consistent, which is backwards — and it would let a `0.8496` run report a green check. Sixteen arms red.
 
 The empty-run path is deliberately still `no fixtures` rather than a band: `composite_mean` is meaningless with zero cases, and an arm pins that #147 did not turn it into `:x: composite < 0.65`.
+
+---
+
+## D-018 — the verdict-preserving rule covers every published composite, not two lines
+
+**Date.** 2026-09-25 · **Issue.** #149 · **Reversibility.** cheap
+**Extends.** D-017.
+
+**Decision.** Every composite the sticky eval comment publishes goes through
+`renderComposite`, and the rule is enforced by a source-level population arm
+over `src/eval/comment.ts` rather than by naming the sites.
+
+**Why.** D-017 stated its rule as a property of two lines — "the sticky PR
+comment could contradict itself across its own first two lines". That is true,
+and it scoped the fix to two lines. The rule it actually established — a printed
+composite must classify into the same band as the measured one — is a property
+of *any* published composite, and the per-fixture table column eleven lines
+below in the same function was still a bare `toFixed(3)`.
+
+Measured through `renderEvalMarkdown` on a single-fixture run at `0.8499`:
+
+```
+# Agent eval · 1 fixture(s) · :warning: composite < 0.85
+composite **0.8499** · recommendation accuracy **100%** · findings F1 **0.900**
+| `f1` | :white_check_mark: (a vs a) | 0.900 | 1.000 | 0.850 |
+```
+
+Line 2 is D-017 working. Line 3 is the same number, rounded across the boundary
+the headline names. Same at `0.6499` → `0.650`. Both boundaries, exactly as
+#147 found for the summary line.
+
+**Reachable.** On a single-fixture run `composite_mean` *is* the one fixture's
+composite, so the headline is a claim about that cell. `--fixtures-dir` is
+operator-supplied and the repo ships two fixtures, so a one-fixture directory is
+one flag away — and is the obvious way to iterate on a single failing fixture.
+
+**The sharpest detail: the existing test module's own helper already built the
+contradicting comment.** `runWithComposite` has produced a single-fixture run
+with `score.composite == composite_mean` since #147. Every arm in that module
+was rendering the bad table row, three lines under the summary line they were
+reading. Nothing looked at the row. When a fixture already reproduces a defect,
+the gap is in what the arms *read*, not in what they feed.
+
+**The arms assert the property, not a literal** — `bandFor(Number(cell)) ===
+bandFor(composite)`, not an expected string. Carried from
+`prompt-regression-suite#177` earlier tonight, where an arm asserting that two
+strings *differ* was the wrong unit and missed the default threshold entirely.
+
+**The other three published numbers were answered by measurement, not
+omission.** `findings_f1`, `summary_length_ratio` and `findings_f1_mean` are
+rounded and unclassified — no verdict for a rounding to contradict.
+`recommendation_accuracy` deserved a real check, because it *is* a rounded
+number printed in a comment whose rows carry a ✅/❌ mark; but that mark is
+`recommendation_match === 1`, an exact integer comparison with no rounding
+between the decision and the glyph. Asserted in a test so the claim is not just
+a sentence.
+
+**The population arm exempts the helper by slicing it out by index**, not by
+matching its text, so a second helper cannot hide behind the same exemption —
+plus an anti-vacuity assertion that the sliced region really does contain the
+call the rule would otherwise reject.
+
+**Alternatives considered.** All built and run.
+- *Widen the column unconditionally to `toFixed(6)`.* Rejected: 12 red. It moves
+  the ordinary `0.900` cell, and a fixed width still crosses a boundary at
+  `0.8499999995` — D-017's own argument.
+- *Route it at a narrower width.* Rejected: 3 red. Narrowing a published column
+  is the `llm-eval-harness#252` regression.
+- *Name the two sites in a test instead of a population rule.* Rejected: naming
+  sites is exactly how this one survived #147.
