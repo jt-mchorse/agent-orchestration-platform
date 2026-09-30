@@ -1769,3 +1769,21 @@ context_for_next_session:
   - PART_OF_portfolio_ops_80_the_derived_lock_reads_every_env_spelling_this_repo_uses_copy_it_to_the_other_repos_that_read_secrets
 followups: []
 ---
+
+---
+session: 2026-09-30T09:24Z
+issue: 153
+focus: AN_AGGREGATEERROR_HAS_AN_EMPTY_MESSAGE_SO_THE_500_SAID_NOTHING_AND_THE_README_POINTED_AT_FILES_THE_SERVER_NEVER_READS
+phase: shipped
+duration_min: 0   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "764 -> 768 passed, 6 skipped"
+decisions_made: []
+measured: "fresh repro: 500 {error: ''} -> 500 {error: 'connect ECONNREFUSED ::1:5433; connect ECONNREFUSED 127.0.0.1:5433'}; probe with the old body 1 red"
+context_for_next_session:
+  - NODE_REPORTS_A_MULTI_ADDRESS_CONNECT_FAILURE_AS_AN_AggregateError_WITH_AN_EMPTY_MESSAGE_grep_for_err_message_in_error_bodies_across_repos
+  - BRANCH_NOTE_152_ALSO_OPEN_MEMORY_conflicts_only
+followups: []
+---

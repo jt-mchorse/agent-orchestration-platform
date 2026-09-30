@@ -1553,3 +1553,14 @@ rather than a side effect of writing a paragraph.
 **Open questions / blockers:** none.
 
 **Next session:** none.
+
+## 2026-09-30 — Issue #153: the trace server's error says what failed
+**Duration:** ~0 min · **Branch:** session/2026-09-30-0923-issue-153
+
+- On a fresh clone, `npm run trace:server` (Postgres-backed, no database) answered every API call with `500 {"error": ""}`, because pg's refused connection is an `AggregateError` with an empty message. The body now names the refused connection, and the README says to use `-- --memory` for a Postgres-free look instead of pointing at `results/eval-*.json`, which the server never reads.
+
+**Why this work, this session:** found by the fresh-clone Quickstart audit.
+
+**Open questions / blockers:** #152 is open here too (MEMORY conflict only).
+
+**Next session:** none.
