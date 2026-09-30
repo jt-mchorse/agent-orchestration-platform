@@ -40,6 +40,9 @@ logged to a trace store and scorable against committed golden answer keys.
 
 ## Quickstart
 
+Every environment variable the code reads — all optional for the hermetic demo
+and tests — is listed with its default in [`.env.example`](.env.example).
+
 Three runnable surfaces ship today: the tool registry, the agent
 executor + planner loop, and the eval suite. Install once:
 
