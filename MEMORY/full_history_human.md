@@ -1542,3 +1542,14 @@ Two documentation locks fired on the way, and the second is good design: adding
 a JavaScript builtin to the doc's allowlist also trips an arm pinning that
 allowlist's exact contents, so widening it is a reviewed edit in two places
 rather than a side effect of writing a paragraph.
+
+## 2026-09-30 — Issue #151: .env.example for the four variables the code reads
+**Duration:** ~1 min · **Branch:** session/2026-09-30-0904-issue-151
+
+- Added `.env.example` (DATABASE_URL, GITHUB_TOKEN/GH_TOKEN, PORT, PORTFOLIO_ROOT, each with its reader and default) and a lock that derives every variable `src/` reads and requires it to be listed. Part of portfolio-ops#80.
+
+**Why this work, this session:** handoff §10 requires the file and this repo never had one.
+
+**Open questions / blockers:** none.
+
+**Next session:** none.
