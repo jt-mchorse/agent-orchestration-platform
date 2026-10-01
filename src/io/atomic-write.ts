@@ -82,12 +82,28 @@ export async function atomicWriteFile(
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another
   // process); never silently clobber.
-  const handle = await fs.open(tmp, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_EXCL, 0o600);
+  //
+  // Mode 0o666, not 0o600 (#157, portfolio-ops#81): `fs.rename` carries the
+  // temp file's mode onto the target, so an explicit 0o600 made every new
+  // file owner-only regardless of umask and demoted an existing 0644 file to
+  // 0600. 0o666 lets the KERNEL apply the umask, exactly as the
+  // `fs.writeFile` this helper replaced did; the process umask is never
+  // touched (it is process-global).
+  const handle = await fs.open(tmp, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_EXCL, 0o666);
   let renamed = false;
   try {
     await handle.writeFile(buf);
     await handle.sync();
     await handle.close();
+    // An overwrite keeps the target's existing permission bits, as an
+    // in-place `fs.writeFile` would. A missing target is a new file.
+    let existingMode: number | undefined;
+    try {
+      existingMode = (await fs.stat(target)).mode & 0o7777;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
+    if (existingMode !== undefined) await fs.chmod(tmp, existingMode);
     await fs.rename(tmp, target);
     renamed = true;
   } finally {
