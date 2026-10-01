@@ -76,11 +76,15 @@ The composite + per-fixture scores in [`docs/eval_snapshot.md`](docs/eval_snapsh
 are byte-locked to the renderer by `test/readme-snapshot.test.ts`, so a
 silent change in `renderEvalMarkdown` or `scoreReview` fails CI.
 
-Browse a recorded run in the trace viewer (after a real run produces a
-`results/eval-*.json`):
+Browse runs in the trace viewer. It serves a trace store, not the
+`results/eval-*.json` files: `--memory` seeds two sample runs and needs
+nothing else; without it the server reads Postgres (`DATABASE_URL`, or the
+default local connection), and on a fresh clone with no database every API
+call is a 500 naming the refused connection (#153).
 
 ```bash
-npm run trace:server      # → http://localhost:8766/  (React via ESM CDN, D-006)
+npm run trace:server -- --memory   # → http://localhost:8766/  (React via ESM CDN, D-006)
+npm run trace:server               # Postgres-backed; needs DATABASE_URL or a local DB
 ```
 
 Use the registry from your own script:

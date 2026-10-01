@@ -34,6 +34,31 @@ export interface TraceServerOptions {
   staticDir?: string;
 }
 
+/**
+ * A non-empty description of `err` for a 500 body (#153).
+ *
+ * This returned `(err as Error).message`, and the error a fresh clone actually
+ * produces is `pg`'s refused connection: Node reports "tried `::1` and
+ * `127.0.0.1`, both refused" as an `AggregateError` whose own `message` is
+ * empty, with the cause in `.errors`. So `GET /api/runs` answered
+ * `{"error": ""}`. Fall back through the inner errors, then `code`, then
+ * `name`, so the body always says something.
+ */
+export function describeError(err: unknown): string {
+  if (err instanceof Error && err.message.trim() !== "") return err.message;
+  const inner = (err as { errors?: unknown }).errors;
+  if (Array.isArray(inner)) {
+    const messages = inner
+      .map((e) => (e instanceof Error ? e.message : String(e)))
+      .filter((m) => m.trim() !== "");
+    if (messages.length > 0) return messages.join("; ");
+  }
+  const code = (err as { code?: unknown }).code;
+  if (typeof code === "string" && code !== "") return code;
+  if (err instanceof Error && err.name) return err.name;
+  return "internal error";
+}
+
 export function createTraceServer(opts: TraceServerOptions): Server {
   const staticDir =
     opts.staticDir ?? path.dirname(new URL(import.meta.url).pathname);
@@ -42,7 +67,7 @@ export function createTraceServer(opts: TraceServerOptions): Server {
     try {
       await dispatch(req, res, opts.store, staticDir);
     } catch (err) {
-      sendJson(res, 500, { error: (err as Error).message });
+      sendJson(res, 500, { error: describeError(err) });
     }
   });
 }
