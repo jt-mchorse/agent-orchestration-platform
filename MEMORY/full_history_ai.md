@@ -1752,3 +1752,20 @@ context_for_next_session:
 decisions_made: [D-018]
 followups: []
 ---
+
+---
+session: 2026-09-30T09:06Z
+issue: 151
+focus: HANDOFF_SECTION_10_ENV_EXAMPLE_WAS_NEVER_CREATED_HERE_FOUR_VARIABLES_READ_TWO_DOCUMENTED
+phase: shipped
+duration_min: 1   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "764 -> 768 passed, 6 skipped"
+decisions_made: []
+measured: "probe: PORT removed from .env.example -> 1 red"
+context_for_next_session:
+  - PART_OF_portfolio_ops_80_the_derived_lock_reads_every_env_spelling_this_repo_uses_copy_it_to_the_other_repos_that_read_secrets
+followups: []
+---
