@@ -1,4 +1,5 @@
 import type { Finding, Review } from "../agent/types.js";
+import { type Rational, add, rational, scale, toDouble } from "./exact.js";
 
 /**
  * Score an agent's `Review` against the hand-labeled golden review.
@@ -45,9 +46,31 @@ export interface ReviewScore {
   composite: number;
 }
 
-const WEIGHT_RECOMMENDATION = 0.5;
-const WEIGHT_FINDINGS = 0.4;
-const WEIGHT_SUMMARY = 0.1;
+// Whole tenths, so the composite is an exact rational (#163).
+const WEIGHT_RECOMMENDATION_TENTHS = 5;
+const WEIGHT_FINDINGS_TENTHS = 4;
+const WEIGHT_SUMMARY_TENTHS = 1;
+
+/** The exact composite of one review, from its integer-derived parts (#163). */
+export function compositeExact(recMatch: number, f1: Rational, lenRatio: Rational): Rational {
+  return add(
+    add(rational(WEIGHT_RECOMMENDATION_TENTHS * recMatch, 10), scale(f1, WEIGHT_FINDINGS_TENTHS, 10)),
+    scale(lenRatio, WEIGHT_SUMMARY_TENTHS, 10),
+  );
+}
+
+/** `compositeExact`, re-derived from a finished `ReviewScore`'s integer fields. */
+export function compositeExactOf(s: ReviewScore): Rational {
+  const bothEmpty = s.total_actual_findings === 0 && s.total_golden_findings === 0;
+  const f1 = bothEmpty
+    ? rational(1)
+    : s.matched_findings === 0
+      ? rational(0)
+      : rational(2 * s.matched_findings, s.total_actual_findings + s.total_golden_findings);
+  const hi = Math.max(s.summary_actual_chars, s.summary_golden_chars);
+  const ratio = hi === 0 ? rational(1) : rational(Math.min(s.summary_actual_chars, s.summary_golden_chars), hi);
+  return compositeExact(s.recommendation_match, f1, ratio);
+}
 const JACCARD_MATCH_THRESHOLD = 0.3;
 
 export function scoreReview(actual: Review, golden: Review): ReviewScore {
@@ -69,11 +92,14 @@ export function scoreReview(actual: Review, golden: Review): ReviewScore {
   const bothEmpty = total_actual === 0 && total_golden === 0;
   const precision = bothEmpty ? 1 : total_actual === 0 ? 0 : matched / total_actual;
   const recall = bothEmpty ? 1 : total_golden === 0 ? 0 : matched / total_golden;
-  const f1 = bothEmpty
-    ? 1
-    : precision + recall === 0
-      ? 0
-      : (2 * precision * recall) / (precision + recall);
+  // F1 = 2PR/(P+R) = 2m/(a+g): one exact ratio of counts (#163). The
+  // product-over-sum form rounded twice, so 1-of-9 came out 0.19999999999999998.
+  const f1Exact: Rational = bothEmpty
+    ? rational(1)
+    : matched === 0
+      ? rational(0)
+      : rational(2 * matched, total_actual + total_golden);
+  const f1 = toDouble(f1Exact);
 
   const actual_len = actual.summary.length;
   const golden_len = golden.summary.length;
@@ -82,10 +108,14 @@ export function scoreReview(actual: Review, golden: Review): ReviewScore {
       ? 1
       : Math.min(actual_len, golden_len) / Math.max(actual_len, golden_len);
 
-  const composite =
-    WEIGHT_RECOMMENDATION * rec_match +
-    WEIGHT_FINDINGS * f1 +
-    WEIGHT_SUMMARY * len_ratio;
+  // Exact, then rounded once (#163): in floats an exact 0.65 (rec match, 1 of 9
+  // findings, summaries 70:100) came out 0.6499999999999999, below the band
+  // `bandFor` puts 0.65 in.
+  const lenRatioExact: Rational =
+    Math.max(actual_len, golden_len) === 0
+      ? rational(1)
+      : rational(Math.min(actual_len, golden_len), Math.max(actual_len, golden_len));
+  const composite = toDouble(compositeExact(rec_match, f1Exact, lenRatioExact));
 
   return {
     recommendation_match: rec_match,
