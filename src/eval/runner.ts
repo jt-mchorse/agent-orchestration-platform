@@ -10,6 +10,8 @@ import { MAX_PR_NUMBER } from "../trace/store.js";
 import type { ReviewScore } from "./score.js";
 import { scoreReview } from "./score.js";
 import { REPO_FORMAT } from "./validate.js";
+import { add, rational, scale, toDouble } from "./exact.js";
+import { compositeExactOf } from "./score.js";
 
 /**
  * One evaluation: run the agent against a fixture PR, score its
@@ -152,6 +154,17 @@ function _buildScriptedReview(
 /**
  * Run the agent against every `EvalCase`, score each, aggregate.
  */
+/**
+ * The mean of the EXACT composites, rounded once (#163). A float sum of two rows
+ * whose mean is exactly 0.65 (0.575 + 0.725) came out 0.6499999999999999 and
+ * took the band below. `0` for no rows, as before.
+ */
+export function compositeMean(scores: ReviewScore[]): number {
+  if (scores.length === 0) return 0;
+  const sum = scores.reduce((acc, s) => add(acc, compositeExactOf(s)), rational(0));
+  return toDouble(scale(sum, 1, scores.length));
+}
+
 export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
   const results: EvalCaseResult[] = [];
   for (const c of cases) {
@@ -162,8 +175,7 @@ export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
     results.push({ fixture_id: c.fixture_id, actual, golden, score });
   }
   const n = results.length;
-  const composite_mean =
-    n === 0 ? 0 : results.reduce((acc, r) => acc + r.score.composite, 0) / n;
+  const composite_mean = compositeMean(results.map((r) => r.score));
   const recommendation_accuracy =
     n === 0 ? 0 : results.reduce((acc, r) => acc + r.score.recommendation_match, 0) / n;
   const findings_f1_mean =
