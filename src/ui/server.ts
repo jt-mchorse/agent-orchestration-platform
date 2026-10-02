@@ -87,7 +87,22 @@ async function dispatch(
   // than built from the Host header (#155): routing reads only `pathname` and
   // `searchParams`, and a Host that does not parse (`Host: a b`) made this
   // constructor throw, which the catch-all answered as a 500.
-  const url = new URL(req.url, "http://localhost");
+  //
+  // And the PATH is never read as an authority (#159). `new URL("//x", base)`
+  // treats `x` as a host: `//%` threw (a 500, the catch-all) and `//api/runs`
+  // silently routed as `/runs`. An origin-form target is a path, so it is
+  // appended to the fixed origin instead of resolved against it. Anything that
+  // still does not parse (an absolute-form target with a bad host) is the
+  // client's 400, never a 500 -- #117's rule for hand-typed URLs.
+  let url: URL;
+  try {
+    url = req.url.startsWith("/")
+      ? new URL("http://localhost" + req.url)
+      : new URL(req.url, "http://localhost");
+  } catch {
+    sendJson(res, 400, { error: "bad request", detail: "request target is not a valid URL" });
+    return;
+  }
 
   if (
     req.method === "GET" &&
