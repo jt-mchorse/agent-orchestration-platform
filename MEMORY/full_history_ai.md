@@ -1806,3 +1806,23 @@ context_for_next_session:
   - THE_MALFORMED_ESCAPE_GETS_404_NOT_400_ON_PURPOSE_so_this_does_not_decide_127_by_the_back_door
 followups: []
 ---
+
+---
+session: 2026-10-01T08:50Z
+issue: 157
+focus: ATOMICWRITEFILE_OPENED_ITS_TEMP_0o600_AND_RENAME_CARRIED_IT_ONTO_THE_TARGET_NEW_FILES_OWNER_ONLY_AND_AN_OVERWRITE_DEMOTED_0644
+phase: shipped
+duration_min: 2   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "772 -> 778 passed, 6 skipped"
+decisions_made: []
+measured: "repro umask 022: plain writeFile 0644, atomicWriteFile new 0600, overwrite of 0644 -> 0600. Revert probes: original file 4 failed of 784; 0o600 with chmod kept 2 of 784; 0o666 without chmod 2 of 784"
+context_for_next_session:
+  - FIX_OPEN_TEMP_0o666_SO_THE_KERNEL_APPLIES_THE_UMASK_THEN_CHMOD_TEMP_TO_EXISTING_TARGET_MODE_AND_0o7777_BEFORE_RENAME_ENOENT_MEANS_NEW_FILE_NEVER_TOUCH_PROCESS_UMASK
+  - VITEST_POOL_IS_FORKS_SO_process_umask_mask_IS_SETTABLE_IN_TESTS_it_throws_in_worker_threads_CHECK_THE_POOL_BEFORE_COPYING_THESE_TESTS
+  - REAL_CALLER_ARM_SPAWNS_eval_runner_WITH_results_dir_UNDER_UMASK_022_the_child_inherits_the_umask_at_spawn
+  - BRANCH_NOTE_156_ALSO_OPEN_MEMORY_conflicts_only
+followups: ["portfolio-ops#81"]
+---

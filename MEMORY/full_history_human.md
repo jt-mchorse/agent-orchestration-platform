@@ -1579,3 +1579,14 @@ rather than a side effect of writing a paragraph.
 **Open questions / blockers:** none.
 
 **Next session:** none queued.
+
+## 2026-10-01 — Issue #157: atomicWriteFile keeps the umask and an existing file's mode
+**Duration:** ~2 min · **Branch:** session/2026-10-01-0848-issue-157
+
+- `atomicWriteFile` opened its temp file with an explicit `0o600`, and `fs.rename` carried that mode onto the target. Every eval-result JSON and `docs/eval_snapshot.md` came out owner-only regardless of umask, and an overwrite turned an existing 0644 file into 0600. The temp is now opened `0o666`, so the kernel applies the umask, and it is chmodded to an existing target's mode before the rename. `test/io/atomic-write-mode.test.ts` adds 6 tests: umask 022 and 077, overwrites of 0644/0600/0640, and a spawned eval-runner. Restoring the original file turns 4 of them red.
+
+**Why this work, this session:** part of portfolio-ops#81, the portfolio-wide 0600 sweep.
+
+**Open questions / blockers:** #156 is open here too (MEMORY conflict only).
+
+**Next session:** none.
