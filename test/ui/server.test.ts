@@ -195,6 +195,64 @@ describe("trace server", () => {
     expect(r.headers.get("content-type")).toContain("application/json");
   });
 
+  it.each(["%", "%ZZ", "%E0%A4%A", "abc%"])(
+    "GET /api/runs/%s is the route's 404, not a 500 (#155)",
+    async (segment) => {
+      // A malformed escape threw URIError out of decodeURIComponent into the
+      // catch-all: a 500 for a hand-typed URL, which #117's rule forbids.
+      const r = await fetch(ctx.url + "/api/runs/" + segment);
+      expect(r.status).toBe(404);
+      const body = (await r.json()) as { error: string; run_id: string };
+      expect(body.error).toMatch(/not found/i);
+      expect(body.run_id).toBe(segment);
+    },
+  );
+
+  it("a well-formed escape in /api/runs/:id still decodes (#155 control)", async () => {
+    await ctx.store.writeRun({ run_id: "a/b", pr: PR, events: sampleEvents(), review: review() });
+    const r = await fetch(ctx.url + "/api/runs/a%2Fb");
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { run_id: string }).run_id).toBe("a/b");
+  });
+
+  it("an unparseable Host header does not reach new URL (#155)", async () => {
+    const { request } = await import("node:http");
+    const { port } = new URL(ctx.url);
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = request(
+        { host: "127.0.0.1", port: Number(port), path: "/api/runs", headers: { Host: "a b" } },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    expect(status).toBe(200);
+  });
+
+  it.each([
+    ["offset", "99999999999999999999", 10_000],
+    ["offset", "9".repeat(400), 10_000],
+    ["limit", "99999999999999999999", 500],
+    ["limit", "9007199254740993", 500],
+  ])("?%s=%s past MAX_SAFE_INTEGER clamps to the cap, not the default (#155)", async (name, raw, cap) => {
+    await ctx.store.writeRun({ run_id: "far-1", pr: PR, events: sampleEvents(), review: review() });
+    const r = await fetch(`${ctx.url}/api/runs?${name}=${raw}`);
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { runs: unknown[]; limit: number; offset: number };
+    expect(body[name as "limit" | "offset"]).toBe(cap);
+    // A far page is an empty page, never the first one.
+    if (name === "offset") expect(body.runs).toEqual([]);
+  });
+
+  it("a huge negative value still takes the default (#155 scope)", async () => {
+    const r = await fetch(`${ctx.url}/api/runs?offset=-99999999999999999999&limit=-99999999999999999999`);
+    const body = (await r.json()) as { limit: number; offset: number };
+    expect([body.limit, body.offset]).toEqual([50, 0]);
+  });
+
   it("clamps limit/offset out of band rather than failing the request", async () => {
     const r = await fetch(ctx.url + "/api/runs?limit=99999&offset=-5");
     const body = (await r.json()) as { limit: number; offset: number };

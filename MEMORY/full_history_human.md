@@ -1564,3 +1564,18 @@ rather than a side effect of writing a paragraph.
 **Open questions / blockers:** #152 is open here too (MEMORY conflict only).
 
 **Next session:** none.
+
+## 2026-10-01 — Issue #155: three hand-typed URLs the "never 500" rule didn't reach
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0830-issue-155
+
+- The trace server's #117 rule ("never 500 on a hand-typed URL") only covered the query parameters. Three cases slipped past it:
+  - `/api/runs/%` was a 500 from `decodeURIComponent`. It now returns the route's 404.
+  - A bad Host header was a 500 from `new URL`. The URL is now parsed against a fixed base.
+  - `?offset=99999999999999999999` returned the first page, because a safe-integer check ran before the clamp. It now clamps to the cap.
+- Malformed parameters still fall back to the default, leaving #127 untouched. 11 new tests; four revert probes all red.
+
+**Why this work, this session:** found by this run's hunt, as sibling sites of #117's rule.
+
+**Open questions / blockers:** none.
+
+**Next session:** none queued.
