@@ -12,8 +12,8 @@ import { rational, toDouble } from "../../src/eval/exact.js";
 import { compositeMean } from "../../src/eval/runner.js";
 import { type ReviewScore, scoreReview } from "../../src/eval/score.js";
 
-const hit = (i: number): Finding => ({ severity: "warning", message: `null deref in handler number ${i}`, file: `src/f${i}.ts` });
-const miss: Finding = { severity: "info", message: "completely unrelated stylistic remark zzz", file: "other.md" };
+const hit = (i: number): Finding => ({ severity: "concern", message: `null deref in handler number ${i}`, file: `src/f${i}.ts` });
+const miss: Finding = { severity: "nit", message: "completely unrelated stylistic remark zzz", file: "other.md" };
 
 function review(findings: Finding[], summaryChars: number): Review {
   return { summary: "x".repeat(summaryChars), findings, recommendation: "approve" };
