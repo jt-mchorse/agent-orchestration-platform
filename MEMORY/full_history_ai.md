@@ -1789,6 +1789,25 @@ followups: []
 ---
 
 ---
+session: 2026-10-01T08:14Z
+issue: 155
+focus: THREE_HAND_TYPED_URLS_117S_NEVER_500_RULE_DID_NOT_REACH
+phase: shipped
+duration_min: 4   # 08:10 plan -> 08:14 close, from date -u
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "772 -> 783 green (6 skipped)"
+decisions_made: []
+measured: "hunt agent against PORT=18977 trace-server --memory on d8b54ca: /api/runs/% -> 500 URI malformed; Host: a b -> 500 Invalid URL; ?offset=99999999999999999999 -> offset 0 and the first page. Revert probes, control 783: no decode guard 4 red, host-based base 1, safe-integer gate restored 4, isFinite-gate neighbour 1."
+context_for_next_session:
+  - A_RULE_STATED_FOR_ONE_SEAM_never_500_on_a_hand_typed_URL_WAS_APPLIED_TO_THE_QUERY_PARAMS_AND_NOT_TO_THE_PATH_SEGMENT_OR_THE_HOST_HEADER_ENUMERATE_EVERY_PART_OF_THE_REQUEST_THE_HANDLER_PARSES
+  - A_VALIDITY_GATE_BEFORE_A_CLAMP_EATS_THE_CLAMPS_DOMAIN_isSafeInteger_ran_before_Math_min_so_the_stated_rule_above_hi_to_hi_failed_exactly_past_MAX_SAFE_INTEGER
+  - THE_MALFORMED_ESCAPE_GETS_404_NOT_400_ON_PURPOSE_so_this_does_not_decide_127_by_the_back_door
+followups: []
+---
+
+---
 session: 2026-10-01T08:50Z
 issue: 157
 focus: ATOMICWRITEFILE_OPENED_ITS_TEMP_0o600_AND_RENAME_CARRIED_IT_ONTO_THE_TARGET_NEW_FILES_OWNER_ONLY_AND_AN_OVERWRITE_DEMOTED_0644

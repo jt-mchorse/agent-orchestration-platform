@@ -83,8 +83,11 @@ async function dispatch(
     return;
   }
   // Strip query string for routing; we don't have any query params yet
-  // beyond `?limit=&offset=` which we parse manually.
-  const url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
+  // beyond `?limit=&offset=` which we parse manually. The base is fixed rather
+  // than built from the Host header (#155): routing reads only `pathname` and
+  // `searchParams`, and a Host that does not parse (`Host: a b`) made this
+  // constructor throw, which the catch-all answered as a 500.
+  const url = new URL(req.url, "http://localhost");
 
   if (
     req.method === "GET" &&
@@ -119,7 +122,18 @@ async function dispatch(
   }
   const detailMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
   if (req.method === "GET" && detailMatch) {
-    const runId = decodeURIComponent(detailMatch[1] as string);
+    const segment = detailMatch[1] as string;
+    let runId: string;
+    try {
+      runId = decodeURIComponent(segment);
+    } catch {
+      // A malformed escape (`/api/runs/%`, `%ZZ`, a truncated UTF-8 sequence)
+      // threw `URIError` into the catch-all: a 500 for a hand-typed URL, which
+      // #117's rule forbids (#155). It names no run, so it gets this route's
+      // own "no such run" answer -- not a 400, which is #127's open question.
+      sendJson(res, 404, { error: "run not found", run_id: segment });
+      return;
+    }
     const detail = await store.getRun(runId);
     if (!detail) {
       sendJson(res, 404, { error: "run not found", run_id: runId });
@@ -217,7 +231,11 @@ function resolveIntParam(
   if (trimmed === "") return fallback;
   if (!DECIMAL_INTEGER.test(trimmed)) return fallback;
   const n = Number(trimmed);
-  if (!Number.isSafeInteger(n)) return fallback;
+  // No safe-integer gate (#155). It ran before the clamp, so a well-formed
+  // decimal past `Number.MAX_SAFE_INTEGER` took the default instead of `hi`:
+  // `?offset=99999999999999999999` returned the FIRST page. `DECIMAL_INTEGER`
+  // already admits only digits, so `n` is an integer or +/-Infinity, and both
+  // branches below map every such value into `[lo, hi]`.
   if (n < lo) return fallback;
   return Math.min(hi, n);
 }
