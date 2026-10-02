@@ -1590,3 +1590,14 @@ rather than a side effect of writing a paragraph.
 **Open questions / blockers:** #156 is open here too (MEMORY conflict only).
 
 **Next session:** none.
+
+## 2026-10-02 — eval-runner refuses malformed arguments (#161)
+
+The eval runner read the word after a value flag without checking it. So
+`--results-dir --comment ...` wrote results into a directory named `--comment`
+and swallowed the request to post the PR comment, at exit 0. A trailing flag
+crashed with a raw TypeError, and a misspelled flag was ignored. The sibling
+`validate` command already refused unknown flags. Now a missing or flag-like
+value, an unknown flag, or a non-integer `--pr` exits 2 before any work. While
+probing, the reverted script wrote a stray `--comment/` directory into my local
+checkout. I inspected it and removed it.
