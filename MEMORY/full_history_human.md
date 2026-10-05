@@ -1599,3 +1599,14 @@ read as a host name, so `//%` got a 500 and `//api/runs` was quietly routed as
 `/runs`. The server now appends the path to a fixed origin, and anything that
 still can't be parsed gets a 400. 7 new tests send raw requests, because Node's
 own HTTP client cleans up the path before sending it.
+
+## 2026-10-02 — eval-runner refuses malformed arguments (#161)
+
+The eval runner read the word after a value flag without checking it. So
+`--results-dir --comment ...` wrote results into a directory named `--comment`
+and swallowed the request to post the PR comment, at exit 0. A trailing flag
+crashed with a raw TypeError, and a misspelled flag was ignored. The sibling
+`validate` command already refused unknown flags. Now a missing or flag-like
+value, an unknown flag, or a non-integer `--pr` exits 2 before any work. While
+probing, the reverted script wrote a stray `--comment/` directory into my local
+checkout. I inspected it and removed it.

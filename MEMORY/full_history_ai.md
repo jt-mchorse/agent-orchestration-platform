@@ -1843,3 +1843,20 @@ context_for_next_session:
   - RAW_SOCKET_TESTS_because_nodes_http_client_normalises_the_request_path
 followups: []
 ---
+
+---
+session: 2026-10-02T13:55Z
+issue: 161
+focus: eval_runner_parseArgs_SWALLOWED_THE_NEXT_FLAG_AS_A_VALUE_AND_IGNORED_UNKNOWN_FLAGS_SIBLING_OF_mcp_203
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "789 -> 795 green (6 skipped); lint, tsc clean"
+decisions_made: []
+measured: "main: --results-dir --comment --repo o/r --pr 1 -> rc 0, wrote <repo>/--comment/eval-*.json, no comment; trailing --results-dir -> raw TypeError rc 1; --comments ignored. Revert: 6 of 6 red."
+context_for_next_session:
+  - MY_REVERT_PROBE_WROTE_A_DIRECTORY_NAMED_--comment_INTO_THE_REAL_CLONE_because_resultsDir_RESOLVES_AGAINST_THE_REPO_ROOT_not_cwd_removed_it_after_inspecting_A_REVERT_PROBE_OF_A_PATH_BUG_CAN_WRITE_WHERE_THE_BUG_WROTE
+  - validate_ts_ALREADY_REFUSED_UNKNOWN_FLAGS_the_sibling_bin_had_the_rule
+followups: []
+---
