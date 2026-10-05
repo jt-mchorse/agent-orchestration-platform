@@ -1619,3 +1619,9 @@ agent-eval PR comment. A review scoring exactly 0.65 came out as
 cells that add up to 0.65. Every input is an integer count and the weights are
 tenths, so the score is now computed exactly as a fraction and rounded once.
 The committed eval snapshot is unchanged byte for byte. 5 new tests.
+
+## 2026-10-05 — the trace server says which port it's on (#167)
+
+With `PORT=0` the trace server lets the operating system choose a port, but
+its startup line printed port 0. It now prints the port it actually bound,
+and a test starts the real server and loads the printed address.
