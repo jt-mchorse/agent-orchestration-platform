@@ -1610,3 +1610,12 @@ crashed with a raw TypeError, and a misspelled flag was ignored. The sibling
 value, an unknown flag, or a non-integer `--pr` exits 2 before any work. While
 probing, the reverted script wrote a stray `--comment/` directory into my local
 checkout. I inspected it and removed it.
+
+## 2026-10-02 — an exact 0.65 eval composite gets the 0.65 band (#163)
+
+The same floating-point gate problem as llm-eval-harness#283, here in the
+agent-eval PR comment. A review scoring exactly 0.65 came out as
+0.6499999999999999, and the comment said ":x: composite < 0.65" above table
+cells that add up to 0.65. Every input is an integer count and the weights are
+tenths, so the score is now computed exactly as a fraction and rounded once.
+The committed eval snapshot is unchanged byte for byte. 5 new tests.

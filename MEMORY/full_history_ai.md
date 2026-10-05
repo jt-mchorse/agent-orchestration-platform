@@ -1860,3 +1860,22 @@ context_for_next_session:
   - validate_ts_ALREADY_REFUSED_UNKNOWN_FLAGS_the_sibling_bin_had_the_rule
 followups: []
 ---
+
+---
+session: 2026-10-02T15:00Z
+issue: 163
+focus: AN_EXACT_0_65_COMPOSITE_COMPUTED_0_6499999999999999_AND_GOT_THE_FAILING_HEADLINE_SAME_CLASS_AS_leh_283
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 5
+  suite: "789 -> 794 green (6 skipped); lint, tsc clean; docs/eval_snapshot.md re-rendered BYTE-IDENTICAL"
+decisions_made: []
+measured: "main: 1-of-9 + 70:100 -> f1 0.19999999999999998, composite 0.6499999999999999, ':x: composite < 0.65'; rows 0.575 + 0.725 -> mean 0.6499999999999999. Revert probes: float per-review composite 3/5 red, float mean 1/5 red."
+context_for_next_session:
+  - src_eval_exact_ts_IS_A_BIGINT_RATIONAL_WITH_A_STICKY_BIT_toDouble_correct_rounding_for_operands_past_2_53
+  - F1_IS_2m_OVER_a_PLUS_g_ONE_DIVISION_the_2PR_over_P_PLUS_R_form_rounded_twice
+  - compositeMean_IS_EXPORTED_FROM_runner_so_the_mean_is_testable_without_fixture_files
+  - THE_SAME_FLOAT_AT_A_GATE_CLASS_HIT_leh_283_TODAY_grep_the_portfolio_for_GE_threshold_on_a_float_mean_or_weighted_sum
+followups: []
+---
