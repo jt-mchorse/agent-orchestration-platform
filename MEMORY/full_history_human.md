@@ -1591,6 +1591,15 @@ rather than a side effect of writing a paragraph.
 
 **Next session:** none.
 
+## 2026-10-02 — a request path starting with `//` is a path, not a host (#159)
+
+#156 stopped a bad `Host` header from crashing the trace server's URL parsing.
+The request path was the parser's other input. A path beginning with `//` was
+read as a host name, so `//%` got a 500 and `//api/runs` was quietly routed as
+`/runs`. The server now appends the path to a fixed origin, and anything that
+still can't be parsed gets a 400. 7 new tests send raw requests, because Node's
+own HTTP client cleans up the path before sending it.
+
 ## 2026-10-02 — eval-runner refuses malformed arguments (#161)
 
 The eval runner read the word after a value flag without checking it. So

@@ -1828,6 +1828,23 @@ followups: ["portfolio-ops#81"]
 ---
 
 ---
+session: 2026-10-02T09:55Z
+issue: 159
+focus: A_DOUBLE_SLASH_PATH_WAS_PARSED_AS_A_HOST_156s_SIBLING_ON_THE_SAME_CONSTRUCTOR
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "789 -> 796 green (6 skipped unchanged); lint and tsc clean"
+decisions_made: []
+measured: "main raw sockets: //% //a:b/x //[ -> 500 Invalid URL; //api/runs -> 404 path=/runs. Revert to main's server.ts: 5 of 7 red, both controls green."
+context_for_next_session:
+  - 156_REMOVED_THE_HOST_HEADER_FROM_new_URLs_INPUT_AND_THE_PATH_WAS_THE_OTHER_INPUT_a_guard_on_one_operand
+  - RAW_SOCKET_TESTS_because_nodes_http_client_normalises_the_request_path
+followups: []
+---
+
+---
 session: 2026-10-02T13:55Z
 issue: 161
 focus: eval_runner_parseArgs_SWALLOWED_THE_NEXT_FLAG_AS_A_VALUE_AND_IGNORED_UNKNOWN_FLAGS_SIBLING_OF_mcp_203
