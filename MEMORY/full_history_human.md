@@ -1591,6 +1591,26 @@ rather than a side effect of writing a paragraph.
 
 **Next session:** none.
 
+## 2026-10-02 — a request path starting with `//` is a path, not a host (#159)
+
+#156 stopped a bad `Host` header from crashing the trace server's URL parsing.
+The request path was the parser's other input. A path beginning with `//` was
+read as a host name, so `//%` got a 500 and `//api/runs` was quietly routed as
+`/runs`. The server now appends the path to a fixed origin, and anything that
+still can't be parsed gets a 400. 7 new tests send raw requests, because Node's
+own HTTP client cleans up the path before sending it.
+
+## 2026-10-02 — eval-runner refuses malformed arguments (#161)
+
+The eval runner read the word after a value flag without checking it. So
+`--results-dir --comment ...` wrote results into a directory named `--comment`
+and swallowed the request to post the PR comment, at exit 0. A trailing flag
+crashed with a raw TypeError, and a misspelled flag was ignored. The sibling
+`validate` command already refused unknown flags. Now a missing or flag-like
+value, an unknown flag, or a non-integer `--pr` exits 2 before any work. While
+probing, the reverted script wrote a stray `--comment/` directory into my local
+checkout. I inspected it and removed it.
+
 ## 2026-10-02 — an exact 0.65 eval composite gets the 0.65 band (#163)
 
 The same floating-point gate problem as llm-eval-harness#283, here in the

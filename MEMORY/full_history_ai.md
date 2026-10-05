@@ -1828,6 +1828,40 @@ followups: ["portfolio-ops#81"]
 ---
 
 ---
+session: 2026-10-02T09:55Z
+issue: 159
+focus: A_DOUBLE_SLASH_PATH_WAS_PARSED_AS_A_HOST_156s_SIBLING_ON_THE_SAME_CONSTRUCTOR
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "789 -> 796 green (6 skipped unchanged); lint and tsc clean"
+decisions_made: []
+measured: "main raw sockets: //% //a:b/x //[ -> 500 Invalid URL; //api/runs -> 404 path=/runs. Revert to main's server.ts: 5 of 7 red, both controls green."
+context_for_next_session:
+  - 156_REMOVED_THE_HOST_HEADER_FROM_new_URLs_INPUT_AND_THE_PATH_WAS_THE_OTHER_INPUT_a_guard_on_one_operand
+  - RAW_SOCKET_TESTS_because_nodes_http_client_normalises_the_request_path
+followups: []
+---
+
+---
+session: 2026-10-02T13:55Z
+issue: 161
+focus: eval_runner_parseArgs_SWALLOWED_THE_NEXT_FLAG_AS_A_VALUE_AND_IGNORED_UNKNOWN_FLAGS_SIBLING_OF_mcp_203
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "789 -> 795 green (6 skipped); lint, tsc clean"
+decisions_made: []
+measured: "main: --results-dir --comment --repo o/r --pr 1 -> rc 0, wrote <repo>/--comment/eval-*.json, no comment; trailing --results-dir -> raw TypeError rc 1; --comments ignored. Revert: 6 of 6 red."
+context_for_next_session:
+  - MY_REVERT_PROBE_WROTE_A_DIRECTORY_NAMED_--comment_INTO_THE_REAL_CLONE_because_resultsDir_RESOLVES_AGAINST_THE_REPO_ROOT_not_cwd_removed_it_after_inspecting_A_REVERT_PROBE_OF_A_PATH_BUG_CAN_WRITE_WHERE_THE_BUG_WROTE
+  - validate_ts_ALREADY_REFUSED_UNKNOWN_FLAGS_the_sibling_bin_had_the_rule
+followups: []
+---
+
+---
 session: 2026-10-02T15:00Z
 issue: 163
 focus: AN_EXACT_0_65_COMPOSITE_COMPUTED_0_6499999999999999_AND_GOT_THE_FAILING_HEADLINE_SAME_CLASS_AS_leh_283

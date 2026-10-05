@@ -34,20 +34,43 @@ function parseArgs(argv: string[]): CLIArgs {
     repo: null,
     pr: null,
   };
+  // Every value is checked before it is used (#161). `argv[++i]` read a flag
+  // as the value: `--results-dir --comment` wrote to a directory named
+  // `--comment` and swallowed the comment, a trailing `--results-dir` was a raw
+  // TypeError, and an unknown flag (`--comments`) was ignored, so the CI step
+  // posted nothing at exit 0. `validate.ts` already refuses unknown flags.
+  const value = (i: number, flag: string): string => {
+    const v = argv[i + 1];
+    if (v === undefined || v.startsWith("--")) throw new UsageError(`${flag} needs a value`);
+    return v;
+  };
   for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    if (a === "--fixtures-dir") args.fixturesDir = argv[++i] as string;
-    else if (a === "--results-dir") args.resultsDir = argv[++i] as string;
+    const a = argv[i]!;
+    if (a === "--fixtures-dir") args.fixturesDir = value(i++, a);
+    else if (a === "--results-dir") args.resultsDir = value(i++, a);
     else if (a === "--comment") args.comment = true;
     else if (a === "--dry-run") args.dryRun = true;
-    else if (a === "--repo") args.repo = argv[++i] as string;
-    else if (a === "--pr") args.pr = Number(argv[++i]);
+    else if (a === "--repo") args.repo = value(i++, a);
+    else if (a === "--pr") {
+      const raw = value(i++, a);
+      if (!/^[1-9][0-9]*$/.test(raw)) throw new UsageError(`--pr must be a positive integer; got ${JSON.stringify(raw)}`);
+      args.pr = Number(raw);
+    } else throw new UsageError(`unknown argument: ${a}`);
   }
   return args;
 }
 
+class UsageError extends Error {}
+
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  let args: CLIArgs;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    if (!(err instanceof UsageError)) throw err;
+    console.error(`::error::${err.message}`);
+    return 2;
+  }
   const here = path.dirname(fileURLToPath(import.meta.url));
   // The bin lives at src/bin/, the fixtures dir is at the repo root.
   const repoRoot = path.resolve(here, "..", "..");
