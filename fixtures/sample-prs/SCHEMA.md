@@ -27,8 +27,10 @@ eval suite (#7) can score the agent on both:
   should catch API-shape regressions, missing tests, and faithfulness-of-
   benchmarks claims.
 
-Both PRs are merged at fixture-capture time so the "what did human reviewers
-actually flag" ground truth is recoverable from the GitHub thread.
+Both PRs have since merged, so the "what did human reviewers actually flag"
+ground truth is recoverable from the GitHub thread. The vector-search-at-scale
+fixture was captured while its PR was still open, and it records `state: "open"`,
+`merged: false`; the fixture is the PR as captured, not as merged. (#165)
 
 ## Schema (v1)
 
@@ -72,11 +74,19 @@ API truncates the patch. The agent must handle both cases.
 To add a new fixture from a real PR:
 
 ```bash
-gh api repos/<owner>/<repo>/pulls/<N> --jq '<pr-fields>' > /tmp/pr.json
+gh api repos/<owner>/<repo>/pulls/<N> \
+  --jq '{number, title, body, state, merged, base: .base.ref, head: .head.ref, additions, deletions, changed_files, html_url, created_at}' \
+  > /tmp/pr.json
 gh api repos/<owner>/<repo>/pulls/<N>/files --paginate \
   --jq '[.[] | {filename, status, additions, deletions, changes, patch}]' > /tmp/files.json
-jq -s '{schema_version: "1", source: "github", repo: "<owner>/<repo>", pr: .[0], files: .[1]}' \
+jq -s '{schema_version: "1", source: "github", repo: "<owner>/<repo>", pr: .[0], files: (.[1:] | add)}' \
   /tmp/pr.json /tmp/files.json > fixtures/sample-prs/<slug>.json
+npm run validate -- fixtures/sample-prs/<slug>.json
 ```
 
-The exact `jq` shape for the PR object lives in `docs/use-case.md`.
+The PR shape is spelled out here because the raw API object fails validation:
+its `base` and `head` are objects, and the schema wants the branch refs
+(`pr.base must be a string, got object`). This text used to say the shape
+lived in `docs/use-case.md`; it never did. `--paginate` prints one array per
+page, so the files are `(.[1:] | add)`, all pages, not `.[1]`, the first
+page only. With `?per_page=10` a 35-file PR kept 10. (#165)

@@ -1620,6 +1620,16 @@ cells that add up to 0.65. Every input is an integer count and the weights are
 tenths, so the score is now computed exactly as a fraction and rounded once.
 The committed eval snapshot is unchanged byte for byte. 5 new tests.
 
+## 2026-10-05 — the fixture capture command works as written (#165)
+
+The instructions for capturing a new sample-PR fixture had a placeholder where
+the PR's field list should be, and pointed to another document for it that
+never had it. The raw GitHub object also fails the repo's own validator. And
+the step that combined paged file lists kept only the first page. The command
+is now complete and ends with the validator. Capturing the vector-search PR
+with it reproduces the committed fixture's structure and all 35 files. The
+document's claim that both PRs had merged before capture was also corrected.
+
 ## 2026-10-05 — the trace server says which port it's on (#167)
 
 With `PORT=0` the trace server lets the operating system choose a port, but
