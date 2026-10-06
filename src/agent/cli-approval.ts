@@ -88,10 +88,26 @@ function readSingleLine(
       input.off("data", onData);
       input.off("end", onEnd);
       input.off("close", onEnd);
+      // `on("data")` put the stream in flowing mode, and removing the listener
+      // does not take it out (#179): bytes typed between two prompts were
+      // emitted to nobody -- the answer was lost and the next approval hung --
+      // and a flowing stdin kept the process alive after the run. Paused, they
+      // stay buffered for the next read, which resumes the stream explicitly.
+      // Pausing alone does not release the event loop -- a paused stdin pipe
+      // still held the process open until the writer closed it (measured: the
+      // run exited when the pipe did, ~3.6 s later) -- so the handle is also
+      // unref'd while no prompt is waiting, and ref'd again by the next read.
+      input.pause();
+      (input as { unref?: () => void }).unref?.();
     };
     input.on("data", onData);
     input.once("end", onEnd);
     input.once("close", onEnd);
+    // Explicitly: a `data` listener does NOT restart a stream that `pause()`
+    // stopped, only one that was never paused (#179). And ref'd, so the
+    // process waits for the operator's answer.
+    (input as { ref?: () => void }).ref?.();
+    input.resume();
   });
 }
 
