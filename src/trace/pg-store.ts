@@ -42,6 +42,26 @@ export interface PgStoreOptions {
   connectionString?: string;
   /** Inject a pre-built Pool (used by tests against `pg-mem`). */
   pool?: PoolLike;
+  /**
+   * How long to wait for a connection, in ms (default 5 000), and for a query
+   * (default 10 000). `pg` waits forever for both, so a database host that
+   * accepted TCP and never spoke Postgres hung every trace-server request; a
+   * refused connection already failed fast (#153). Bounded, it fails the same
+   * way (#175).
+   */
+  connectionTimeoutMs?: number;
+  queryTimeoutMs?: number;
+}
+
+export const DEFAULT_CONNECTION_TIMEOUT_MS = 5_000;
+export const DEFAULT_QUERY_TIMEOUT_MS = 10_000;
+
+function positiveMs(name: string, value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`PgStore: ${name} must be a positive finite number of ms, got ${String(value)}`);
+  }
+  return value;
 }
 
 /** Documented local default, matching `docker compose` and `init.sql`. */
@@ -52,6 +72,10 @@ export class PgStore implements TraceStore {
   private readonly opts: PgStoreOptions;
 
   constructor(opts: PgStoreOptions = {}) {
+    // Validated up front, so a bad value is a constructor error, not a
+    // surprise on the first request.
+    positiveMs("connectionTimeoutMs", opts.connectionTimeoutMs, DEFAULT_CONNECTION_TIMEOUT_MS);
+    positiveMs("queryTimeoutMs", opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS);
     this.opts = opts;
     if (opts.pool) this.pool = opts.pool;
   }
@@ -79,8 +103,24 @@ export class PgStore implements TraceStore {
         "PgStore: the 'pg' package is not installed. Run `npm install pg` to enable Postgres-backed traces, or use MemoryStore for hermetic tests.",
       );
     }
-    const PoolCtor = (mod as { Pool: new (cfg: { connectionString: string }) => PoolLike }).Pool;
-    this.pool = new PoolCtor({ connectionString });
+    const PoolCtor = (
+      mod as {
+        Pool: new (cfg: {
+          connectionString: string;
+          connectionTimeoutMillis: number;
+          query_timeout: number;
+        }) => PoolLike;
+      }
+    ).Pool;
+    this.pool = new PoolCtor({
+      connectionString,
+      connectionTimeoutMillis: positiveMs(
+        "connectionTimeoutMs",
+        this.opts.connectionTimeoutMs,
+        DEFAULT_CONNECTION_TIMEOUT_MS,
+      ),
+      query_timeout: positiveMs("queryTimeoutMs", this.opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS),
+    });
     return this.pool;
   }
 
