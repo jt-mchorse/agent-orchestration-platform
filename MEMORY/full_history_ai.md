@@ -1879,3 +1879,23 @@ context_for_next_session:
   - THE_SAME_FLOAT_AT_A_GATE_CLASS_HIT_leh_283_TODAY_grep_the_portfolio_for_GE_threshold_on_a_float_mean_or_weighted_sum
 followups: []
 ---
+
+---
+session: 2026-10-05T09:02Z
+duration_min: 3   # computed: started 08:59Z -> 09:02Z
+issue: 165
+branch: session/2026-10-05-0901-issue-165
+focus: SCHEMA_MD_CAPTURE_COMMAND_HAD_A_PR_FIELDS_PLACEHOLDER_A_REFERENCE_THAT_NEVER_EXISTED_AND_A_FIRST_PAGE_ONLY_MERGE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "807 -> 810 green; tsc clean"
+decisions_made: []
+measured: "documented capture of vsas#6: validate ok findings=0, same keys and 35 files in order as the committed fixture; per_page=10 old merge kept 10 of 35. Lock: 3 red against main's SCHEMA.md"
+context_for_next_session:
+  - FOUND_BY_RUNNING_EVERY_DOCUMENTED_COMMAND_a_placeholder_in_a_runnable_block_is_a_command_that_cannot_run
+  - gh_api_paginate_WITH_A_PER_PAGE_jq_ARRAY_PRINTS_ONE_ARRAY_PER_PAGE_merge_with_add
+  - THE_VSAS_FIXTURE_IS_THE_PR_AS_CAPTURED_OPEN_NOT_AS_MERGED
+followups: []
+---
