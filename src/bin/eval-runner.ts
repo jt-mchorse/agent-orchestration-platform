@@ -12,7 +12,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { renderEvalMarkdown, upsertStickyComment } from "../eval/comment.js";
+import { renderEvalMarkdown, resolveToken, upsertStickyComment } from "../eval/comment.js";
 import { commentTargetError, discoverCases, EvalInputError, evaluateAll } from "../eval/runner.js";
 import { atomicWriteFile } from "../io/atomic-write.js";
 
@@ -70,6 +70,28 @@ async function main(): Promise<number> {
     if (!(err instanceof UsageError)) throw err;
     console.error(`::error::${err.message}`);
     return 2;
+  }
+  // `--comment`'s own inputs before any fixture runs (#173). The target was
+  // checked only after the whole eval and the results write, and a missing
+  // token surfaced from inside `upsertStickyComment` as a stack trace at
+  // exit 1 -- the crash code, for an operator error.
+  if (args.comment && !args.dryRun) {
+    // `--pr` is `Number(...)`-coerced (line 44), so a bare falsy check only rejects
+    // NaN/0 — a negative, non-finite, or non-integer PR number is truthy and would
+    // otherwise flow into `upsertStickyComment` → a GitHub API URL
+    // `.../issues/${pr}/comments` unchecked. `commentTargetError` enforces the
+    // positive-integer contract (sibling of RetryPolicy/ExecutorOptions #29/#31).
+    const targetErr = commentTargetError(args.repo, args.pr);
+    if (targetErr) {
+      console.error(`::error::${targetErr}`);
+      return 2;
+    }
+    try {
+      resolveToken({});
+    } catch (err) {
+      console.error(`::error::${(err as Error).message}`);
+      return 2;
+    }
   }
   const here = path.dirname(fileURLToPath(import.meta.url));
   // The bin lives at src/bin/, the fixtures dir is at the repo root.
@@ -158,17 +180,16 @@ async function main(): Promise<number> {
   if (args.dryRun) return 0;
   if (!args.comment) return 0;
 
-  // `--pr` is `Number(...)`-coerced (line 44), so a bare falsy check only rejects
-  // NaN/0 — a negative, non-finite, or non-integer PR number is truthy and would
-  // otherwise flow into `upsertStickyComment` → a GitHub API URL
-  // `.../issues/${pr}/comments` unchecked. `commentTargetError` enforces the
-  // positive-integer contract (sibling of RetryPolicy/ExecutorOptions #29/#31).
-  const targetErr = commentTargetError(args.repo, args.pr);
-  if (targetErr) {
-    console.error(`::error::${targetErr}`);
+  // Target and token were checked before the eval (#173). A GitHub refusal (a
+  // fork PR's read-only token, a 404) or a network failure here is an I/O
+  // error, exit 2, not the crash code.
+  let id: number;
+  try {
+    id = await upsertStickyComment(args.repo as string, args.pr as number, md);
+  } catch (err) {
+    console.error(`::error::could not post the sticky comment: ${(err as Error).message}`);
     return 2;
   }
-  const id = await upsertStickyComment(args.repo as string, args.pr as number, md);
   console.log(`sticky comment id=${id} upserted on ${args.repo}#${args.pr}`);
   return 0;
 }
