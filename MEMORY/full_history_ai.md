@@ -1918,3 +1918,22 @@ context_for_next_session:
   - SPAWN_TEST_SERVERS_DETACHED_AND_SIGNAL_THE_OWN_PROCESS_GROUP_never_pattern_kill
 followups: []
 ---
+
+---
+session: 2026-10-06T08:21Z
+duration_min: 1   # computed: plan comment 08:20:46Z -> 08:21Z (date -u); measured against a scratch Postgres from ~08:19Z (second-order sibling of rag#270)
+issue: 171
+branch: session/2026-10-06-0820-issue-171
+focus: pg_store_TESTS_LEFT_7_RUNS_PER_npm_test_IN_WHATEVER_DATABASE_URL_NAMES_AND_A_SECOND_RUN_FAILED_THE_ORDERING_TEST_fixed_2023_timestamps_fell_out_of_the_limit_10_window
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "817 green with DATABASE_URL set, 3 consecutive pg runs green; typecheck clean"
+decisions_made: []
+measured: "scratch Postgres 17 (Homebrew, port 3960, LC_ALL=en_US.UTF-8 required or postmaster dies 'became multithreaded'): main leaves 7 rows per run and fails run 2; seeded 12 current runs -> main 1 failed + 19 rows, fixed 6 passed + exactly the 12 left."
+context_for_next_session:
+  - HOMEBREW_postgresql_17_IS_INSTALLED_AT_opt_homebrew_opt_postgresql_17_bin_initdb_a_scratch_cluster_in_tmp_NEEDS_LC_ALL_SET_this_makes_pg_findings_MEASURABLE_without_docker
+  - A_TEST_THAT_PASSES_ON_A_FRESH_DB_ONLY_IS_INVISIBLE_IN_CI_run_it_twice_against_one_DB
+followups: []
+---
