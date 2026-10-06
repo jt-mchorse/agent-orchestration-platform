@@ -1918,3 +1918,22 @@ context_for_next_session:
   - SPAWN_TEST_SERVERS_DETACHED_AND_SIGNAL_THE_OWN_PROCESS_GROUP_never_pattern_kill
 followups: []
 ---
+
+---
+session: 2026-10-06T09:52Z
+duration_min: 3   # computed: plan comment 09:49:45Z -> 09:52Z (date -u)
+issue: 179
+branch: session/2026-10-06-0949-issue-179
+focus: cli_approval_LEFT_STDIN_FLOWING_AFTER_A_PROMPT_an_answer_typed_between_prompts_was_dropped_and_stdin_held_the_process_open
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "811 -> 814 passed; lint, typecheck clean"
+decisions_made: []
+measured: "piped one approval with the pipe held open: main exited at ~3.6 s (when the pipe closed), fixed at 4 ms. Revert probe: 2 arms red, the late-answer control green."
+context_for_next_session:
+  - A_DATA_LISTENER_DOES_NOT_RESUME_AN_EXPLICITLY_PAUSED_STREAM_call_resume_and_a_paused_stdin_pipe_STILL_HOLDS_THE_LOOP_on_node_25_unref_it
+  - THE_PAIRED_CONTROL_FOR_LET_IT_EXIT_IS_STILL_WAITS_FOR_A_LATE_ANSWER
+followups: []
+---

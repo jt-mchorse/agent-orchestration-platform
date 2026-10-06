@@ -1635,3 +1635,12 @@ document's claim that both PRs had merged before capture was also corrected.
 With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
+
+## 2026-10-06 — approval prompts keep early answers and let the CLI exit (#179)
+
+The command-line approval prompt left standard input running after each
+answer. An answer typed while the previous tool was still running was thrown
+away, so the next prompt waited forever, and the program could not exit after
+the run until input was closed. Input is now paused and released between
+prompts and picked up again for the next one, and a test checks that a prompt
+still waits for an answer that arrives late.
