@@ -1635,3 +1635,11 @@ document's claim that both PRs had merged before capture was also corrected.
 With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
+
+## 2026-10-06 — a silent database no longer hangs the trace viewer (#175)
+
+The Postgres trace store waited forever both to connect and for queries. A
+database host that accepted connections but never replied left every trace
+viewer request hanging. Connections now give up after 5 seconds and queries
+after 10, and the viewer returns its normal error response, as it already did
+when the connection was refused outright.
