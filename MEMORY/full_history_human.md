@@ -1635,3 +1635,13 @@ document's claim that both PRs had merged before capture was also corrected.
 With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
+
+## 2026-10-06 — the demo script records its own trace server (#169)
+
+The demo script starts a trace viewer with two sample runs and then fetches
+them. It only checked that something was listening on the port. If another
+program already held that port, the script's own server failed to start
+without saying so, and the demo fetched and recorded the other program's data
+under a "hermetic fixtures" banner. The script now waits for its own server to
+announce the port it bound, fetches from exactly that port, and fails with the
+server's error when it cannot start. Setting the port to 0 now picks a free one.
