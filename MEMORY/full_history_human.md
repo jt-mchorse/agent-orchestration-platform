@@ -1635,3 +1635,12 @@ document's claim that both PRs had merged before capture was also corrected.
 With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
+
+## 2026-10-06 — eval --comment fails fast and cleanly (#173)
+
+`npm run eval -- --comment` ran every fixture and wrote its results before
+checking that a repo, PR and token were given. A missing token or a GitHub
+error then crashed with a stack trace and the "bug" exit code, and a GitHub
+server that never answered could hang the job. The target and token are now
+checked first, GitHub failures exit 2 with a one-line error, and each GitHub
+request gives up after 30 seconds.
