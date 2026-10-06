@@ -1629,3 +1629,9 @@ the step that combined paged file lists kept only the first page. The command
 is now complete and ends with the validator. Capturing the vector-search PR
 with it reproduces the committed fixture's structure and all 35 files. The
 document's claim that both PRs had merged before capture was also corrected.
+
+## 2026-10-05 — the trace server says which port it's on (#167)
+
+With `PORT=0` the trace server lets the operating system choose a port, but
+its startup line printed port 0. It now prints the port it actually bound,
+and a test starts the real server and loads the printed address.

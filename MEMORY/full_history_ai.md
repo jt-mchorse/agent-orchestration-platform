@@ -1899,3 +1899,22 @@ context_for_next_session:
   - THE_VSAS_FIXTURE_IS_THE_PR_AS_CAPTURED_OPEN_NOT_AS_MERGED
 followups: []
 ---
+
+---
+session: 2026-10-05T09:22Z
+duration_min: 2   # computed: started 09:21Z -> 09:22Z
+issue: 167
+branch: session/2026-10-05-0921-issue-167
+focus: TRACE_SERVER_LOGGED_PORT_0_UNDER_PORT_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "green; tsc clean"
+decisions_made: []
+measured: "logged :0 on main while listening on an OS port; the test follows the line to /api/runs 200; red against main; no lingering process"
+context_for_next_session:
+  - SIBLING_OF_rag_268_A_REQUESTED_VALUE_LOGGED_WHERE_THE_RESOLVED_ONE_BELONGS
+  - SPAWN_TEST_SERVERS_DETACHED_AND_SIGNAL_THE_OWN_PROCESS_GROUP_never_pattern_kill
+followups: []
+---

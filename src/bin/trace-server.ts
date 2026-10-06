@@ -145,7 +145,12 @@ async function main(): Promise<void> {
   const staticDir = path.resolve(here, "..", "ui");
   const server = createTraceServer({ store, staticDir });
   server.listen(port, "127.0.0.1", () => {
-    console.log(`trace-server: http://127.0.0.1:${port}/`);
+    // The BOUND port: `PORT=0` asks the OS to pick one (#132 made that
+    // reachable), and logging the requested port advertised `:0`, where
+    // nothing listens (#167).
+    const address = server.address();
+    const bound = typeof address === "object" && address !== null ? address.port : port;
+    console.log(`trace-server: http://127.0.0.1:${bound}/`);
   });
 }
 
