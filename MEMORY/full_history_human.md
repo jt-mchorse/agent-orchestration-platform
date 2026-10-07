@@ -1636,6 +1636,28 @@ With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
 
+## 2026-10-06 — the demo script records its own trace server (#169)
+
+The demo script starts a trace viewer with two sample runs and then fetches
+them. It only checked that something was listening on the port. If another
+program already held that port, the script's own server failed to start
+without saying so, and the demo fetched and recorded the other program's data
+under a "hermetic fixtures" banner. The script now waits for its own server to
+announce the port it bound, fetches from exactly that port, and fails with the
+server's error when it cannot start. Setting the port to 0 now picks a free one.
+
+## 2026-10-06 — the Postgres tests clean up after themselves (#171)
+
+The Postgres integration tests run whenever `DATABASE_URL` is set, and the
+docs tell developers to set it to use the Postgres trace store. Each test run
+left seven test runs behind in that database, where they would show up in the
+trace viewer. A second run against the same database failed: one test assumed
+its rows were the newest, but it dated them to 2023, so anything already in the
+database outranked them. CI never noticed because it starts from an empty
+database every time. The tests now delete what they write and date their rows
+from the current time. I checked this against a local Postgres seeded with
+twelve real-looking runs.
+
 ## 2026-10-06 — eval --comment fails fast and cleanly (#173)
 
 `npm run eval -- --comment` ran every fixture and wrote its results before

@@ -10,7 +10,7 @@
  *   DATABASE_URL=postgresql://agent:agent@localhost:5433/agent_trace npm test
  */
 
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import type { TraceEvent } from "../../src/agent/trace.js";
 import type { PlannerState, Review } from "../../src/agent/types.js";
 import { PgStore } from "../../src/trace/pg-store.js";
@@ -57,11 +57,38 @@ function makeEvents(): TraceEvent[] {
   ];
 }
 
+// Every run id handed out, so `afterAll` can delete what this file wrote
+// (#171). They used to stay: each `npm test` with DATABASE_URL set left 7 runs
+// in whatever database it names -- a developer's real trace DB included, where
+// they show up in the viewer.
+const written: string[] = [];
+
 async function uniqueRunId(): Promise<string> {
   // Tests can run in parallel; namespace by random + ts so they don't
   // collide on the (run_id) PK.
-  return `pg-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = `pg-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  written.push(id);
+  return id;
 }
+
+afterAll(async () => {
+  if (!DATABASE_URL || written.length === 0) return;
+  // Imported the way src/trace/pg-store.ts imports it, so the test does not
+  // pull `@types/pg` into the type graph either.
+  const mod = (await import("pg" as unknown as string)) as {
+    Pool: new (cfg: { connectionString: string }) => {
+      query(text: string, params?: unknown[]): Promise<unknown>;
+      end(): Promise<void>;
+    };
+  };
+  const pool = new mod.Pool({ connectionString: DATABASE_URL });
+  try {
+    // trace_events rows go with them: ON DELETE CASCADE (infra/postgres/init.sql).
+    await pool.query("DELETE FROM runs WHERE run_id = ANY($1)", [written]);
+  } finally {
+    await pool.end();
+  }
+});
 
 describe("PgStore (integration; DATABASE_URL required)", () => {
   it_pg("writes and reads a run round-trip", async () => {
@@ -125,14 +152,18 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });
     const ids: string[] = [];
+    const started = Date.now();
     try {
       for (let i = 0; i < 3; i += 1) {
         const id = await uniqueRunId();
         ids.push(id);
         const evs = makeEvents();
         // Bump the run_started ts so the started_at ordering is stable
-        // across the three rows we just wrote.
-        evs[0] = { ts: 1_700_000_000_000 + i * 60_000, kind: "run_started", pr: PR };
+        // across the three rows we just wrote -- from now, not from a fixed
+        // 2023 instant: `listRuns` returns the newest 10, and any run already
+        // in the database (an earlier test run's, or a real one) was newer
+        // than 2023, so these three fell out of the window (#171).
+        evs[0] = { ts: started + i * 60_000, kind: "run_started", pr: PR };
         await store.writeRun({ run_id: id, pr: PR, events: evs, review: review() });
       }
       const list = await store.listRuns({ limit: 10 });
