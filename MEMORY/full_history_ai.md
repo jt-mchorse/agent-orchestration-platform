@@ -1920,6 +1920,25 @@ followups: []
 ---
 
 ---
+session: 2026-10-06T07:56Z
+duration_min: 1   # computed: plan comment 07:54:59Z -> 07:56Z (date -u); reproduction and the fix design came from a sweep agent's report and my firsthand repro at ~07:52Z
+issue: 169
+branch: session/2026-10-06-0754-issue-169
+focus: capture_demo_WAITED_FOR_ANY_LISTENER_ON_THE_TRACE_PORT_so_a_held_port_made_it_curl_and_record_ANOTHER_SERVERS_RUNS_and_exit_0_now_waits_for_its_own_listen_line
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "811 -> 813 green (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "port 3951 held by a static server: main exit 0 printing FOREIGN-RUN; fixed exit 1 with EADDRINUSE and no foreign data. CAPTURE_TRACE_PORT=0: main fails, fixed returns both seeded runs. Revert probe: both new arms red."
+context_for_next_session:
+  - A_PORT_THAT_ACCEPTS_IS_NOT_YOUR_SERVER_wait_on_the_childs_OWN_listen_line_168_made_it_name_the_bound_port_which_also_makes_PORT_0_usable
+  - AN_IN_PROCESS_PORT_HOLDER_NEEDS_AN_ASYNC_SPAWN_spawnSync_blocks_the_event_loop_it_needs_to_answer
+followups: []
+---
+
+---
 session: 2026-10-06T08:21Z
 duration_min: 1   # computed: plan comment 08:20:46Z -> 08:21Z (date -u); measured against a scratch Postgres from ~08:19Z (second-order sibling of rag#270)
 issue: 171
