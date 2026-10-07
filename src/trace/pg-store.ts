@@ -33,8 +33,15 @@ import type { TraceEvent } from "../agent/trace.js";
 // file doesn't pull `@types/pg` into the broader type-graph. The real
 // `pg` is imported via dynamic `import()` to keep it out of the dep
 // graph until someone actually constructs a `PgStore`.
+interface ClientLike {
+  query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  release(): void;
+}
+
 interface PoolLike {
   query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  /** One checked-out connection: a transaction has to live on a single one (#177). */
+  connect(): Promise<ClientLike>;
   end(): Promise<void>;
 }
 
@@ -140,9 +147,35 @@ export class PgStore implements TraceStore {
     const finalizedAt = deriveFinalizedAt(input.events);
     const status = deriveStatus(input.events);
 
-    await pool.query("BEGIN", []);
+    // One checked-out client for the whole transaction (#177). `pool.query`
+    // takes whichever pooled connection is free for EACH statement, so with
+    // concurrent writers BEGIN, the inserts and COMMIT/ROLLBACK could land on
+    // different connections: inserts autocommitted outside any transaction,
+    // and a ROLLBACK ran on a connection with nothing to undo -- or on another
+    // writer's open transaction. Measured on a 1-connection pool: a rejected
+    // run left {runs: 1, events: 10} behind.
+    const client = await pool.connect();
     try {
-      await pool.query(
+      await this.writeRunOn(client, input, { startedAt, finalizedAt, status, total });
+    } finally {
+      client.release();
+    }
+  }
+
+  private async writeRunOn(
+    client: ClientLike,
+    input: WriteRunInput,
+    d: {
+      startedAt: ReturnType<typeof deriveStartedAt>;
+      finalizedAt: ReturnType<typeof deriveFinalizedAt>;
+      status: ReturnType<typeof deriveStatus>;
+      total: ReturnType<typeof aggregateCost>;
+    },
+  ): Promise<void> {
+    const { startedAt, finalizedAt, status, total } = d;
+    await client.query("BEGIN", []);
+    try {
+      await client.query(
         `INSERT INTO runs (run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
                            total_cost_dollars, total_input_tokens, total_output_tokens,
                            recommendation, summary)
@@ -193,19 +226,21 @@ export class PgStore implements TraceStore {
       // Idempotent re-write: clear prior events for this run, then bulk-insert
       // the fresh log. The trace is immutable by convention so this only fires
       // on a manual replay scenario.
-      await pool.query("DELETE FROM trace_events WHERE run_id = $1", [input.run_id]);
+      await client.query("DELETE FROM trace_events WHERE run_id = $1", [input.run_id]);
       for (let i = 0; i < input.events.length; i += 1) {
         const ev = input.events[i];
         if (!ev) continue;
-        await pool.query(
+        await client.query(
           `INSERT INTO trace_events (run_id, seq, ts, kind, payload)
            VALUES ($1,$2,$3,$4,$5::jsonb)`,
           [input.run_id, i, ev.ts, ev.kind, JSON.stringify(payloadOf(ev))],
         );
       }
-      await pool.query("COMMIT", []);
+      await client.query("COMMIT", []);
     } catch (err) {
-      await pool.query("ROLLBACK", []);
+      // The write's own error is the one to report; a failed ROLLBACK (a
+      // dropped connection) must not replace it.
+      await client.query("ROLLBACK", []).catch(() => {});
       throw err;
     }
   }

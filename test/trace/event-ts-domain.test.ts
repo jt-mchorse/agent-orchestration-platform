@@ -62,6 +62,11 @@ async function pgWriteRun(events: TraceEvent[]): Promise<void> {
       return { rows: [] };
     },
     async end() {},
+    // One checked-out client, recording through the same `query` (#177).
+    async connect() {
+      const query = this.query.bind(this);
+      return { query, release() {} };
+    },
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const store = new PgStore({ pool: pool as any });

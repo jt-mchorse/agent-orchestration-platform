@@ -1994,3 +1994,23 @@ context_for_next_session:
   - MERGE_ORDER_aop_170_172_174_176_independent_files
 followups: []
 ---
+
+---
+session: 2026-10-06T09:49Z
+duration_min: 2   # computed: plan comment 09:47:13Z -> 09:49Z (date -u)
+issue: 177
+branch: session/2026-10-06-0947-issue-177
+focus: PgStore_writeRun_RAN_BEGIN_INSERT_COMMIT_THROUGH_pool_query_concurrent_writers_split_the_transaction_A_REJECTED_RUN_PERSISTED_1_runs_row_and_9_events
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 3
+  suite: "811 green (+3 new, 1 DATABASE_URL-gated); typecheck, lint clean"
+decisions_made: []
+measured: "scratch PG17, max:1 pool, concurrent good + jsonb-rejected writes: main bad run [1, 9]; fixed [0, 0] and good [1, 2], 3 of 3. Revert probe: all 3 red."
+context_for_next_session:
+  - A_TRANSACTION_THROUGH_pool_query_IS_NOT_A_TRANSACTION_grep_every_BEGIN_for_pool_query_vs_a_checked_out_client
+  - FIVE_TEST_DOUBLES_NEEDED_connect_GIVE_THEM_A_CLIENT_THAT_RECORDS_THROUGH_THE_SAME_query_rather_than_branching_production_on_the_doubles_shape
+  - STILL_OPEN_FROM_THE_HUNT_cli_approval_stdin_not_paused_loses_an_answer_and_keeps_the_process_alive
+followups: []
+---

@@ -1674,3 +1674,12 @@ database host that accepted connections but never replied left every trace
 viewer request hanging. Connections now give up after 5 seconds and queries
 after 10, and the viewer returns its normal error response, as it already did
 when the connection was refused outright.
+
+## 2026-10-06 — a failed trace write no longer leaves half a run behind (#177)
+
+The Postgres trace store wrapped each run's writes in a transaction, but sent
+every statement through the connection pool, which can hand each statement a
+different connection. With two runs being written at once, a run that failed
+partway was left half-saved: on a local Postgres, the rejected run kept its
+run row and 9 of its 10 events. Each run's writes now go through one dedicated
+connection, so a failure rolls back cleanly and a concurrent run is unaffected.
