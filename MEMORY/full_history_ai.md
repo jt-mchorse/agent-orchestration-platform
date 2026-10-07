@@ -1956,3 +1956,22 @@ context_for_next_session:
   - A_TEST_THAT_PASSES_ON_A_FRESH_DB_ONLY_IS_INVISIBLE_IN_CI_run_it_twice_against_one_DB
 followups: []
 ---
+
+---
+session: 2026-10-06T09:23Z
+duration_min: 1   # computed: plan comment 09:22:09Z -> 09:23Z (date -u)
+issue: 173
+branch: session/2026-10-06-0922-issue-173
+focus: eval_comment_CHECKED_TARGET_AFTER_THE_FULL_EVAL_a_missing_token_or_GitHub_failure_was_a_stack_trace_at_exit_1_and_GitHub_fetches_had_no_timeout
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "811 -> 814 passed (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "no target / no token: fixed exit 2 before any fixture, results dir never created; silent loopback server with timeoutMs 300 rejects < 3 s. Revert probe: 3 of 3 red."
+context_for_next_session:
+  - SIBLING_OF_leh_301_AND_leh_303_IN_TS_inputs_checked_after_the_work_and_IO_errors_on_the_crash_code
+  - OPEN_FROM_THE_SAME_HUNT_trace_server_hangs_when_the_DB_accepts_and_never_answers_pg_pool_has_no_connection_timeout
+followups: []
+---
