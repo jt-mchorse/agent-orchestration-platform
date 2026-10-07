@@ -33,8 +33,15 @@ import type { TraceEvent } from "../agent/trace.js";
 // file doesn't pull `@types/pg` into the broader type-graph. The real
 // `pg` is imported via dynamic `import()` to keep it out of the dep
 // graph until someone actually constructs a `PgStore`.
+interface ClientLike {
+  query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  release(): void;
+}
+
 interface PoolLike {
   query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  /** One checked-out connection: a transaction has to live on a single one (#177). */
+  connect(): Promise<ClientLike>;
   end(): Promise<void>;
 }
 
@@ -42,6 +49,26 @@ export interface PgStoreOptions {
   connectionString?: string;
   /** Inject a pre-built Pool (used by tests against `pg-mem`). */
   pool?: PoolLike;
+  /**
+   * How long to wait for a connection, in ms (default 5 000), and for a query
+   * (default 10 000). `pg` waits forever for both, so a database host that
+   * accepted TCP and never spoke Postgres hung every trace-server request; a
+   * refused connection already failed fast (#153). Bounded, it fails the same
+   * way (#175).
+   */
+  connectionTimeoutMs?: number;
+  queryTimeoutMs?: number;
+}
+
+export const DEFAULT_CONNECTION_TIMEOUT_MS = 5_000;
+export const DEFAULT_QUERY_TIMEOUT_MS = 10_000;
+
+function positiveMs(name: string, value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`PgStore: ${name} must be a positive finite number of ms, got ${String(value)}`);
+  }
+  return value;
 }
 
 /** Documented local default, matching `docker compose` and `init.sql`. */
@@ -52,6 +79,10 @@ export class PgStore implements TraceStore {
   private readonly opts: PgStoreOptions;
 
   constructor(opts: PgStoreOptions = {}) {
+    // Validated up front, so a bad value is a constructor error, not a
+    // surprise on the first request.
+    positiveMs("connectionTimeoutMs", opts.connectionTimeoutMs, DEFAULT_CONNECTION_TIMEOUT_MS);
+    positiveMs("queryTimeoutMs", opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS);
     this.opts = opts;
     if (opts.pool) this.pool = opts.pool;
   }
@@ -79,8 +110,24 @@ export class PgStore implements TraceStore {
         "PgStore: the 'pg' package is not installed. Run `npm install pg` to enable Postgres-backed traces, or use MemoryStore for hermetic tests.",
       );
     }
-    const PoolCtor = (mod as { Pool: new (cfg: { connectionString: string }) => PoolLike }).Pool;
-    this.pool = new PoolCtor({ connectionString });
+    const PoolCtor = (
+      mod as {
+        Pool: new (cfg: {
+          connectionString: string;
+          connectionTimeoutMillis: number;
+          query_timeout: number;
+        }) => PoolLike;
+      }
+    ).Pool;
+    this.pool = new PoolCtor({
+      connectionString,
+      connectionTimeoutMillis: positiveMs(
+        "connectionTimeoutMs",
+        this.opts.connectionTimeoutMs,
+        DEFAULT_CONNECTION_TIMEOUT_MS,
+      ),
+      query_timeout: positiveMs("queryTimeoutMs", this.opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS),
+    });
     return this.pool;
   }
 
@@ -100,9 +147,35 @@ export class PgStore implements TraceStore {
     const finalizedAt = deriveFinalizedAt(input.events);
     const status = deriveStatus(input.events);
 
-    await pool.query("BEGIN", []);
+    // One checked-out client for the whole transaction (#177). `pool.query`
+    // takes whichever pooled connection is free for EACH statement, so with
+    // concurrent writers BEGIN, the inserts and COMMIT/ROLLBACK could land on
+    // different connections: inserts autocommitted outside any transaction,
+    // and a ROLLBACK ran on a connection with nothing to undo -- or on another
+    // writer's open transaction. Measured on a 1-connection pool: a rejected
+    // run left {runs: 1, events: 10} behind.
+    const client = await pool.connect();
     try {
-      await pool.query(
+      await this.writeRunOn(client, input, { startedAt, finalizedAt, status, total });
+    } finally {
+      client.release();
+    }
+  }
+
+  private async writeRunOn(
+    client: ClientLike,
+    input: WriteRunInput,
+    d: {
+      startedAt: ReturnType<typeof deriveStartedAt>;
+      finalizedAt: ReturnType<typeof deriveFinalizedAt>;
+      status: ReturnType<typeof deriveStatus>;
+      total: ReturnType<typeof aggregateCost>;
+    },
+  ): Promise<void> {
+    const { startedAt, finalizedAt, status, total } = d;
+    await client.query("BEGIN", []);
+    try {
+      await client.query(
         `INSERT INTO runs (run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
                            total_cost_dollars, total_input_tokens, total_output_tokens,
                            recommendation, summary)
@@ -153,19 +226,21 @@ export class PgStore implements TraceStore {
       // Idempotent re-write: clear prior events for this run, then bulk-insert
       // the fresh log. The trace is immutable by convention so this only fires
       // on a manual replay scenario.
-      await pool.query("DELETE FROM trace_events WHERE run_id = $1", [input.run_id]);
+      await client.query("DELETE FROM trace_events WHERE run_id = $1", [input.run_id]);
       for (let i = 0; i < input.events.length; i += 1) {
         const ev = input.events[i];
         if (!ev) continue;
-        await pool.query(
+        await client.query(
           `INSERT INTO trace_events (run_id, seq, ts, kind, payload)
            VALUES ($1,$2,$3,$4,$5::jsonb)`,
           [input.run_id, i, ev.ts, ev.kind, JSON.stringify(payloadOf(ev))],
         );
       }
-      await pool.query("COMMIT", []);
+      await client.query("COMMIT", []);
     } catch (err) {
-      await pool.query("ROLLBACK", []);
+      // The write's own error is the one to report; a failed ROLLBACK (a
+      // dropped connection) must not replace it.
+      await client.query("ROLLBACK", []).catch(() => {});
       throw err;
     }
   }

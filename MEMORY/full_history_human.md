@@ -1636,6 +1636,54 @@ With `PORT=0` the trace server lets the operating system choose a port, but
 its startup line printed port 0. It now prints the port it actually bound,
 and a test starts the real server and loads the printed address.
 
+## 2026-10-06 — the demo script records its own trace server (#169)
+
+The demo script starts a trace viewer with two sample runs and then fetches
+them. It only checked that something was listening on the port. If another
+program already held that port, the script's own server failed to start
+without saying so, and the demo fetched and recorded the other program's data
+under a "hermetic fixtures" banner. The script now waits for its own server to
+announce the port it bound, fetches from exactly that port, and fails with the
+server's error when it cannot start. Setting the port to 0 now picks a free one.
+
+## 2026-10-06 — the Postgres tests clean up after themselves (#171)
+
+The Postgres integration tests run whenever `DATABASE_URL` is set, and the
+docs tell developers to set it to use the Postgres trace store. Each test run
+left seven test runs behind in that database, where they would show up in the
+trace viewer. A second run against the same database failed: one test assumed
+its rows were the newest, but it dated them to 2023, so anything already in the
+database outranked them. CI never noticed because it starts from an empty
+database every time. The tests now delete what they write and date their rows
+from the current time. I checked this against a local Postgres seeded with
+twelve real-looking runs.
+
+## 2026-10-06 — eval --comment fails fast and cleanly (#173)
+
+`npm run eval -- --comment` ran every fixture and wrote its results before
+checking that a repo, PR and token were given. A missing token or a GitHub
+error then crashed with a stack trace and the "bug" exit code, and a GitHub
+server that never answered could hang the job. The target and token are now
+checked first, GitHub failures exit 2 with a one-line error, and each GitHub
+request gives up after 30 seconds.
+
+## 2026-10-06 — a silent database no longer hangs the trace viewer (#175)
+
+The Postgres trace store waited forever both to connect and for queries. A
+database host that accepted connections but never replied left every trace
+viewer request hanging. Connections now give up after 5 seconds and queries
+after 10, and the viewer returns its normal error response, as it already did
+when the connection was refused outright.
+
+## 2026-10-06 — a failed trace write no longer leaves half a run behind (#177)
+
+The Postgres trace store wrapped each run's writes in a transaction, but sent
+every statement through the connection pool, which can hand each statement a
+different connection. With two runs being written at once, a run that failed
+partway was left half-saved: on a local Postgres, the rejected run kept its
+run row and 9 of its 10 events. Each run's writes now go through one dedicated
+connection, so a failure rolls back cleanly and a concurrent run is unaffected.
+
 ## 2026-10-06 — approval prompts keep early answers and let the CLI exit (#179)
 
 The command-line approval prompt left standard input running after each

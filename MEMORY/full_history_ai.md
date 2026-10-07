@@ -1920,6 +1920,102 @@ followups: []
 ---
 
 ---
+session: 2026-10-06T07:56Z
+duration_min: 1   # computed: plan comment 07:54:59Z -> 07:56Z (date -u); reproduction and the fix design came from a sweep agent's report and my firsthand repro at ~07:52Z
+issue: 169
+branch: session/2026-10-06-0754-issue-169
+focus: capture_demo_WAITED_FOR_ANY_LISTENER_ON_THE_TRACE_PORT_so_a_held_port_made_it_curl_and_record_ANOTHER_SERVERS_RUNS_and_exit_0_now_waits_for_its_own_listen_line
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "811 -> 813 green (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "port 3951 held by a static server: main exit 0 printing FOREIGN-RUN; fixed exit 1 with EADDRINUSE and no foreign data. CAPTURE_TRACE_PORT=0: main fails, fixed returns both seeded runs. Revert probe: both new arms red."
+context_for_next_session:
+  - A_PORT_THAT_ACCEPTS_IS_NOT_YOUR_SERVER_wait_on_the_childs_OWN_listen_line_168_made_it_name_the_bound_port_which_also_makes_PORT_0_usable
+  - AN_IN_PROCESS_PORT_HOLDER_NEEDS_AN_ASYNC_SPAWN_spawnSync_blocks_the_event_loop_it_needs_to_answer
+followups: []
+---
+
+---
+session: 2026-10-06T08:21Z
+duration_min: 1   # computed: plan comment 08:20:46Z -> 08:21Z (date -u); measured against a scratch Postgres from ~08:19Z (second-order sibling of rag#270)
+issue: 171
+branch: session/2026-10-06-0820-issue-171
+focus: pg_store_TESTS_LEFT_7_RUNS_PER_npm_test_IN_WHATEVER_DATABASE_URL_NAMES_AND_A_SECOND_RUN_FAILED_THE_ORDERING_TEST_fixed_2023_timestamps_fell_out_of_the_limit_10_window
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "817 green with DATABASE_URL set, 3 consecutive pg runs green; typecheck clean"
+decisions_made: []
+measured: "scratch Postgres 17 (Homebrew, port 3960, LC_ALL=en_US.UTF-8 required or postmaster dies 'became multithreaded'): main leaves 7 rows per run and fails run 2; seeded 12 current runs -> main 1 failed + 19 rows, fixed 6 passed + exactly the 12 left."
+context_for_next_session:
+  - HOMEBREW_postgresql_17_IS_INSTALLED_AT_opt_homebrew_opt_postgresql_17_bin_initdb_a_scratch_cluster_in_tmp_NEEDS_LC_ALL_SET_this_makes_pg_findings_MEASURABLE_without_docker
+  - A_TEST_THAT_PASSES_ON_A_FRESH_DB_ONLY_IS_INVISIBLE_IN_CI_run_it_twice_against_one_DB
+followups: []
+---
+
+---
+session: 2026-10-06T09:23Z
+duration_min: 1   # computed: plan comment 09:22:09Z -> 09:23Z (date -u)
+issue: 173
+branch: session/2026-10-06-0922-issue-173
+focus: eval_comment_CHECKED_TARGET_AFTER_THE_FULL_EVAL_a_missing_token_or_GitHub_failure_was_a_stack_trace_at_exit_1_and_GitHub_fetches_had_no_timeout
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "811 -> 814 passed (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "no target / no token: fixed exit 2 before any fixture, results dir never created; silent loopback server with timeoutMs 300 rejects < 3 s. Revert probe: 3 of 3 red."
+context_for_next_session:
+  - SIBLING_OF_leh_301_AND_leh_303_IN_TS_inputs_checked_after_the_work_and_IO_errors_on_the_crash_code
+  - OPEN_FROM_THE_SAME_HUNT_trace_server_hangs_when_the_DB_accepts_and_never_answers_pg_pool_has_no_connection_timeout
+followups: []
+---
+
+---
+session: 2026-10-06T09:26Z
+duration_min: 2   # computed: plan comment 09:24:52Z -> 09:26Z (date -u)
+issue: 175
+branch: session/2026-10-06-0924-issue-175
+focus: PgStore_POOL_HAD_NO_CONNECTION_OR_QUERY_TIMEOUT_a_database_that_accepts_and_stays_silent_HUNG_EVERY_TRACE_SERVER_REQUEST
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "811 -> 816 passed (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "silent loopback DB: main curl code=000 after 20 s; fixed 500 after 5.0 s. Revert probe: 5 of 5 red."
+context_for_next_session:
+  - A_REFUSED_CONNECTION_AND_A_SILENT_ONE_ARE_DIFFERENT_FAILURES_153_covered_refused_only_TEST_BOTH_with_a_loopback_accept_and_stay_silent_listener
+  - MERGE_ORDER_aop_170_172_174_176_independent_files
+followups: []
+---
+
+---
+session: 2026-10-06T09:49Z
+duration_min: 2   # computed: plan comment 09:47:13Z -> 09:49Z (date -u)
+issue: 177
+branch: session/2026-10-06-0947-issue-177
+focus: PgStore_writeRun_RAN_BEGIN_INSERT_COMMIT_THROUGH_pool_query_concurrent_writers_split_the_transaction_A_REJECTED_RUN_PERSISTED_1_runs_row_and_9_events
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 3
+  suite: "811 green (+3 new, 1 DATABASE_URL-gated); typecheck, lint clean"
+decisions_made: []
+measured: "scratch PG17, max:1 pool, concurrent good + jsonb-rejected writes: main bad run [1, 9]; fixed [0, 0] and good [1, 2], 3 of 3. Revert probe: all 3 red."
+context_for_next_session:
+  - A_TRANSACTION_THROUGH_pool_query_IS_NOT_A_TRANSACTION_grep_every_BEGIN_for_pool_query_vs_a_checked_out_client
+  - FIVE_TEST_DOUBLES_NEEDED_connect_GIVE_THEM_A_CLIENT_THAT_RECORDS_THROUGH_THE_SAME_query_rather_than_branching_production_on_the_doubles_shape
+  - STILL_OPEN_FROM_THE_HUNT_cli_approval_stdin_not_paused_loses_an_answer_and_keeps_the_process_alive
+followups: []
+---
+
+---
 session: 2026-10-06T09:52Z
 duration_min: 3   # computed: plan comment 09:49:45Z -> 09:52Z (date -u)
 issue: 179

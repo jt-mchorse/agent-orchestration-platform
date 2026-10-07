@@ -173,14 +173,21 @@ export interface UpsertOptions {
   /** Override the GitHub token. Defaults to GITHUB_TOKEN / GH_TOKEN env. */
   token?: string;
   marker?: string;
+  /**
+   * Per-request deadline in ms, covering the response body too (default
+   * 30 000). The GitHub calls had no `signal`, so a server that accepted and
+   * never answered left `eval --comment` pending until the CI job's cap (#173).
+   */
+  timeoutMs?: number;
 }
 
 const DEFAULT_API_BASE = "https://api.github.com";
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Environment variables consulted, in precedence order. */
 export const TOKEN_ENV_NAMES = ["GITHUB_TOKEN", "GH_TOKEN"] as const;
 
-function resolveToken(opts: UpsertOptions): string {
+export function resolveToken(opts: UpsertOptions): string {
   // Was `if (opts.token) ...` followed by `process.env.GITHUB_TOKEN ??
   // process.env.GH_TOKEN`. The first line is a truthy check and is correct --
   // an empty `opts.token` falls through to the environment. The second used
@@ -229,7 +236,11 @@ export async function findStickyCommentId(
   const marker = opts.marker ?? STICKY_MARKER;
   for (let page = 1; page <= 10; page += 1) {
     const url = `${base}/repos/${repo}/issues/${pr}/comments?per_page=100&page=${page}`;
-    const resp = await f(url, { method: "GET", headers: authHeaders(token) });
+    const resp = await f(url, {
+      method: "GET",
+      headers: authHeaders(token),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    });
     if (!resp.ok) {
       throw new Error(`GitHub API GET ${url} -> ${resp.status}: ${await resp.text()}`);
     }
@@ -263,6 +274,7 @@ export async function upsertStickyComment(
       method: "PATCH",
       headers: { ...authHeaders(token), "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({ body }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
     if (!resp.ok) {
       throw new Error(`GitHub API PATCH ${url} -> ${resp.status}: ${await resp.text()}`);
@@ -275,6 +287,7 @@ export async function upsertStickyComment(
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({ body }),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
   if (!resp.ok) {
     throw new Error(`GitHub API POST ${url} -> ${resp.status}: ${await resp.text()}`);
