@@ -37,7 +37,12 @@
 #                         recording; test/capture-demo-smoke.test.ts
 #                         sets this to 0).
 #   CAPTURE_TRACE_PORT    port for the trace server (default 8766 —
-#                         matches the server's own default).
+#                         matches the server's own default; 0 lets the
+#                         OS pick a free one). The script waits for the
+#                         server's OWN "listening" line and curls the
+#                         port it names, so a port some other process
+#                         already holds fails the capture instead of
+#                         recording that process's runs (#169).
 #
 # Exit: 0 on full success; non-zero on any sub-step failure. The
 # background trace server is reaped via EXIT trap.
@@ -63,12 +68,16 @@ pace() {
 cd "$REPO_ROOT"
 
 SERVER_PID=""
+SERVER_LOG=""
 cleanup() {
   if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill -TERM "$SERVER_PID" 2>/dev/null || true
     # Give the server a moment to release the port; ignore errors so
     # the trap is safe to fire from any exit path.
     wait "$SERVER_PID" 2>/dev/null || true
+  fi
+  if [ -n "$SERVER_LOG" ]; then
+    rm -f "$SERVER_LOG"
   fi
 }
 trap cleanup EXIT INT TERM
@@ -90,22 +99,34 @@ printf 'tsx src/bin/trace-server.ts --memory   (port %s)\n' "$PORT"
 printf '  MemoryStore seeded with two synthetic runs (D-006: no bundler, ESM-CDN React UI)\n'
 printf '  curl /api/runs to show the shape the React UI consumes; SIGTERM via EXIT trap.\n\n'
 
-PORT="$PORT" npm run trace:server --silent -- --memory >/dev/null 2>&1 &
+SERVER_LOG="$(mktemp)"
+PORT="$PORT" npm run trace:server --silent -- --memory >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
-printf 'server pid %s; waiting for port to bind...\n' "$SERVER_PID"
+printf 'server pid %s; waiting for it to report the port it bound...\n' "$SERVER_PID"
 
-# Poll the port instead of sleeping a fixed amount: faster locally,
-# more robust on slower CI machines. Cap at 5 s — if the server isn't
-# up by then something is wrong.
-for _ in $(seq 1 25); do
-  if (echo > /dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then
+# Wait for THIS server's listen line, not for the port to accept: a port
+# some other process already holds accepts at once, while ours dies of
+# EADDRINUSE, and the capture used to record the other process's runs and
+# exit 0 (#169). The line names the bound port (#167), which is also what
+# makes CAPTURE_TRACE_PORT=0 usable. Cap at 10 s.
+BOUND=""
+for _ in $(seq 1 50); do
+  BOUND="$(sed -n 's#^trace-server: http://127\.0\.0\.1:\([0-9][0-9]*\)/$#\1#p' "$SERVER_LOG")"
+  if [ -n "$BOUND" ] || ! kill -0 "$SERVER_PID" 2>/dev/null; then
     break
   fi
   sleep 0.2
 done
+if [ -z "$BOUND" ]; then
+  printf '\ncapture_demo: the MemoryStore trace server did not start on port %s.\n' "$PORT" >&2
+  printf 'If another process holds that port, stop it or set CAPTURE_TRACE_PORT (0 picks a free one).\n' >&2
+  printf 'trace-server output:\n' >&2
+  cat "$SERVER_LOG" >&2
+  exit 1
+fi
 
 printf '\nGET /api/runs:\n\n'
-curl -s "http://127.0.0.1:$PORT/api/runs"
+curl -sf "http://127.0.0.1:$BOUND/api/runs"
 printf '\n'
 pace
 
@@ -115,4 +136,4 @@ printf '  export DATABASE_URL=postgres://...    # PgStore real persistence\n'
 printf '  npm run eval                          # against real fixtures or live PRs\n'
 printf '  npm run trace:server                  # serves /api/runs from Postgres\n'
 printf 'for the browser tour JT records separately:\n'
-printf '  open http://127.0.0.1:%s/             # React + ESM-CDN viewer\n' "$PORT"
+printf '  open http://127.0.0.1:%s/             # React + ESM-CDN viewer\n' "$BOUND"
