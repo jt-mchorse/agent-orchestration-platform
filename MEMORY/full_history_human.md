@@ -1692,3 +1692,11 @@ away, so the next prompt waited forever, and the program could not exit after
 the run until input was closed. Input is now paused and released between
 prompts and picked up again for the next one, and a test checks that a prompt
 still waits for an answer that arrives late.
+
+## 2026-10-07 — the decisions tool reads the portfolio's decision files correctly (#181)
+
+The agent's tool for checking PRs against recorded decisions misread comments
+and quotation marks in the decision files, so 73 of the 231 decisions across
+the portfolio came back with a wrong field (for example a reversibility of
+"unknown", or one garbled issue number). It now handles both, and all 231 parse
+cleanly. Older files that write issue lists without quotes still work.
