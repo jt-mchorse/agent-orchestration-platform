@@ -9,7 +9,7 @@ import type { ToolContext } from "../tools/types.js";
 import { MAX_PR_NUMBER } from "../trace/store.js";
 import type { ReviewScore } from "./score.js";
 import { scoreReview } from "./score.js";
-import { REPO_FORMAT } from "./validate.js";
+import { REPO_FORMAT, validateGolden } from "./validate.js";
 import { add, rational, scale, toDouble } from "./exact.js";
 import { compositeExactOf } from "./score.js";
 
@@ -170,6 +170,20 @@ export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
   for (const c of cases) {
     const golden = (await _readJsonFile<{ golden_review: Review }>(c.golden_path, "golden"))
       .golden_review;
+    // The golden is checked with the same walker `npm run validate -- --golden`
+    // uses, before anything reads its fields (#183). A golden that parsed but
+    // had the wrong shape (no `golden_review`, a null `summary`) reached
+    // `scoreReview` and crashed it with a raw TypeError at exit 1 -- the code
+    // for a crash, on an operator error that `validate` already names.
+    const report = await validateGolden(c.golden_path);
+    if (!report.ok) {
+      const first = report.findings[0];
+      const more = report.findings.length > 1 ? ` (+${report.findings.length - 1} more)` : "";
+      throw new EvalInputError(
+        `invalid golden ${c.golden_path}: ${first?.reason ?? "failed validation"}${more}; ` +
+          `run \`npm run validate -- ${c.golden_path} --golden\` for every finding`,
+      );
+    }
     const actual = await runAgentOnFixture(c.fixture_path);
     const score = scoreReview(actual, golden);
     results.push({ fixture_id: c.fixture_id, actual, golden, score });
@@ -181,6 +195,20 @@ export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
   const findings_f1_mean =
     n === 0 ? 0 : results.reduce((acc, r) => acc + r.score.findings_f1, 0) / n;
   return { cases: results, composite_mean, recommendation_accuracy, findings_f1_mean };
+}
+
+async function _lacksGoldenReview(goldenPath: string): Promise<boolean> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(goldenPath, "utf-8"));
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      !("golden_review" in parsed)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -200,6 +228,16 @@ export async function discoverCases(fixturesDir: string): Promise<EvalCase[]> {
     const stem = name.slice(0, -".json".length);
     const golden = `${stem}.golden.json`;
     if (!entries.includes(golden)) continue;
+    // The docstring above has promised this skip since it was written, and
+    // nothing did it (#183): a golden without a `golden_review` block is not
+    // a labelled case yet. A golden that cannot be read or parsed is NOT
+    // skipped here -- `evaluateAll` reports it as an operator error.
+    if (await _lacksGoldenReview(path.join(fixturesDir, golden))) {
+      process.stderr.write(
+        `warning: skipping ${stem}: ${golden} has no golden_review block yet\n`,
+      );
+      continue;
+    }
     out.push({
       fixture_id: stem,
       fixture_path: path.join(fixturesDir, name),
