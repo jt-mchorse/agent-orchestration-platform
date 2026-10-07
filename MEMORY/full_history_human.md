@@ -1707,3 +1707,11 @@ an empty summary, crashed the eval runner with a JavaScript error. The code's
 own documentation said such files are skipped with a warning. Now a golden with
 no review block is skipped with a warning, as documented, and one with a
 malformed review stops the run with a one-line error naming the file and field.
+## 2026-10-07 — curly quotes no longer sink a correct finding (#186)
+
+The eval's findings matcher split words only on plain ASCII punctuation, so a
+model's curly quotes or em-dashes stuck to the words and a word-for-word
+correct finding could score below the match threshold. It now also splits on
+non-ASCII punctuation and normalises accents. The shipped eval's report is
+unchanged. Also filed #185 for JT: anyone who pastes the sticky comment's
+hidden marker into a PR comment can break the eval comment step.
