@@ -1683,3 +1683,12 @@ different connection. With two runs being written at once, a run that failed
 partway was left half-saved: on a local Postgres, the rejected run kept its
 run row and 9 of its 10 events. Each run's writes now go through one dedicated
 connection, so a failure rolls back cleanly and a concurrent run is unaffected.
+
+## 2026-10-06 — approval prompts keep early answers and let the CLI exit (#179)
+
+The command-line approval prompt left standard input running after each
+answer. An answer typed while the previous tool was still running was thrown
+away, so the next prompt waited forever, and the program could not exit after
+the run until input was closed. Input is now paused and released between
+prompts and picked up again for the next one, and a test checks that a prompt
+still waits for an answer that arrives late.
