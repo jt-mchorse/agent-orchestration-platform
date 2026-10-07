@@ -1666,3 +1666,11 @@ error then crashed with a stack trace and the "bug" exit code, and a GitHub
 server that never answered could hang the job. The target and token are now
 checked first, GitHub failures exit 2 with a one-line error, and each GitHub
 request gives up after 30 seconds.
+
+## 2026-10-06 — a silent database no longer hangs the trace viewer (#175)
+
+The Postgres trace store waited forever both to connect and for queries. A
+database host that accepted connections but never replied left every trace
+viewer request hanging. Connections now give up after 5 seconds and queries
+after 10, and the viewer returns its normal error response, as it already did
+when the connection was refused outright.

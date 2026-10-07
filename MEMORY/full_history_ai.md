@@ -1975,3 +1975,22 @@ context_for_next_session:
   - OPEN_FROM_THE_SAME_HUNT_trace_server_hangs_when_the_DB_accepts_and_never_answers_pg_pool_has_no_connection_timeout
 followups: []
 ---
+
+---
+session: 2026-10-06T09:26Z
+duration_min: 2   # computed: plan comment 09:24:52Z -> 09:26Z (date -u)
+issue: 175
+branch: session/2026-10-06-0924-issue-175
+focus: PgStore_POOL_HAD_NO_CONNECTION_OR_QUERY_TIMEOUT_a_database_that_accepts_and_stays_silent_HUNG_EVERY_TRACE_SERVER_REQUEST
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "811 -> 816 passed (+6 skipped pg); typecheck clean"
+decisions_made: []
+measured: "silent loopback DB: main curl code=000 after 20 s; fixed 500 after 5.0 s. Revert probe: 5 of 5 red."
+context_for_next_session:
+  - A_REFUSED_CONNECTION_AND_A_SILENT_ONE_ARE_DIFFERENT_FAILURES_153_covered_refused_only_TEST_BOTH_with_a_loopback_accept_and_stay_silent_listener
+  - MERGE_ORDER_aop_170_172_174_176_independent_files
+followups: []
+---
