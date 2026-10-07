@@ -2049,5 +2049,19 @@ decisions_made: []
 measured: "corpus of 13 repos' decision files: corrupted 73/231 -> 0/231. Revert: main 9/12 red, strict-YAML neighbour 1, prose-strip neighbour 1."
 context_for_next_session:
   - MY_FIRST_STRICT_YAML_VERSION_BROKE_THE_LEGACY_UNQUOTED_LIST_and_only_the_CORPUS_MEASUREMENT_caught_it_RUN_A_PARSER_FIX_OVER_THE_REAL_FILES_BEFORE_AND_AFTER
+session: 2026-10-07T08:10Z
+duration_min: 4
+issue: 183
+branch: session/2026-10-07-aop-golden-shape
+focus: A_GOLDEN_WITH_THE_WRONG_SHAPE_CRASHED_THE_EVAL_AT_EXIT_1_WHILE_THE_DOCSTRING_PROMISED_A_SKIP
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "832 passed, 7 skipped; tsc clean"
+decisions_made: []
+measured: "main: no golden_review TypeError exit 1, summary null TypeError exit 1. Fix: skip+warning exit 0, clean error exit 2. Revert main 4/6, no-skip 2, no-validate 2."
+context_for_next_session:
+  - A_DOCSTRING_PROMISE_NOTHING_IMPLEMENTS_IS_A_TEST_CASE_discoverCases_said_skipped_with_a_warning_since_it_was_written
 followups: []
 ---
