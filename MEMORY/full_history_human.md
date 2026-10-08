@@ -1700,3 +1700,10 @@ and quotation marks in the decision files, so 73 of the 231 decisions across
 the portfolio came back with a wrong field (for example a reversibility of
 "unknown", or one garbled issue number). It now handles both, and all 231 parse
 cleanly. Older files that write issue lists without quotes still work.
+## 2026-10-07 — the eval handles a half-written golden file (#183)
+
+A hand-labelled "golden" review file that was missing its review block, or had
+an empty summary, crashed the eval runner with a JavaScript error. The code's
+own documentation said such files are skipped with a warning. Now a golden with
+no review block is skipped with a warning, as documented, and one with a
+malformed review stops the run with a one-line error naming the file and field.
