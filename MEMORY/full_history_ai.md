@@ -2064,4 +2064,19 @@ measured: "main: no golden_review TypeError exit 1, summary null TypeError exit 
 context_for_next_session:
   - A_DOCSTRING_PROMISE_NOTHING_IMPLEMENTS_IS_A_TEST_CASE_discoverCases_said_skipped_with_a_warning_since_it_was_written
 followups: []
+session: 2026-10-07T09:38Z
+duration_min: 5
+issue: 186
+branch: session/2026-10-07-aop-score-tokenize
+focus: THE_FINDINGS_TOKENIZER_SPLIT_ON_ASCII_PUNCTUATION_ONLY_CURLY_QUOTES_SCORED_A_CORRECT_FINDING_AS_MISSED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "833 passed, 7 skipped; tsc clean"
+decisions_made: []
+measured: "main: curly-quote pair 0.2857 < 0.3. Dry-run eval report identical before/after. Revert 5/7 red."
+context_for_next_session:
+  - FILED_185_JT_STICKY_COMMENT_MARKER_HIJACK_ACROSS_aop_leh_rag_three_options
+followups: ["#185"]
 ---

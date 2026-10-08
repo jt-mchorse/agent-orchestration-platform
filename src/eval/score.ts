@@ -256,9 +256,20 @@ export function jaccard(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+// Separators: whitespace, the ASCII punctuation this list has always named,
+// and ANY non-ASCII punctuation or space (#186). The list was ASCII-only, so a
+// model's typographic quotes (‘ ’ “ ”), an em-dash and full-width CJK
+// punctuation stayed glued to the words: the golden "Retry 'maxAttempts' isn't
+// validated" and the same finding typed with ‘ ’ scored Jaccard 0.2857, under
+// D-011's 0.3, and a word-for-word correct finding lost the whole findings
+// weight. ASCII is unchanged on purpose: the hyphen and underscore are still
+// word characters (`re-entrant`, `max_tokens`). NFC first, so the two encodings
+// of an accented word are one token (NFC vs NFD scored 0.143).
+const SEPARATORS = /(?:[\s,.;:!?()\[\]{}/\\"'`]|(?![\x00-\x7f])[\p{P}\p{Zs}])+/u;
+
 function tokenize(s: string): Set<string> {
   const out = new Set<string>();
-  for (const raw of s.toLowerCase().split(/[\s,.;:!?()\[\]{}/\\"'`]+/)) {
+  for (const raw of s.normalize("NFC").toLowerCase().split(SEPARATORS)) {
     if (raw.length > 0) out.add(raw);
   }
   return out;
