@@ -2033,3 +2033,21 @@ context_for_next_session:
   - THE_PAIRED_CONTROL_FOR_LET_IT_EXIT_IS_STILL_WAITS_FOR_A_LATE_ANSWER
 followups: []
 ---
+
+---
+session: 2026-10-07T08:05Z
+duration_min: 5
+issue: 181
+branch: session/2026-10-07-aop-decisions-parser
+focus: THE_PORTFOLIO_CONTEXT_DECISIONS_PARSER_KEPT_TRAILING_COMMENTS_AND_QUOTES_73_OF_231_DECISIONS_CORRUPTED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "838 passed, 7 skipped; tsc clean"
+decisions_made: []
+measured: "corpus of 13 repos' decision files: corrupted 73/231 -> 0/231. Revert: main 9/12 red, strict-YAML neighbour 1, prose-strip neighbour 1."
+context_for_next_session:
+  - MY_FIRST_STRICT_YAML_VERSION_BROKE_THE_LEGACY_UNQUOTED_LIST_and_only_the_CORPUS_MEASUREMENT_caught_it_RUN_A_PARSER_FIX_OVER_THE_REAL_FILES_BEFORE_AND_AFTER
+followups: []
+---
