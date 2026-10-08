@@ -2080,3 +2080,22 @@ context_for_next_session:
   - FILED_185_JT_STICKY_COMMENT_MARKER_HIJACK_ACROSS_aop_leh_rag_three_options
 followups: ["#185"]
 ---
+
+---
+session: 2026-10-08T08:15Z
+duration_min: 12
+issue: 194
+branch: session/2026-10-08-issue-194
+focus: A_TS_OUTSIDE_YEARS_0001_9999_PASSED_assertEventTs_AND_MEMORYSTORE_THEN_PGSTORE_RAISED_RAW_22009_THE_TIMESTAMPTZ_COLUMNS_CANNOT_PARSE_EXTENDED_YEAR_ISO
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 20
+  suite: "871 passed, 7 skipped; tsc clean; pg-store.test 6/6 against scratch PG 17"
+decisions_made: []
+measured: "scratch PG 17: main accepted us-clock / year 10000 / year -1 in MemoryStore, PgStore 22009/22007/22009. Fixed: both RangeError; 0001-01-01, 9999-12-31T23:59:59.999Z and 1900 stored and round-tripped by real PgStore. Revert: main 18/90 red, upper-bound-only neighbour 9 red."
+context_for_next_session:
+  - A_FAKE_POOL_ACCEPTS_EVERY_QUERY_so_both_backends_accept_tests_PROVE_NOTHING_ABOUT_POSTGRES_run_the_boundary_rows_against_a_real_one
+  - A_GUARD_NAMES_THE_COLUMN_IT_WAS_WRITTEN_FOR_check_EVERY_column_the_value_reaches_ts_feeds_BIGINT_and_two_TIMESTAMPTZ
+followups: []
+---
