@@ -9,7 +9,7 @@ import type { ToolContext } from "../tools/types.js";
 import { MAX_PR_NUMBER } from "../trace/store.js";
 import type { ReviewScore } from "./score.js";
 import { scoreReview } from "./score.js";
-import { REPO_FORMAT, validateGolden } from "./validate.js";
+import { REPO_FORMAT, validateFixture, validateGolden, type ValidationFinding } from "./validate.js";
 import { add, rational, scale, toDouble } from "./exact.js";
 import { compositeExactOf } from "./score.js";
 
@@ -54,6 +54,20 @@ export interface EvalRun {
  */
 export class EvalInputError extends Error {}
 
+function invalidInputError(
+  kind: "fixture" | "golden",
+  filePath: string,
+  findings: readonly ValidationFinding[],
+  flag: string,
+): EvalInputError {
+  const first = findings[0];
+  const more = findings.length > 1 ? ` (+${findings.length - 1} more)` : "";
+  return new EvalInputError(
+    `invalid ${kind} ${filePath}: ${first?.reason ?? "failed validation"}${more}; ` +
+      `run \`npm run validate -- ${filePath}${flag}\` for every finding`,
+  );
+}
+
 async function _readJsonFile<T>(filePath: string, kind: string): Promise<T> {
   let text: string;
   try {
@@ -88,6 +102,13 @@ export async function runAgentOnFixture(fixture_path: string): Promise<Review> {
     repo: string;
     files: Array<{ filename: string; status: string }>;
   }>(fixture_path, "fixture");
+  // The fixture half of #183's golden check (#190). A fixture that parsed but
+  // had the wrong shape (no `repo`, no `files`, `pr: null`) reached the field
+  // reads below and crashed with a raw TypeError at exit 1 -- the code for a
+  // crash, on an operator error `npm run validate` already names. Checked
+  // here rather than in `evaluateAll` because this function is exported.
+  const report = await validateFixture(fixture_path);
+  if (!report.ok) throw invalidInputError("fixture", fixture_path, report.findings, "");
   const [owner, repoName] = fixture.repo.split("/");
   if (!owner || !repoName) {
     throw new Error(`fixture.repo must be 'owner/name'; got ${fixture.repo}`);
@@ -176,14 +197,7 @@ export async function evaluateAll(cases: EvalCase[]): Promise<EvalRun> {
     // `scoreReview` and crashed it with a raw TypeError at exit 1 -- the code
     // for a crash, on an operator error that `validate` already names.
     const report = await validateGolden(c.golden_path);
-    if (!report.ok) {
-      const first = report.findings[0];
-      const more = report.findings.length > 1 ? ` (+${report.findings.length - 1} more)` : "";
-      throw new EvalInputError(
-        `invalid golden ${c.golden_path}: ${first?.reason ?? "failed validation"}${more}; ` +
-          `run \`npm run validate -- ${c.golden_path} --golden\` for every finding`,
-      );
-    }
+    if (!report.ok) throw invalidInputError("golden", c.golden_path, report.findings, " --golden");
     const actual = await runAgentOnFixture(c.fixture_path);
     const score = scoreReview(actual, golden);
     results.push({ fixture_id: c.fixture_id, actual, golden, score });
