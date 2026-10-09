@@ -1716,6 +1716,16 @@ non-ASCII punctuation and normalises accents. The shipped eval's report is
 unchanged. Also filed #185 for JT: anyone who pastes the sticky comment's
 hidden marker into a PR comment can break the eval comment step.
 
+## 2026-10-08 — a typo'd flag no longer makes `npm run validate` pass (#188)
+
+The fixture validator printed its usage text for an unknown flag (for example
+`--gloden`) or a second file name, and then exited 0, which means "clean". It
+never validated the file, so a typo in a CI step turned a failing file into a
+green check. Asking for `--help` exited 2, the error code. Now a usage mistake
+exits 2 without reading the file, and `--help` exits 0. A comment in the
+earlier eval-runner fix had claimed this validator "already refuses unknown
+flags". It printed a refusal but did not exit with an error code.
+
 ## 2026-10-08 — a malformed fixture is a clean error, not a crash (#190)
 
 The earlier fix (#183) made the eval check each hand-labelled golden file
