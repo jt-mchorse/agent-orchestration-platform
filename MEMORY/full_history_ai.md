@@ -2117,3 +2117,22 @@ context_for_next_session:
   - CHECKED_IN_runAgentOnFixture_NOT_evaluateAll_BECAUSE_IT_IS_EXPORTED_from_src_index_ts
 followups: []
 ---
+
+---
+session: 2026-10-08T08:00Z
+duration_min: 10
+issue: 192
+branch: session/2026-10-08-issue-192
+focus: READ_FILE_AT_REF_PATCH_ADDED_DROPPED_EVERY_FILES_FINAL_NEWLINE_AND_IGNORED_THE_NO_NEWLINE_MARKER_0_OF_14_FIXTURE_FILES_MATCHED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "855 passed, 7 skipped; tsc clean"
+decisions_made: []
+measured: "14 added files in the rag-production-kit fixture vs git show f8aaf5a: main 0/14 exact (each short by the final newline), fixed 14/14. Revert: main 9/16 red (6 old pins + 3 new), always-append neighbour 1 red (the marker arm)."
+context_for_next_session:
+  - A_JOIN_PUTS_THE_SEPARATOR_BETWEEN_NOT_AFTER_a_line_based_rebuild_must_be_checked_against_the_REAL_BYTES_not_a_hand_built_patch
+  - EMPTY_ADDED_FILE_patch_null_additions_0_STILL_NOT_FOUND_github_sends_the_same_shape_for_binary_so_left_alone
+followups: []
+---

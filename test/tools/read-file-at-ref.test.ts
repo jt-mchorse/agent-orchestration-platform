@@ -84,7 +84,7 @@ describe("read_file_at_ref searches all fixtures for an added entry (#91)", () =
         { mode: "replay", fixturesDir: dir },
       );
       expect(result.source).toBe("patch_added");
-      expect(result.content).toBe("hello\nworld");
+      expect(result.content).toBe("hello\nworld\n");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -138,7 +138,7 @@ describe("read_file_at_ref searches all fixtures for an added entry (#91)", () =
         { mode: "replay", fixturesDir: dir },
       );
       expect(result.source).toBe("patch_added");
-      expect(result.content).toBe("hello\nworld");
+      expect(result.content).toBe("hello\nworld\n");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -173,19 +173,19 @@ describe("reconstructAddedFileFromPatch (#61)", () => {
     // line `++flagged` appears as `+++flagged` in the patch. The old
     // `+++`/`---` header guard dropped it; it must survive reconstruction.
     const patch = "@@ -0,0 +1,3 @@\n+alpha\n+++flagged\n+beta";
-    expect(reconstructAddedFileFromPatch(patch)).toBe("alpha\n++flagged\nbeta");
+    expect(reconstructAddedFileFromPatch(patch)).toBe("alpha\n++flagged\nbeta\n");
   });
 
   it("keeps an added line whose text starts with -- (no false header skip)", () => {
     // Symmetric guard: a source line `--note` becomes `+--note` (added lines
     // always carry a single `+`), and must not be mistaken for a `---` header.
     const patch = "@@ -0,0 +1,2 @@\n+x\n+--note";
-    expect(reconstructAddedFileFromPatch(patch)).toBe("x\n--note");
+    expect(reconstructAddedFileFromPatch(patch)).toBe("x\n--note\n");
   });
 
   it("reconstructs a normal added file unchanged and skips the @@ hunk header", () => {
     const patch = "@@ -0,0 +1,2 @@\n+line one\n+line two";
-    expect(reconstructAddedFileFromPatch(patch)).toBe("line one\nline two");
+    expect(reconstructAddedFileFromPatch(patch)).toBe("line one\nline two\n");
   });
 
   it("returns null for a null patch", () => {
@@ -230,6 +230,54 @@ describe("read_file_at_ref (replay) — tolerates a malformed .json in the fixtu
     );
 
     expect(result.source).toBe("patch_added");
-    expect(result.content).toBe("hello world");
+    expect(result.content).toBe("hello world\n");
+  });
+});
+
+describe("reconstructAddedFileFromPatch is the inverse of the diff (#192)", () => {
+  // A GitHub patch carries no trailing newline of its own, so joining the `+`
+  // lines with "\n" dropped every file's final newline, and a file that truly
+  // has none (the `\ No newline at end of file` marker) rebuilt to the same
+  // string. Measured against rag-production-kit@f8aaf5a: 0 of 14 added files in
+  // the committed fixture matched their real bytes, each short by one `\n`.
+
+  it("ends a file with a newline when the diff carries no marker", () => {
+    expect(reconstructAddedFileFromPatch("@@ -0,0 +1,2 @@\n+a\n+b")).toBe("a\nb\n");
+  });
+
+  it("omits the final newline when the diff carries the No-newline marker", () => {
+    const patch = "@@ -0,0 +1,2 @@\n+a\n+b\n\\ No newline at end of file";
+    expect(reconstructAddedFileFromPatch(patch)).toBe("a\nb");
+  });
+
+  it("keeps a trailing blank line: two different files rebuild to two different strings", () => {
+    const withBlank = reconstructAddedFileFromPatch("@@ -0,0 +1,2 @@\n+a\n+");
+    const withoutBlank = reconstructAddedFileFromPatch("@@ -0,0 +1 @@\n+a");
+    expect(withBlank).toBe("a\n\n");
+    expect(withoutBlank).toBe("a\n");
+  });
+
+  it("matches the real byte length of committed fixture files", async () => {
+    // Lengths of the files as committed in rag-production-kit@f8aaf5a, the
+    // commit that added them (`git show f8aaf5a:<path> | wc -c`).
+    const realBytes: Record<string, number> = {
+      ".env.example": 170,
+      "rag_kit/fusion.py": 1752,
+      "tests/test_hybrid_pg.py": 3351,
+    };
+    for (const [file, bytes] of Object.entries(realBytes)) {
+      const result = await readFileAtRefTool.run(
+        {
+          owner: "jt-mchorse",
+          repo: "rag-production-kit",
+          ref: "session/2026-05-14-1430-issue-01",
+          path: file,
+        },
+        ctx,
+      );
+      expect(result.source).toBe("patch_added");
+      expect([file, Buffer.byteLength(result.content, "utf8")]).toEqual([file, bytes]);
+      expect(result.content.endsWith("\n")).toBe(true);
+    }
   });
 });

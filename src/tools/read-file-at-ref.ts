@@ -46,7 +46,8 @@ async function tryReadFromCache(
 export function reconstructAddedFileFromPatch(patch: string | null): string | null {
   if (!patch) return null;
   const lines = patch.split("\n");
-  const added: string[] = [];
+  let content = "";
+  let previousWasAdded = false;
   for (const line of lines) {
     // GitHub's per-file `patch` field is hunk bodies only — it starts at `@@`
     // and never carries the unified-diff *file headers* (`--- a/x` / `+++ b/x`).
@@ -54,10 +55,30 @@ export function reconstructAddedFileFromPatch(patch: string | null): string | nu
     // they never appear it only misfired on a genuine added content line whose
     // text starts with `++` (source `++flagged` → patch `+++flagged`), silently
     // dropping it. Only the `@@` hunk header needs skipping (#61).
-    if (line.startsWith("@@")) continue;
-    if (line.startsWith("+")) added.push(line.slice(1));
+    if (line.startsWith("@@")) {
+      previousWasAdded = false;
+      continue;
+    }
+    if (line.startsWith("+")) {
+      // Every added line ENDS in a newline unless the diff says otherwise
+      // (#192). This was `added.join("\n")`, which puts the newline BETWEEN
+      // lines: the patch itself has no trailing newline, so the file's last
+      // `\n` was dropped, and a file that really has none (the
+      // `\ No newline at end of file` marker below) rebuilt to the same string.
+      // Measured on the committed rag-production-kit fixture: 0 of 14 added
+      // files matched their real bytes, every one short by the final `\n`.
+      content += line.slice(1) + "\n";
+      previousWasAdded = true;
+      continue;
+    }
+    if (line.startsWith("\\") && previousWasAdded) {
+      // `\ No newline at end of file` applies to the line before it. Matched on
+      // the leading backslash, not the English text, which `git` localizes.
+      content = content.slice(0, -1);
+    }
+    previousWasAdded = false;
   }
-  return added.join("\n");
+  return content;
 }
 
 const fixtureFileSchema = z.object({

@@ -1735,3 +1735,12 @@ with a JavaScript stack trace at exit 1, which is the code for a real bug.
 `npm run validate` already reported every one of these files. The eval now
 runs the same fixture check first. A malformed fixture now produces a one-line
 error naming the file and the problem, and exits 2.
+
+## 2026-10-08 — the file reader returns added files byte-for-byte (#192)
+
+When the agent asked to read a file that a PR added, the tool rebuilt it from
+the PR's diff but always dropped the file's last newline, and could not tell a
+file that ends in a newline from one that does not. Checked against the real
+repository, none of the 14 added files in the committed sample PR came back
+exactly right. The rebuild now keeps the final newline unless the diff says the
+file has none, and all 14 match their real contents.
