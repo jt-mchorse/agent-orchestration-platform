@@ -1744,3 +1744,14 @@ file that ends in a newline from one that does not. Checked against the real
 repository, none of the 14 added files in the committed sample PR came back
 exactly right. The rebuild now keeps the final newline unless the diff says the
 file has none, and all 14 match their real contents.
+
+## 2026-10-08 — both trace stores reject the same out-of-range timestamps (#194)
+
+A run whose timestamps were outside the years 1 to 9999 was saved by the
+in-memory trace store but rejected by the Postgres store with an unexplained
+database error. The usual cause is a clock that counts microseconds instead of
+milliseconds. The in-memory store also listed such runs in the wrong order. Both
+stores now refuse these timestamps with the same clear error, which names the
+value and points at a microsecond clock. Dates from year 1 through year 9999,
+including the boundaries, were checked against a real Postgres and save
+correctly.

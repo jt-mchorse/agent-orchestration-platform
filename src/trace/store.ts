@@ -322,7 +322,10 @@ function describe(value: unknown): string {
  *
  * Negative is deliberately legal — a pre-epoch instant is a real instant and
  * `BIGINT` holds it, so refusing it would be new strictness rather than parity
- * with the column.
+ * with the column. But `BIGINT` is not the only column this ts reaches: the
+ * derived `started_at` / `finalized_at` are `TIMESTAMPTZ`, which cannot parse
+ * the extended-year string `toISOString()` writes outside years 0001-9999, so
+ * those are refused too (#194). 1900 and -1 are still legal.
  *
  * The message shape is `assertPaginationOpts`'s, deliberately. That function
  * sits two definitions up, is shared for the identical stated reason (#117:
@@ -385,8 +388,33 @@ function assertEventTs(fn: string, event: TraceEvent): number {
         `which \`toISOString()\` truncates and the \`ts BIGINT\` column cannot hold.`,
     );
   }
+  // A third constraint, from the OTHER column this ts reaches (#194). The rule
+  // above is the `ts BIGINT` column plus what `Date` can render, and `Date`
+  // renders far more than four-digit years: outside 0001-9999 `toISOString()`
+  // switches to ISO's extended form (`+010000-...`, `-000001-...`), and
+  // `PgStore` hands that string to `started_at` / `finalized_at TIMESTAMPTZ`,
+  // which Postgres rejects (22009 / 22007) while `MemoryStore` stores it -- and
+  // then sorts it wrong, because `+` and `-` compare below every digit.
+  // Measured on a scratch PG 17: year 0000 is out of range, 0001-01-01 and
+  // 9999-12-31T23:59:59.999Z parse. The realistic road is a clock in
+  // MICROseconds (`Date.now() * 1000`, year ~58700): a safe integer, inside
+  // `Date`'s range, and the one wrong unit the message above does not mention.
+  if (event.ts < MIN_TIMESTAMPTZ_MS || event.ts > MAX_TIMESTAMPTZ_MS) {
+    throw new RangeError(
+      `${fn}: event.ts must be an instant from 0001-01-01 to 9999-12-31 (ms since epoch); ` +
+        `got ${describe(event.ts)} (${new Date(event.ts).toISOString()}) on a ${event.kind} event. ` +
+        `The started_at / finalized_at TIMESTAMPTZ columns cannot parse an extended-year ISO ` +
+        `string. A clock returning microseconds (\`Date.now() * 1000\`) lands here; it must ` +
+        `return milliseconds.`,
+    );
+  }
   return event.ts;
 }
+
+/** `0001-01-01T00:00:00.000Z`: year 0000 is out of range for Postgres TIMESTAMPTZ input (#194). */
+const MIN_TIMESTAMPTZ_MS = Date.parse("0001-01-01T00:00:00.000Z");
+/** `9999-12-31T23:59:59.999Z`: the last instant `toISOString()` writes with a four-digit year (#194). */
+const MAX_TIMESTAMPTZ_MS = Date.parse("9999-12-31T23:59:59.999Z");
 
 export function deriveStatus(events: TraceEvent[]): RunSummary["status"] {
   // No `assertEventTs` here, and that is deliberate rather than an omission:

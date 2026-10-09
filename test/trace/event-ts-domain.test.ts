@@ -104,11 +104,63 @@ const ACCEPTED: [string, number][] = [
   ["zero — the epoch itself", 0],
   ["negative — a pre-epoch instant", -1],
   ["a large pre-epoch instant", -2208988800000],
-  // Date's own maximum. This is the real upper boundary, and it is NARROWER
-  // than the safe integers.
+  // The real boundaries are the TIMESTAMPTZ columns', not Date's (#194). These
+  // two rows used to be Date's own +/-8.64e15 -- "accepted by both backends"
+  // only because the fake pool below accepts any query; real Postgres refused
+  // both with 22009 / 22007.
+  ["the first instant of year 0001", Date.parse("0001-01-01T00:00:00.000Z")],
+  ["the last instant of year 9999", Date.parse("9999-12-31T23:59:59.999Z")],
+];
+
+// Refused with their own message (#194): a safe integer `Date` renders, but only
+// as an extended-year ISO string (`+010000-...`), which the `started_at` /
+// `finalized_at TIMESTAMPTZ` columns cannot parse. Each row was accepted by
+// `MemoryStore` on main and rejected by a real Postgres 17.
+const OUT_OF_TIMESTAMPTZ: [string, number][] = [
+  ["a microsecond clock (Date.now() * 1000)", 1_791_417_600_000_000],
+  ["one ms into year 10000", Date.parse("9999-12-31T23:59:59.999Z") + 1],
+  ["one ms before year 0001 (year 0000)", Date.parse("0001-01-01T00:00:00.000Z") - 1],
+  ["year -1", -62198755200000],
   ["Date's maximum representable instant", 8_640_000_000_000_000],
   ["Date's minimum representable instant", -8_640_000_000_000_000],
 ];
+
+describe("a ts outside years 0001-9999 is refused by both backends (#194)", () => {
+  it.each(OUT_OF_TIMESTAMPTZ)("%s — deriveStartedAt / deriveFinalizedAt", (_label, ts) => {
+    expect(() => deriveStartedAt(eventsAt(ts))).toThrow(RangeError);
+    expect(() => deriveStartedAt(eventsAt(ts))).toThrow(/deriveStartedAt: event\.ts must be an instant from 0001-01-01 to 9999-12-31/);
+    expect(() => deriveFinalizedAt(eventsAt(ts))).toThrow(/deriveFinalizedAt: event\.ts must be an instant/);
+    expect(() => deriveStartedAt(eventsAt(ts))).toThrow(/microseconds/);
+    expect(() => deriveStartedAt(eventsAt(ts))).toThrow(String(ts));
+  });
+
+  it.each(OUT_OF_TIMESTAMPTZ)("%s — MemoryStore.writeRun", async (_label, ts) => {
+    await expect(memWriteRun(eventsAt(ts))).rejects.toThrow(/event\.ts must be an instant/);
+  });
+
+  it.each(OUT_OF_TIMESTAMPTZ)("%s — PgStore.writeRun", async (_label, ts) => {
+    await expect(pgWriteRun(eventsAt(ts))).rejects.toThrow(/event\.ts must be an instant/);
+  });
+
+  it("every refused row renders as an extended-year ISO string, every accepted one does not", () => {
+    // The property the bound encodes, stated on `toISOString()` itself so the
+    // two constants cannot drift from what the store actually sends.
+    for (const [, ts] of OUT_OF_TIMESTAMPTZ) {
+      expect(new Date(ts).toISOString(), String(ts)).toMatch(/^([+-]\d{6}|0000)-/);
+    }
+    for (const [, ts] of ACCEPTED) {
+      expect(new Date(ts).toISOString(), String(ts)).toMatch(/^(?!0000)\d{4}-/);
+    }
+  });
+
+  it("the derived columns really are TIMESTAMPTZ — the reason for the bound", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const sql = readFileSync(resolve(import.meta.dirname, "../../infra/postgres/init.sql"), "utf8");
+    expect(sql).toMatch(/started_at\s+TIMESTAMPTZ NOT NULL/);
+    expect(sql).toMatch(/finalized_at\s+TIMESTAMPTZ/);
+  });
+});
 
 describe("deriveStartedAt / deriveFinalizedAt refuse a ts they cannot render", () => {
   it.each(REJECTED)("%s — deriveStartedAt", (_label, ts) => {
