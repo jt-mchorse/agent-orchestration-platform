@@ -1725,3 +1725,13 @@ green check. Asking for `--help` exited 2, the error code. Now a usage mistake
 exits 2 without reading the file, and `--help` exits 0. A comment in the
 earlier eval-runner fix had claimed this validator "already refuses unknown
 flags". It printed a refusal but did not exit with an error code.
+
+## 2026-10-08 — a malformed fixture is a clean error, not a crash (#190)
+
+The earlier fix (#183) made the eval check each hand-labelled golden file
+before using it. The fixture file it is paired with was still read unchecked.
+A fixture with no `repo`, no `files` or a `null` PR crashed `npm run eval`
+with a JavaScript stack trace at exit 1, which is the code for a real bug.
+`npm run validate` already reported every one of these files. The eval now
+runs the same fixture check first. A malformed fixture now produces a one-line
+error naming the file and the problem, and exits 2.

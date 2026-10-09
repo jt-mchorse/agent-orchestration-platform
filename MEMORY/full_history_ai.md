@@ -2098,3 +2098,22 @@ context_for_next_session:
   - THE_161_FIX_COMMENT_SAID_validate_ts_ALREADY_REFUSES_UNKNOWN_FLAGS_it_PRINTED_a_refusal_and_returned_0_a_prose_assertion_about_a_sibling_is_a_test_case
 followups: []
 ---
+
+---
+session: 2026-10-08T07:40Z
+duration_min: 8
+issue: 190
+branch: session/2026-10-08-issue-190
+focus: A_MALFORMED_FIXTURE_CRASHED_THE_EVAL_WITH_A_RAW_TYPEERROR_AT_EXIT_1_183_VALIDATED_ONLY_THE_GOLDEN_HALF_OF_THE_PAIR
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "858 passed, 7 skipped; tsc clean"
+decisions_made: []
+measured: "main: fixture with repo removed / repo noslash / files removed / pr null -> TypeError or Error + stack at exit 1, validate exit 1 on all four. Fixed: EvalInputError, exit 2, one ::error:: line. Revert probe 6/7 red (the shipped-fixtures control stays green)."
+context_for_next_session:
+  - A_FIX_TO_ONE_HALF_OF_A_PAIR_183_golden_LEAVES_THE_OTHER_HALF_fixture_ask_what_ELSE_is_read_beside_the_guarded_input
+  - CHECKED_IN_runAgentOnFixture_NOT_evaluateAll_BECAUSE_IT_IS_EXPORTED_from_src_index_ts
+followups: []
+---
