@@ -1755,3 +1755,10 @@ stores now refuse these timestamps with the same clear error, which names the
 value and points at a microsecond clock. Dates from year 1 through year 9999,
 including the boundaries, were checked against a real Postgres and save
 correctly.
+
+## 2026-10-09 — The atomic writer follows a symlinked destination (#197)
+
+Writing a results file or the eval snapshot doc through a symbolic link
+replaced the link with a regular file and left the linked file unchanged. The
+writer now updates the file the link points to, the same fix made in
+ai-app-integration-tests today.

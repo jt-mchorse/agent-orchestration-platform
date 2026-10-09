@@ -2155,3 +2155,21 @@ context_for_next_session:
   - A_GUARD_NAMES_THE_COLUMN_IT_WAS_WRITTEN_FOR_check_EVERY_column_the_value_reaches_ts_feeds_BIGINT_and_two_TIMESTAMPTZ
 followups: []
 ---
+
+---
+session: 2026-10-09T09:51Z
+duration_min: 4   # computed: issue filed 2026-10-09T09:50:14Z -> PR 2026-10-09T09:51:28Z (gh createdAt)
+issue: 197
+branch: session/2026-10-09-1015-issue-197
+focus: TS_ATOMICWRITEFILE_RENAMED_ONTO_A_SYMLINKED_DESTINATION_SAME_HELPER_AS_AIAPP_181
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "888 -> 893 passed (7 skipped); tsc clean"
+decisions_made: []
+measured: "main: link replaced by a regular file, linked file kept OLD; branch: link kept, linked file NEW. Revert 3 red / 2 controls."
+context_for_next_session:
+  - ALSO_OPEN_196_PgStore_NUL_representation_decision_for_JT
+followups: []
+---
