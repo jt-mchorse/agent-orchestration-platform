@@ -9,7 +9,8 @@
  *
  *   - 0  clean: report.ok is true, no findings, schema fully validated.
  *   - 1  findings: at least one finding surfaced.
- *   - 2  I/O error: file not found, unreadable, etc.
+ *   - 2  usage or I/O error: unknown flag, extra or missing path, file
+ *        not found, unreadable, etc. `--help` exits 0.
  */
 
 import process from "node:process";
@@ -25,6 +26,7 @@ interface CLIArgs {
   golden: boolean;
   asJson: boolean;
   help: boolean;
+  usageError: boolean;
 }
 
 function parseArgs(argv: string[]): CLIArgs {
@@ -33,6 +35,7 @@ function parseArgs(argv: string[]): CLIArgs {
     golden: false,
     asJson: false,
     help: false,
+    usageError: false,
   };
   for (const a of argv) {
     if (a === "--help" || a === "-h") {
@@ -43,12 +46,12 @@ function parseArgs(argv: string[]): CLIArgs {
       args.asJson = true;
     } else if (a.startsWith("--")) {
       process.stderr.write(`unknown flag: ${a}\n`);
-      args.help = true;
+      args.usageError = true;
     } else {
       // Positional: the file path. Only one is supported.
       if (args.filePath !== null) {
         process.stderr.write(`unexpected positional argument: ${a}\n`);
-        args.help = true;
+        args.usageError = true;
       } else {
         args.filePath = a;
       }
@@ -64,15 +67,27 @@ function printUsage(): void {
       "  --golden  Treat the file as a golden (golden_review schema) instead of a fixture.\n" +
       "  --json    Emit the report as JSON.\n" +
       "\n" +
-      "Exit codes: 0 clean / 1 findings / 2 I/O error.\n",
+      "Exit codes: 0 clean / 1 findings / 2 usage or I/O error.\n",
   );
 }
 
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
-  if (args.help || args.filePath === null) {
+  // A usage error is an operator error: exit 2, and the file is never read
+  // (#188). This used to return `filePath === null ? 2 : 0`, so a typo'd
+  // `--gloden` beside a real path printed the usage and exited 0 -- "clean" --
+  // without validating anything, and an explicit `--help` exited 2.
+  if (args.usageError) {
     printUsage();
-    return args.filePath === null ? 2 : 0;
+    return 2;
+  }
+  if (args.help) {
+    printUsage();
+    return 0;
+  }
+  if (args.filePath === null) {
+    printUsage();
+    return 2;
   }
   let report;
   try {
