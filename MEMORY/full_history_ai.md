@@ -2173,3 +2173,22 @@ context_for_next_session:
   - ALSO_OPEN_196_PgStore_NUL_representation_decision_for_JT
 followups: []
 ---
+
+---
+session: 2026-10-12T08:01:42Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:01:42Z -> PR 2026-10-12T08:02:57Z (gh createdAt)
+issue: 199
+branch: session/2026-10-12-0801-issue-199
+focus: VALIDATE_FIXTURE_CHECKED_SOURCE_AND_PR_STATE_AS_ANY_STRING_WHILE_FETCH_PR_TYPES_THEM_LITERAL_AND_ENUM_SO_THE_PREFLIGHT_PASSED_AND_THE_EVAL_SCORED_AN_UNLOADED_FIXTURE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "893 -> 897 passed / 7 skipped; typecheck clean"
+decisions_made: []
+measured: "hunt agent: source 'github.com' -> validate ok, fetch_pr not_found, eval composite 0.345 exit 0. Differential on main: leaky = exactly source and pr.state for both fixtures. Revert 3 red / 1 green."
+context_for_next_session:
+  - A_VALIDATOR_WRITTEN_BESIDE_A_ZOD_SCHEMA_DIFF_THEM_mutate_every_leaf_and_require_validator_ok_implies_schema_ok
+  - READ_THE_SCHEMA_FROM_THE_TOOL_fetchPrTool_outputSchema_so_the_public_surface_lock_is_not_touched
+followups: []
+---
