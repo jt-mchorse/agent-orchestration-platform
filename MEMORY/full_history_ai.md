@@ -2190,5 +2190,21 @@ measured: "hunt agent: source 'github.com' -> validate ok, fetch_pr not_found, e
 context_for_next_session:
   - A_VALIDATOR_WRITTEN_BESIDE_A_ZOD_SCHEMA_DIFF_THEM_mutate_every_leaf_and_require_validator_ok_implies_schema_ok
   - READ_THE_SCHEMA_FROM_THE_TOOL_fetchPrTool_outputSchema_so_the_public_surface_lock_is_not_touched
+
+session: 2026-10-12T08:03:41Z
+duration_min: 0   # computed: plan comment 2026-10-12T08:03:41Z -> PR 2026-10-12T08:04:34Z (gh createdAt)
+issue: 201
+branch: session/2026-10-12-0803-issue-201
+focus: READ_FILE_AT_REF_CACHE_KEY_MAPPED_SLASHES_TO_UNDERSCORE_AND_JOINED_WITH_DOUBLE_UNDERSCORE_SO_DIFFERENT_REFS_OR_PATHS_SHARED_A_CACHED_FILE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "893 -> 899 passed / 7 skipped; typecheck clean"
+decisions_made: []
+measured: "hunt agent: cache only feature/x:src/a.py; feature_x:src/a.py and feature/x:src_a.py both returned it as file_cache. Branch: not_found. Revert 4 red / 2 green."
+context_for_next_session:
+  - A_KEY_BUILT_BY_REPLACING_CHARACTERS_IS_NOT_INJECTIVE_encode_each_component_and_join_with_a_character_the_encoding_always_escapes
+  - PR_199_AND_201_BOTH_APPEND_MEMORY_expect_a_rebase
 followups: []
 ---

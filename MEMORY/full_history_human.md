@@ -1772,3 +1772,12 @@ validation, was silently skipped at run time, and the eval still printed a
 normal score. Both fields are now checked. A new test changes every text field
 of the sample fixtures and confirms that anything the validator accepts,
 `fetch_pr` accepts too.
+
+## 2026-10-12 — Cached files can't be served for the wrong ref or path (#201)
+
+In replay mode, `read_file_at_ref` names cached files by turning slashes into
+underscores. So the branch `feature/x` and the branch `feature_x`, or the files
+`src/a.py` and `src_a.py`, ended up sharing one cache file, and the tool could
+return the wrong branch's or wrong file's contents. Each part of the name is
+now encoded so no two inputs can share a file. No cache ships with the repo
+yet, so this only affected a cache someone had populated themselves.
