@@ -51,6 +51,9 @@ const VALID_RECOMMENDATIONS = new Set([
 ]);
 const VALID_FINDING_SEVERITIES = new Set(["blocker", "concern", "nit", "praise"]);
 const VALID_FILE_STATUSES = new Set(["added", "modified", "removed", "renamed"]);
+// The two other string fields fetch_pr narrows to fixed values (#199).
+const VALID_SOURCES = new Set(["github"]);
+const VALID_PR_STATES = new Set(["open", "closed"]);
 // The `owner/name` contract for a GitHub repo slug. Exported so the `--comment`
 // CLI path (`commentTargetError` in runner.ts) enforces the SAME format the
 // fixture-validation path does — one regex, no drift between the two checks.
@@ -144,8 +147,10 @@ function _validateFixtureSchema(
   } else {
     schemaVersion = sv;
   }
-  // 2. source
-  _requireString(obj, "source", findings);
+  // 2. source. fetch_pr types it `z.literal("github")` and skips a fixture it
+  // cannot parse, so "any string" let `"github.com"` validate clean and then
+  // load as not_found mid-eval (#199).
+  _requireOneOf(obj, "source", VALID_SOURCES, findings);
   // 3. repo (must be owner/name)
   const repo = obj["repo"];
   if (repo === undefined) {
@@ -219,10 +224,13 @@ function _validatePrObject(pr: Record<string, unknown>, findings: ValidationFind
   for (const field of ["additions", "deletions", "changed_files"] as const) {
     _requireFiniteInteger(pr, field, "pr", findings);
   }
-  // String fields: title, body, state, base, head, html_url, created_at.
-  for (const field of ["title", "body", "state", "base", "head", "html_url", "created_at"] as const) {
+  // String fields: title, body, base, head, html_url, created_at.
+  for (const field of ["title", "body", "base", "head", "html_url", "created_at"] as const) {
     _requireString(pr, field, findings, "pr");
   }
+  // state is an enum in fetch_pr (`z.enum(["open", "closed"])`), not any
+  // string (#199).
+  _requireOneOf(pr, "state", VALID_PR_STATES, findings, "pr");
   // Boolean: merged.
   const merged = pr["merged"];
   if (merged === undefined) {
@@ -438,6 +446,26 @@ function _requireString(
       jsonPath: here,
     });
   }
+}
+
+/** `_requireString`, then the value must be one of `allowed` (#199). */
+function _requireOneOf(
+  obj: Record<string, unknown>,
+  field: string,
+  allowed: ReadonlySet<string>,
+  findings: ValidationFinding[],
+  prefix?: string,
+): void {
+  const before = findings.length;
+  _requireString(obj, field, findings, prefix);
+  const value = obj[field];
+  if (findings.length !== before || typeof value !== "string" || allowed.has(value)) return;
+  const here = prefix ? `${prefix}.${field}` : field;
+  findings.push({
+    code: `${here}_wrong_value`,
+    reason: `${here} ${_quote(value)} not in {${[...allowed].join(", ")}}`,
+    jsonPath: here,
+  });
 }
 
 function _requireFiniteInteger(
