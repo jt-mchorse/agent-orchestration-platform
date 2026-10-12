@@ -277,3 +277,61 @@ describe("the corrected clock comment", () => {
     expect(clockComment).not.toMatch(/Default: monotonic/);
   });
 });
+
+// ----- every event's ts, not only the two the derivations read (#203) -----
+//
+// `assertEventTs` ran inside `deriveStartedAt` / `deriveFinalizedAt`, so a
+// mid-run event's `ts` reached `trace_events.ts BIGINT` unchecked. On Postgres
+// 17 a fractional, NaN or 2**63 value there was a raw 22P02 / 22003 and the
+// whole run was lost, while MemoryStore stored it (a NaN as `null`).
+
+function withMidRunTs(ts: number): TraceEvent[] {
+  return [
+    { ts: 1700000000000, kind: "run_started", pr: PR },
+    { ts, kind: "re_plan_triggered", reason: "x" },
+    { ts: 1700000000001, kind: "finalized", review: REVIEW },
+  ] as TraceEvent[];
+}
+
+const MID_RUN_REJECTED: [string, number][] = [
+  ["fractional", 1700000000000.5],
+  ["NaN", Number.NaN],
+  ["Infinity", Number.POSITIVE_INFINITY],
+  ["2^63, past BIGINT", 2 ** 63],
+];
+
+describe("a mid-run event's ts is checked by both stores (#203)", () => {
+  it.each(MID_RUN_REJECTED)("refuses %s on PgStore before any query", async (_label, ts) => {
+    const queries: string[] = [];
+    const pool = {
+      async query(sql: string) {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      async end() {},
+      async connect() {
+        const query = this.query.bind(this);
+        return { query, release() {} };
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = new PgStore({ pool: pool as any });
+    await expect(
+      store.writeRun({ run_id: "r1", pr: PR, review: REVIEW, events: withMidRunTs(ts) }),
+    ).rejects.toThrow(RangeError);
+    expect(queries).toEqual([]);
+  });
+
+  it.each(MID_RUN_REJECTED)("refuses %s on MemoryStore and stores nothing", async (_label, ts) => {
+    const store = new MemoryStore();
+    await expect(
+      store.writeRun({ run_id: "r1", pr: PR, review: REVIEW, events: withMidRunTs(ts) }),
+    ).rejects.toThrow(/re_plan_triggered event/);
+    expect(await store.getRun("r1")).toBeNull();
+  });
+
+  it("still writes a run whose every ts is a whole millisecond", async () => {
+    await expect(pgWriteRun(withMidRunTs(1700000000000))).resolves.toBeUndefined();
+    await expect(memWriteRun(withMidRunTs(1700000000000))).resolves.toBeUndefined();
+  });
+});

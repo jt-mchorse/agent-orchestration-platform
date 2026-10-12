@@ -18,6 +18,7 @@ import { firstNonBlank } from "../io/env.js";
 import {
   aggregateCost,
   assertPaginationOpts,
+  assertEventTsColumns,
   assertPrNumber,
   deriveFinalizedAt,
   deriveStartedAt,
@@ -138,6 +139,9 @@ export class PgStore implements TraceStore {
     // reached `runs.pr_number INTEGER` and came back as a raw Postgres
     // `22003 numeric value out of range`.
     assertPrNumber("PgStore.writeRun", input.pr);
+    // Every event's `ts` lands in `trace_events.ts BIGINT`, not only the two
+    // the derivations below check (#203).
+    assertEventTsColumns("PgStore.writeRun", input.events);
     const pool = await this.getPool();
     const total = aggregateCost(input.events);
     // Imported, not re-derived (#139): `MemoryStore` stores exactly what these
