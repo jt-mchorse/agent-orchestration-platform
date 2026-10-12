@@ -22,9 +22,18 @@ const outputSchema = z.object({
 
 const FILE_CACHE_SUBDIR = "file-cache";
 
-function cacheKeyFile(owner: string, repo: string, ref: string, filePath: string): string {
-  const slug = `${owner}__${repo}__${ref}__${filePath}`.replace(/[\\/]/g, "_");
-  return `${slug}.txt`;
+/**
+ * The cache file name for one `(owner, repo, ref, path)` (#201).
+ *
+ * Injective: each component is percent-encoded and the components are joined
+ * by `+`, which `encodeURIComponent` always escapes, so no component can
+ * contain the separator and none can contain a path separator. The old key
+ * joined with `__` and mapped `/` and `\` to `_`, so `feature/x` and
+ * `feature_x`, or `src/a.py` and `src_a.py`, read one cached file, and the
+ * other ref's or file's content came back labelled `file_cache`.
+ */
+export function cacheKeyFile(owner: string, repo: string, ref: string, filePath: string): string {
+  return `${[owner, repo, ref, filePath].map(encodeURIComponent).join("+")}.txt`;
 }
 
 async function tryReadFromCache(
@@ -144,7 +153,8 @@ async function tryReconstructFromAnyFixture(
 export const readFileAtRefTool: Tool<typeof inputSchema, typeof outputSchema> = {
   name: "read_file_at_ref",
   description:
-    "Load a file at a specific git ref. In replay mode, looks up fixtures/file-cache/ first; " +
+    "Load a file at a specific git ref. In replay mode, looks up fixtures/file-cache/ first " +
+    "(one file per input, named owner+repo+ref+path with each part percent-encoded, plus .txt); " +
     "falls back to reconstructing the added-side content from a fixture patch when status=added. " +
     "Returns a not_found ToolError when neither path resolves.",
   inputSchema,
