@@ -2206,5 +2206,21 @@ measured: "hunt agent: cache only feature/x:src/a.py; feature_x:src/a.py and fea
 context_for_next_session:
   - A_KEY_BUILT_BY_REPLACING_CHARACTERS_IS_NOT_INJECTIVE_encode_each_component_and_join_with_a_character_the_encoding_always_escapes
   - PR_199_AND_201_BOTH_APPEND_MEMORY_expect_a_rebase
+
+session: 2026-10-12T08:25:48Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:25:48Z -> PR 2026-10-12T08:26:54Z (gh createdAt)
+issue: 203
+branch: session/2026-10-12-0825-issue-203
+focus: A_BAD_TS_ON_A_MID_RUN_EVENT_LOST_THE_WHOLE_RUN_IN_PGSTORE_141S_GUARD_RAN_ONLY_IN_THE_START_AND_END_DERIVATIONS
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "893 -> 902 passed / 7 skipped; typecheck clean; pg-store.test.ts 6/6 on real PG 17"
+decisions_made: []
+measured: "real Postgres 17 (homebrew postgresql@17, data /tmp/pg17_240, port 55440, user postgres): mid-run ts 1700000000000.5 / NaN -> 22P02, 2**63 -> 22003, run not persisted. Branch: RangeError before any query. Revert 8 red."
+context_for_next_session:
+  - A_GUARD_PLACED_INSIDE_THE_FUNCTIONS_THAT_READ_A_FIELD_CHECKS_ONLY_THE_ROWS_THOSE_FUNCTIONS_READ_the_column_constraint_applies_to_every_row
+  - LOCAL_PG17_pg_ctl_D_tmp_pg17_240_o_p_55440_start_connect_as_U_postgres
 followups: []
 ---

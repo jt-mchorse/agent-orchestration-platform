@@ -1781,3 +1781,13 @@ underscores. So the branch `feature/x` and the branch `feature_x`, or the files
 return the wrong branch's or wrong file's contents. Each part of the name is
 now encoded so no two inputs can share a file. No cache ships with the repo
 yet, so this only affected a cache someone had populated themselves.
+
+## 2026-10-12 — A bad timestamp on any trace event is caught before writing (#203)
+
+Each event in a run's trace has a timestamp that must be a whole number of
+milliseconds, because the database column is an integer. Only the first and
+last events were checked. A fractional or invalid timestamp on any event in
+between made Postgres reject the write, and the whole run was lost with a raw
+database error, while the in-memory store quietly kept it. Every event is now
+checked up front, so both stores refuse the same runs with the same clear
+message. This was verified against a real Postgres 17.
