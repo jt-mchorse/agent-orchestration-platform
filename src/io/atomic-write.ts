@@ -66,12 +66,40 @@ function capBaseForTemp(base: string): string {
   return out;
 }
 
+// The file a write to `target` lands in: through a symlinked final component,
+// as `fs.writeFile` does (#197). `fs.rename` replaces a LINK with a regular
+// file and leaves the file it pointed at stale. A dangling link resolves to the
+// path it names, which the write then creates; a loop fails with ELOOP after
+// the kernel's own limit instead of spinning. Same helper as
+// ai-app-integration-tests#181; the TypeScript twin of the Python
+// `atomic_write_text` fix (leh#327 and siblings).
+const MAX_SYMLINK_HOPS = 40;
+
+async function resolveSymlinkedTarget(target: string): Promise<string> {
+  let current = target;
+  for (let hops = 0; hops <= MAX_SYMLINK_HOPS; hops++) {
+    let isLink: boolean;
+    try {
+      isLink = (await fs.lstat(current)).isSymbolicLink();
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return current;
+      throw err;
+    }
+    if (!isLink) return current;
+    current = path.resolve(path.dirname(current), await fs.readlink(current));
+  }
+  const err = new Error(`ELOOP: too many symbolic links, write '${target}'`) as NodeJS.ErrnoException;
+  err.code = "ELOOP";
+  throw err;
+}
+
 export async function atomicWriteFile(
-  target: string,
+  requested: string,
   data: string | Buffer,
   encoding: BufferEncoding = "utf-8",
 ): Promise<void> {
   const buf = typeof data === "string" ? Buffer.from(data, encoding) : data;
+  const target = await resolveSymlinkedTarget(requested);
   const dir = path.dirname(target);
   const base = path.basename(target);
   await fs.mkdir(dir, { recursive: true });
