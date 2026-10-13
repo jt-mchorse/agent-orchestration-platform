@@ -36,15 +36,31 @@ const fixtureSchema = z.object({
 
 const CHECKS_SUBDIR = "checks";
 
+/**
+ * The checks fixture file name for one `(owner, repo, ref)` (#207).
+ *
+ * Injective, the key `read_file_at_ref` adopted in #201: each component is
+ * percent-encoded and the components are joined by `+`, which
+ * `encodeURIComponent` always escapes, so no component can contain the
+ * separator and none can contain a path separator. The old name joined with
+ * `__` and mapped `/` and `\` to `_`, so `feature/x` and `feature_x` were one
+ * file: the two could not both be recorded, and a lookup for the unrecorded
+ * one read the other's fixture and failed the coordinate check below as
+ * `internal` instead of returning `missing_fixture`.
+ */
+export function checksFixtureFile(owner: string, repo: string, ref: string): string {
+  return `${[owner, repo, ref].map(encodeURIComponent).join("+")}.json`;
+}
+
 function fixturePath(fixturesDir: string, owner: string, repo: string, ref: string): string {
-  const slug = `${owner}__${repo}__${ref}`.replace(/[\\/]/g, "_");
-  return path.resolve(fixturesDir, "..", CHECKS_SUBDIR, `${slug}.json`);
+  return path.resolve(fixturesDir, "..", CHECKS_SUBDIR, checksFixtureFile(owner, repo, ref));
 }
 
 export const runCheckTool: Tool<typeof inputSchema, typeof outputSchema> = {
   name: "run_check",
   description:
-    "Query CI status for a ref. In replay mode, reads from fixtures/checks/<owner>__<repo>__<ref>.json " +
+    "Query CI status for a ref. In replay mode, reads from fixtures/checks/ (one file per input, named " +
+    "owner+repo+ref with each part percent-encoded, plus .json) " +
     "and (if checkName is provided) filters to that one entry. Live-mode GitHub Checks API is stubbed.",
   inputSchema,
   outputSchema,

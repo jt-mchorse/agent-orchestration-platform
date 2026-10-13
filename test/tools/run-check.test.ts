@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runCheckTool } from "../../src/tools/run-check.js";
+import { checksFixtureFile, runCheckTool } from "../../src/tools/run-check.js";
 import { ToolError, type ToolContext } from "../../src/tools/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -18,9 +18,8 @@ const REF = "session/2026-05-14-1100-issue-01";
 beforeAll(async () => {
   await mkdir(fixturesDir, { recursive: true });
   await mkdir(checksDir, { recursive: true });
-  const slug = `${OWNER}__${REPO}__${REF}`.replace(/[\\/]/g, "_");
   await writeFile(
-    path.join(checksDir, `${slug}.json`),
+    path.join(checksDir, checksFixtureFile(OWNER, REPO, REF)),
     JSON.stringify(
       {
         owner: OWNER,
@@ -75,8 +74,7 @@ describe("run_check (replay)", () => {
     // content is corrupt. Pre-fix this threw a SyntaxError (not a ToolError), so
     // this assertion is an inverse safety net for the bare `JSON.parse(raw)`.
     const badRef = "session/2026-06-30-malformed";
-    const slug = `${OWNER}__${REPO}__${badRef}`.replace(/[\\/]/g, "_");
-    await writeFile(path.join(checksDir, `${slug}.json`), "{ not valid json", "utf8");
+    await writeFile(path.join(checksDir, checksFixtureFile(OWNER, REPO, badRef)), "{ not valid json", "utf8");
 
     const promise = runCheckTool.run({ owner: OWNER, repo: REPO, ref: badRef }, ctx);
     await expect(promise).rejects.toBeInstanceOf(ToolError);
