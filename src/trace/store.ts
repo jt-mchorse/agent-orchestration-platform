@@ -371,6 +371,29 @@ export function assertPrNumber(fn: string, pr: { number: number }): number {
   return n;
 }
 
+/**
+ * The `ts BIGINT` half of `assertEventTs`, on every event a run carries (#203).
+ *
+ * `assertEventTs` ran only inside the two derivations, so only `run_started`
+ * and `finalized` / `aborted` were checked. Every other event's `ts` reached
+ * `trace_events.ts BIGINT` unchecked. Measured on Postgres 17, a fractional,
+ * NaN or 2**63 `ts` on one mid-run event was a raw `22P02` / `22003` and the
+ * whole run was lost, while `MemoryStore` stored it (a NaN as `null`). The
+ * TIMESTAMPTZ year bound stays on the two derived events: no other `ts`
+ * reaches those columns.
+ */
+export function assertEventTsColumns(fn: string, events: readonly TraceEvent[]): void {
+  for (const event of events) {
+    if (!Number.isSafeInteger(event.ts)) {
+      throw new RangeError(
+        `${fn}: event.ts must be a safe integer (ms since epoch); got ${describe(event.ts)} ` +
+          `on a ${event.kind} event. The clock passed to \`new Trace({ clock })\` must ` +
+          `return whole milliseconds; the \`ts BIGINT\` column cannot hold anything else.`,
+      );
+    }
+  }
+}
+
 function assertEventTs(fn: string, event: TraceEvent): number {
   // Two constraints, not one, and `Number.isSafeInteger` alone is not enough.
   // `Number.MAX_SAFE_INTEGER` (9.007e15) IS a safe integer and is outside
@@ -508,6 +531,7 @@ export class MemoryStore implements TraceStore {
     // Before anything is stored, and in the same place `PgStore.writeRun`
     // checks it, so the two backends accept exactly the same runs (#145).
     assertPrNumber("MemoryStore.writeRun", input.pr);
+    assertEventTsColumns("MemoryStore.writeRun", input.events);
     const summary = summarize(input);
     const total_cost = aggregateCost(input.events);
     // `cloneSummaryRefs` isolates `pr` from the caller's `input.pr` (ingress);
