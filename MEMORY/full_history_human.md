@@ -1812,3 +1812,14 @@ one of them could be recorded, and asking for the other reported a corrupt
 recording instead of "no recording". This is the same naming problem fixed in
 the file-reading tool yesterday; the CI-check tool now uses the same
 collision-free naming.
+
+## 2026-10-13 — Two different run ids can no longer overwrite each other in Postgres (#209)
+
+A run's id is stored in a text column. Two kinds of character cannot be stored
+there as themselves: a NUL, and half of an emoji left over when a string is cut
+in the middle. Postgres quietly replaced the half-emoji with a placeholder, so
+two different ids became the same id and the second run overwrote the first;
+the in-memory store kept both. A NUL in a hand-typed run URL made the trace
+viewer return a server error. Both stores now refuse such an id with a clear
+message, and looking one up returns "not found". Verified against a real
+Postgres 17.
