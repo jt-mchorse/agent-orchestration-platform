@@ -1762,3 +1762,13 @@ Writing a results file or the eval snapshot doc through a symbolic link
 replaced the link with a regular file and left the linked file unchanged. The
 writer now updates the file the link points to, the same fix made in
 ai-app-integration-tests today.
+
+## 2026-10-12 — The fixture validator accepts only what `fetch_pr` can load (#199)
+
+The validator is meant to catch a bad fixture before an eval run. It accepted
+any text for `source` and for the PR's `state`, but `fetch_pr` only accepts
+"github" and "open"/"closed". A fixture with `source: "github.com"` passed
+validation, was silently skipped at run time, and the eval still printed a
+normal score. Both fields are now checked. A new test changes every text field
+of the sample fixtures and confirms that anything the validator accepts,
+`fetch_pr` accepts too.
