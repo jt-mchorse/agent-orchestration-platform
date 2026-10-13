@@ -233,6 +233,39 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     }
   });
 
+  it_pg("a dollars total at the NUMERIC(12, 6) bound is stored, not a 22003 (#205)", async () => {
+    // Two individually storable charges summing past 10^6, and one that quantises
+    // UP to exactly 10^6: before #205 each lost the whole run to `numeric field
+    // overflow` here while MemoryStore stored it.
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    try {
+      for (const charges of [[600_000, 600_000], [999_999.9999996]]) {
+        const runId = await uniqueRunId();
+        const events: TraceEvent[] = [
+          { ts: 1_700_000_000_000, kind: "run_started", pr: PR },
+          ...charges.map(
+            (dollars, i) =>
+              ({
+                ts: 1_700_000_000_001 + i,
+                kind: "observation",
+                observation: {
+                  step: { rationale: "r", tool: "ping", input: {} },
+                  outcome: { kind: "ok", value: null },
+                  cost: { dollars },
+                },
+              }) as TraceEvent,
+          ),
+          { ts: 1_700_000_000_009, kind: "finalized", review: review() },
+        ];
+        await store.writeRun({ run_id: runId, pr: PR, events, review: review() });
+        const got = await store.getRun(runId);
+        expect(got?.total_cost.dollars).toBeLessThan(1_000_000);
+      }
+    } finally {
+      await store.close();
+    }
+  });
+
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });

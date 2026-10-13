@@ -155,9 +155,25 @@ export function aggregateCost(events: TraceEvent[]): AggregatedCost {
     if (e.kind !== "observation") continue;
     const c: StepCost | undefined = e.observation.cost;
     if (!c) continue;
-    if (isCountableTokens(c.input_tokens)) input += c.input_tokens;
-    if (isCountableTokens(c.output_tokens)) output += c.output_tokens;
-    if (isCountableDollars(c.dollars)) dollars += c.dollars;
+    // Each predicate is applied to the RUNNING TOTAL as well as the summand (#205):
+    // the column holds the total, not the observation. Two individually storable
+    // charges could sum past `NUMERIC(12, 6)`'s 10^6, and one in
+    // [999999.9999995, 10^6) quantises UP to exactly 10^6 -- either way MemoryStore
+    // stored the run and PgStore lost it to `22003 numeric field overflow`. A
+    // summand that would carry the total out of the column's domain is skipped
+    // like any other unstorable one, so the result is still a partial total.
+    if (isCountableTokens(c.input_tokens) && isCountableTokens(input + c.input_tokens)) {
+      input += c.input_tokens;
+    }
+    if (isCountableTokens(c.output_tokens) && isCountableTokens(output + c.output_tokens)) {
+      output += c.output_tokens;
+    }
+    if (
+      isCountableDollars(c.dollars) &&
+      quantiseDollars(dollars + c.dollars) < DOLLARS_MAX_EXCLUSIVE
+    ) {
+      dollars += c.dollars;
+    }
   }
   // `dollars` quantised once, at the end (#143, D-015). Summing at full precision
   // and rounding here keeps a sub-microcent per-step charge in the total while
