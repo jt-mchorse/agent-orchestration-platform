@@ -1,12 +1,14 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { fixtureKeyPart } from "./fixture-key.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
+// owner, repo and ref name the checks fixture file (#207, #213).
 const inputSchema = z.object({
-  owner: z.string().min(1),
-  repo: z.string().min(1),
-  ref: z.string().min(1),
+  owner: fixtureKeyPart,
+  repo: fixtureKeyPart,
+  ref: fixtureKeyPart,
   checkName: z.string().min(1).optional(),
 });
 
