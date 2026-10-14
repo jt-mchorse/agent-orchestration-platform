@@ -266,6 +266,43 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     }
   });
 
+  it_pg("two run_ids differing only in a lone surrogate do not share a row (#209)", async () => {
+    // `pg` sends a parameter as UTF-8, which turns a lone surrogate into U+FFFD,
+    // so before #209 these two ids were ONE row: the second writeRun replaced
+    // the first run, and getRun(first) answered with the second one's pr.
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    const base = await uniqueRunId();
+    const hi = base + String.fromCharCode(0xd800);
+    const lo = base + String.fromCharCode(0xdc00);
+    written.push(hi, lo); // cleanup reaches the U+FFFD row the same way
+    const OTHER: PlannerState["pr"] = { owner: "acme", repo: "beta", number: 99 };
+    const withPr = (pr: PlannerState["pr"]): TraceEvent[] => {
+      const evs = makeEvents();
+      evs[0] = { ts: 1_700_000_000_000, kind: "run_started", pr };
+      return evs;
+    };
+    try {
+      await store.writeRun({ run_id: hi, pr: PR, events: withPr(PR), review: review() }).catch(() => {});
+      await store.writeRun({ run_id: lo, pr: OTHER, events: withPr(OTHER), review: review() }).catch(() => {});
+      const replacement = String.fromCharCode(0xfffd);
+      const merged = await store.getRun(base + replacement);
+      expect(merged?.pr ?? null, "a run stored under the U+FFFD form of either id").toBeNull();
+      expect(await store.getRun(hi)).toBeNull();
+    } finally {
+      await store.close();
+    }
+  });
+
+  it_pg("getRun with a NUL in the id is null, not a 22021 (#209)", async () => {
+    // The trace server hands `GET /api/runs/abc%00def` straight to getRun.
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    try {
+      expect(await store.getRun("abc" + String.fromCharCode(0) + "def")).toBeNull();
+    } finally {
+      await store.close();
+    }
+  });
+
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });

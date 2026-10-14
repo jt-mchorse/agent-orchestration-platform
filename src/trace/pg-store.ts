@@ -20,9 +20,11 @@ import {
   assertPaginationOpts,
   assertEventTsColumns,
   assertPrNumber,
+  assertRunId,
   deriveFinalizedAt,
   deriveStartedAt,
   deriveStatus,
+  isStorableRunId,
   type RunDetail,
   type RunSummary,
   type TraceStore,
@@ -139,6 +141,9 @@ export class PgStore implements TraceStore {
     // reached `runs.pr_number INTEGER` and came back as a raw Postgres
     // `22003 numeric value out of range`.
     assertPrNumber("PgStore.writeRun", input.pr);
+    // A lone surrogate here was silently stored as U+FFFD, so two ids shared a
+    // row and the second write replaced the first run (#209).
+    assertRunId("PgStore.writeRun", input.run_id);
     // Every event's `ts` lands in `trace_events.ts BIGINT`, not only the two
     // the derivations below check (#203).
     assertEventTsColumns("PgStore.writeRun", input.events);
@@ -268,6 +273,10 @@ export class PgStore implements TraceStore {
   }
 
   async getRun(runId: string): Promise<RunDetail | null> {
+    // No stored run can have this id (#209). Asking anyway threw 22021 on a NUL,
+    // a 500 from `GET /api/runs/abc%00def`, and matched the U+FFFD row on a
+    // lone surrogate, returning a run under a different id.
+    if (!isStorableRunId(runId)) return null;
     const pool = await this.getPool();
     const summary = await pool.query<RunRow>(
       `SELECT run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,

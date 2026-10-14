@@ -388,6 +388,38 @@ export function assertPrNumber(fn: string, pr: { number: number }): number {
 }
 
 /**
+ * A `run_id` the `runs.run_id TEXT` column can hold as itself (#209).
+ *
+ * `run_id` is the one column that reaches Postgres only as a `TEXT` parameter,
+ * never inside an event payload, and nothing matched it to that column the way
+ * D-016 matched `pr_number`. Two code points fall outside it. U+0000 is refused
+ * by Postgres (`22021`). A lone surrogate is worse: `pg` encodes the parameter
+ * to UTF-8, which turns it into U+FFFD, so `"x\uD800"` and `"x\uDC00"` were ONE
+ * row and writing the second silently replaced the first run, while
+ * `MemoryStore` kept both. U+FFFD is what #196 proposes for content; for a key it
+ * is a collision, so the id is refused instead.
+ *
+ * In `u` mode a well-formed surrogate PAIR is one astral code point, so `\p{Cs}`
+ * matches only a lone half.
+ */
+const UNSTORABLE_RUN_ID_CHAR = /[\0\p{Cs}]/u;
+
+export function isStorableRunId(runId: string): boolean {
+  return !UNSTORABLE_RUN_ID_CHAR.test(runId);
+}
+
+/** Called from BOTH `writeRun`s, like `assertPrNumber`, and with its posture. */
+export function assertRunId(fn: string, runId: string): string {
+  if (!isStorableRunId(runId)) {
+    throw new TypeError(
+      `${fn}: run_id must not contain U+0000 or a lone surrogate (the runs.run_id TEXT ` +
+        `column cannot hold either as itself); got ${JSON.stringify(runId)}`,
+    );
+  }
+  return runId;
+}
+
+/**
  * The `ts BIGINT` half of `assertEventTs`, on every event a run carries (#203).
  *
  * `assertEventTs` ran only inside the two derivations, so only `run_started`
@@ -547,6 +579,7 @@ export class MemoryStore implements TraceStore {
     // Before anything is stored, and in the same place `PgStore.writeRun`
     // checks it, so the two backends accept exactly the same runs (#145).
     assertPrNumber("MemoryStore.writeRun", input.pr);
+    assertRunId("MemoryStore.writeRun", input.run_id);
     assertEventTsColumns("MemoryStore.writeRun", input.events);
     const summary = summarize(input);
     const total_cost = aggregateCost(input.events);

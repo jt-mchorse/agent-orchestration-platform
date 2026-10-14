@@ -2257,5 +2257,21 @@ measured: "main: feature/x recorded, feature_x -> ToolError internal 'coordinate
 context_for_next_session:
   - A_KEY_FIX_IN_ONE_TOOL_grep_the_EXPRESSION_not_the_function_name_run_check_had_the_identical_replace_line
   - REVERT_PROBE_FOR_A_NEWLY_EXPORTED_HELPER_keep_the_export_swap_the_body_or_the_test_file_fails_to_load_and_counts_as_red_for_the_wrong_reason
+
+session: 2026-10-13T07:43:34Z
+duration_min: 12   # computed: plan comment 2026-10-13T07:43:34Z -> code commit, approx
+issue: 209
+branch: session/2026-10-13-0743-issue-209
+focus: RUN_ID_WAS_UNGUARDED_AGAINST_THE_RUNS_RUN_ID_TEXT_COLUMN_A_LONE_SURROGATE_BECAME_U_FFFD_IN_PG_SO_TWO_IDS_SHARED_ONE_ROW_AND_A_NUL_WAS_A_500_FROM_GET_API_RUNS
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 18
+  suite: "912 -> 928 passed / 9 skipped; typecheck clean; with DATABASE_URL 937/937 incl. pg-store.test.ts 8/8 on real PG 17"
+decisions_made: []
+measured: "real Postgres 17 (homebrew postgresql@17, data /tmp/pg17_hunt2_aop, port 55480): MemoryStore-vs-PgStore differential over 15 adversarial runs, 1 DIFF without a throw: run_id x+U+D800 read back as x+U+FFFD; writing x+U+DC00 afterwards REPLACED the first run (getRun(first).pr.owner = second). NUL run_id: 22021 on writeRun and getRun, GET /api/runs/abc%00def 500 on Pg vs 404 on Memory. Branch: TypeError at the seam on both stores, getRun null without a query. Revert 16 red / 2 green controls (astral pair still legal, ordinary getRun still queries)."
+context_for_next_session:
+  - A_COLUMN_THAT_REACHES_PG_ONLY_AS_A_TEXT_PARAMETER_IS_SILENTLY_RE_ENCODED_lone_surrogate_to_U_FFFD_not_an_error_so_for_a_KEY_the_parity_failure_is_a_COLLISION_not_a_loss
+  - 196_STAYS_OPEN_its_normalise_option_cannot_apply_to_run_id
 followups: []
 ---
