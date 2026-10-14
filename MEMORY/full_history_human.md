@@ -1791,3 +1791,14 @@ between made Postgres reject the write, and the whole run was lost with a raw
 database error, while the in-memory store quietly kept it. Every event is now
 checked up front, so both stores refuse the same runs with the same clear
 message. This was verified against a real Postgres 17.
+
+## 2026-10-13 — A run's total cost always fits the database column (#205)
+
+The database stores a run's total cost with six decimals and a ceiling of one
+million dollars. Each step's cost was checked against that ceiling, but the
+total was not: two large step costs, or one just under a million that rounds up
+to exactly a million, made Postgres reject the write and the whole run was lost,
+while the in-memory store kept it. Now a step cost that would push the total
+past what the column can hold is skipped, the same way other unusable costs
+already are, and token totals likewise stay within what the database stores
+exactly. Verified against a real Postgres 17.

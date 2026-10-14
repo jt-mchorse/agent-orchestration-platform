@@ -2224,3 +2224,22 @@ context_for_next_session:
   - LOCAL_PG17_pg_ctl_D_tmp_pg17_240_o_p_55440_start_connect_as_U_postgres
 followups: []
 ---
+
+---
+session: 2026-10-13T07:17:44Z
+duration_min: 3   # computed: issue filed 2026-10-13T07:17:44Z -> PR opened (gh createdAt), approx
+issue: 205
+branch: session/2026-10-13-0717-issue-205
+focus: AGGREGATECOST_BOUNDED_EACH_DOLLARS_SUMMAND_NOT_THE_TOTAL_THE_NUMERIC_12_6_COLUMN_HOLDS_SO_A_SUM_OR_A_ROUND_UP_TO_1E6_LOST_THE_RUN_IN_PGSTORE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 10
+  suite: "911 -> 921 passed / 8 skipped (rebased on #202 + #204); typecheck clean; pg-store.test.ts 7/7 on real PG 17"
+decisions_made: []
+measured: "real Postgres 17 (homebrew postgresql@17, data /tmp/pg17_hunt_aop, port 55450, LC_ALL=en_US.UTF-8 needed or postmaster refuses to start): 600000+600000 -> 22003 numeric field overflow, 999999.9999996 -> quantised to 1000000 -> 22003; MemoryStore stored both. Branch: second/crossing summand skipped, run stored. Revert 7 red / 3 green controls (boundary kept, no throw, ordinary counts)."
+context_for_next_session:
+  - A_PER_SUMMAND_GUARD_DOES_NOT_BOUND_THE_SUM_check_the_value_the_column_RECEIVES_after_summing_AND_after_rounding
+  - D_015_SKIP_POSTURE_KEPT_no_throw_crossing_summand_skipped
+followups: []
+---
