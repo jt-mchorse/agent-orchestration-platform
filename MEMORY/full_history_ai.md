@@ -2274,4 +2274,21 @@ context_for_next_session:
   - A_COLUMN_THAT_REACHES_PG_ONLY_AS_A_TEXT_PARAMETER_IS_SILENTLY_RE_ENCODED_lone_surrogate_to_U_FFFD_not_an_error_so_for_a_KEY_the_parity_failure_is_a_COLLISION_not_a_loss
   - 196_STAYS_OPEN_its_normalise_option_cannot_apply_to_run_id
 followups: []
+
+session: 2026-10-13T07:57:32Z
+duration_min: 0   # computed at PR time from gh createdAt; see PR
+issue: 211
+branch: session/2026-10-13-0757-issue-211
+focus: A_ZERO_BACKOFFMS_TIMES_AN_OVERFLOWED_MULTIPLIER_POWER_WAS_0_TIMES_INFINITY_NAN_WHICH_PASSED_122S_PEAK_CHECK_AND_THE_CAP_AND_WAS_SLEPT_AND_TRACED_AS_NULL
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "919 passed / 7 skipped (5 red + 2 controls new); typecheck clean"
+decisions_made: []
+measured: "main: {maxAttempts 4, backoffMs 0, multiplier 1e300} NaN at attempt 3; {1100, 0} NaN at attempt 1025, with or without backoffMaxMs 1000; setTimeout(NaN) = 1 ms + TimeoutNaNWarning; trace JSON backoffMs null. Revert 5 red / 2 green."
+context_for_next_session:
+  - A_GREATER_THAN_GUARD_IS_FALSE_FOR_NAN_ask_which_finite_inputs_make_the_checked_product_NaN_zero_times_overflow
+followups:
+  - RetryPolicy_maxAttempts_doc_in_tools_types_still_says_clamped_to_ge_1_at_runtime_false_since_29
 ---

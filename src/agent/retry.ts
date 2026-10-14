@@ -170,7 +170,7 @@ function validatePolicy(policy: RetryPolicy): void {
   // applies it, rather than checking the raw exponential alone.
   if (policy.maxAttempts >= 2) {
     const multiplier = policy.backoffMultiplier ?? 2.0;
-    const rawPeak = policy.backoffMs * multiplier ** (policy.maxAttempts - 2);
+    const rawPeak = scheduledBackoffMs(policy.backoffMs, multiplier, policy.maxAttempts - 2);
     const peak =
       policy.backoffMaxMs !== undefined ? Math.min(rawPeak, policy.backoffMaxMs) : rawPeak;
     if (peak > MAX_TIMER_MS) {
@@ -183,6 +183,24 @@ function validatePolicy(policy: RetryPolicy): void {
       );
     }
   }
+}
+
+/**
+ * The un-capped, un-jittered delay before retry `exponent + 1`:
+ * `base * multiplier ** exponent`. The one place both `validatePolicy` and the
+ * loop compute it, so the value checked is the value slept (#211).
+ *
+ * A zero base is zero at every exponent. In floats it is not: once
+ * `multiplier ** exponent` overflows to `Infinity` (attempt 1025 at the default
+ * multiplier 2, attempt 3 at 1e300), `0 * Infinity` is `NaN`. `NaN > limit` is
+ * false, so the peak check and the `backoffMaxMs` cap both let it through, and
+ * the loop slept `NaN` (Node: 1 ms plus a `TimeoutNaNWarning`) and reported
+ * `backoffMs: NaN`, which the trace stores serialise as `null`. For a positive
+ * base the product is finite or `+Infinity`, and the checks already handle both.
+ */
+function scheduledBackoffMs(base: number, multiplier: number, exponent: number): number {
+  if (base === 0) return 0;
+  return base * multiplier ** exponent;
 }
 
 export async function withRetry<T>(
@@ -231,7 +249,7 @@ export async function withRetry<T>(
       // that took under a millisecond. `validatePolicy` now makes an over-limit
       // sleep unconstructible, so no separate reporting fix is needed — the
       // number below and the real sleep agree because the clamp can't fire.
-      let backoffMs = policy.backoffMs * multiplier ** (attempt - 1);
+      let backoffMs = scheduledBackoffMs(policy.backoffMs, multiplier, attempt - 1);
       if (policy.backoffMaxMs !== undefined && backoffMs > policy.backoffMaxMs) {
         backoffMs = policy.backoffMaxMs;
       }

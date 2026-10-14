@@ -1823,3 +1823,15 @@ the in-memory store kept both. A NUL in a hand-typed run URL made the trace
 viewer return a server error. Both stores now refuse such an id with a clear
 message, and looking one up returns "not found". Verified against a real
 Postgres 17.
+
+## 2026-10-13 — A zero retry delay no longer becomes "not a number" (#211)
+
+A tool's retry policy can ask for no delay between attempts (`backoffMs: 0`).
+The delay is computed as the base times the multiplier raised to the attempt
+number. With a large multiplier, or more than about a thousand attempts, that
+power becomes infinite, and zero times infinity is "not a number" in
+JavaScript. The safety check added in #122 compares the delay to a maximum, and
+that comparison is always false for "not a number", so the policy was
+accepted. The retry then slept a 1 ms timer with a Node warning, and the trace
+recorded the delay as `null`. A zero delay is now zero at every attempt, and the
+check and the retry loop use one shared calculation.
