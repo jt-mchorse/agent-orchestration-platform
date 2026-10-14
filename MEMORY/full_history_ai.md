@@ -2292,3 +2292,22 @@ context_for_next_session:
 followups:
   - RetryPolicy_maxAttempts_doc_in_tools_types_still_says_clamped_to_ge_1_at_runtime_false_since_29
 ---
+
+---
+session: 2026-10-14T07:18:43Z
+duration_min: 12   # computed: issue filed 2026-10-14T07:18:43Z -> PR opened (gh createdAt), approx
+issue: 213
+branch: session/2026-10-14-0718-issue-213
+focus: THE_202_INJECTIVE_KEY_ENCODEURICOMPONENT_THROWS_URIERROR_ON_A_LONE_SURROGATE_THE_SCHEMA_ACCEPTED_SO_READ_FILE_AT_REF_ABORTED_THE_WHOLE_RUN_AND_208_COPIES_IT_INTO_RUN_CHECK
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 17
+  suite: "921 -> 938 passed / 8 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 8ca594f: read_file_at_ref ref 'feature'+U+D800 via ToolRegistry.invoke -> URIError 'URI malformed' (not ToolError); via AgentRun + ScriptedPlanner the run aborts after step_started (no observation, no finalized). run_check: missing_fixture on main, URIError on PR #208's head. Branch: input_validation, run finalizes. Revert 15 red / 2 green on main (astral-pair control; run_check AgentRun arm, which main's old key cannot throw on); on #208's head 16 red / 1 green, and the fix applies cleanly over #208."
+context_for_next_session:
+  - A_KEY_FUNCTION_SWAPPED_FOR_AN_INJECTIVE_ONE_CAN_HAVE_A_NARROWER_DOMAIN_encodeURIComponent_is_total_only_on_well_formed_UTF_16_check_the_schema_admits_nothing_the_new_key_throws_on
+  - THE_EXECUTOR_RERAISES_ANY_NON_TOOLERROR_AS_A_PROGRAMMER_BUG_so_a_throw_from_a_tool_on_planner_supplied_input_aborts_the_run
+followups: []
+---
