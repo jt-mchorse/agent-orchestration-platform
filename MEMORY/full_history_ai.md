@@ -2311,3 +2311,22 @@ context_for_next_session:
   - THE_EXECUTOR_RERAISES_ANY_NON_TOOLERROR_AS_A_PROGRAMMER_BUG_so_a_throw_from_a_tool_on_planner_supplied_input_aborts_the_run
 followups: []
 ---
+
+---
+session: 2026-10-14T07:21:51Z
+duration_min: 15   # computed: issue filed -> PR opened (gh createdAt), approx
+issue: 215
+branch: session/2026-10-14-0721-issue-215
+focus: SEARCH_REPO_SLICED_ITS_240_UNIT_LINEHINT_IN_UTF16_CODE_UNITS_SO_AN_EMOJI_ON_THE_CUT_LEFT_A_LONE_SURROGATE_THE_TOOL_ITSELF_MADE_AND_PGSTORE_LOST_THE_RUN_TO_JSONB
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 10
+  suite: "942 -> 951 passed / 11 skipped (rebased on #208 + #210); typecheck clean; pg-store.test.ts 10/10 on real PG 17"
+decisions_made: []
+measured: "real Postgres 17 (homebrew postgresql@17, data /tmp/h1014/pg_aop, port 55442, LC_ALL=en_US.UTF-8): fixture line '+'+'x'*235+U+1F600+'needle...' -> hint keeps the high half -> PgStore.writeRun 'invalid input syntax for type json', getRun null; MemoryStore stored it. Pad 236 (pair after the cut) was fine. Branch: cut backs off one unit, run kept. Revert 3 red / 7 green controls (neighbouring offsets, ASCII cut unchanged)."
+context_for_next_session:
+  - A_LENGTH_CAP_IN_CODE_UNITS_ON_TEXT_THAT_IS_PERSISTED_AS_JSON_CAN_MANUFACTURE_A_LONE_SURROGATE_distinct_from_196_where_the_input_is_already_ill_formed
+  - SRC_UI_APP_JS_SHORTJSON_HAS_THE_SAME_SLICE_render_only_left_alone
+followups: []
+---
