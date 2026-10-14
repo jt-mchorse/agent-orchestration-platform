@@ -10,9 +10,13 @@
  *   DATABASE_URL=postgresql://agent:agent@localhost:5433/agent_trace npm test
  */
 
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { TraceEvent } from "../../src/agent/trace.js";
 import type { PlannerState, Review } from "../../src/agent/types.js";
+import { searchRepoTool } from "../../src/tools/search-repo.js";
 import { PgStore } from "../../src/trace/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -113,6 +117,39 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
       expect(detail?.recommendation).toBe("approve");
     } finally {
       await store.close();
+    }
+  });
+
+  it_pg("keeps a run whose search_repo hint was cut beside an emoji (#215)", async () => {
+    // The hint cap sliced UTF-16 code units, so an astral character straddling
+    // the cut left its high half in the observation, `jsonb` refused it, and the
+    // whole run was lost here while MemoryStore kept it.
+    const dir = await mkdtemp(path.join(tmpdir(), "aop-215-"));
+    const line = `+${"x".repeat(235)}${String.fromCodePoint(0x1f600)}needle${"z".repeat(20)}`;
+    await writeFile(
+      path.join(dir, "pr.json"),
+      JSON.stringify({ repo: "o/r", files: [{ filename: "a.txt", patch: `@@ -0,0 +1 @@\n${line}` }] }),
+    );
+    const step = { rationale: "r", tool: "search_repo", input: { owner: "o", repo: "r", query: "needle" } };
+    const store = new PgStore({ connectionString: DATABASE_URL as string });
+    const runId = await uniqueRunId();
+    try {
+      const value = await searchRepoTool.run(
+        { owner: "o", repo: "r", query: "needle", maxResults: 20 },
+        { mode: "replay", fixturesDir: dir },
+      );
+      const events: TraceEvent[] = [
+        { ts: 1_700_000_000_000, kind: "run_started", pr: PR },
+        { ts: 1_700_000_000_001, kind: "observation", observation: { step, outcome: { kind: "ok", value } } },
+        { ts: 1_700_000_000_002, kind: "finalized", review: review() },
+      ];
+      await store.writeRun({ run_id: runId, pr: PR, events, review: review() });
+      const detail = await store.getRun(runId);
+      expect(detail).not.toBeNull();
+      expect(detail?.events[1]).toEqual(events[1]);
+    } finally {
+      await store.close();
+      await rm(dir, { recursive: true, force: true });
     }
   });
 

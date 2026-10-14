@@ -34,12 +34,27 @@ const fixtureLiteSchema = z.object({
   ),
 });
 
+/**
+ * `raw` cut to at most `max` UTF-16 code units, never between the two halves
+ * of a surrogate pair (#215). A plain `slice(0, max)` kept the high half of an
+ * astral character (an emoji) straddling the cut, so a well-formed fixture line
+ * became an ill-formed hint; `PgStore` sends the observation to a `jsonb`
+ * column, which refuses a lone surrogate, and the whole run was lost while
+ * `MemoryStore` kept it.
+ */
+export function sliceCodeUnits(raw: string, max: number): string {
+  const last = raw.charCodeAt(max - 1);
+  const next = raw.charCodeAt(max);
+  const splitsPair = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
+  return raw.slice(0, splitsPair ? max - 1 : max);
+}
+
 function firstMatchingLine(patch: string | null, needle: string): string | null {
   if (!patch) return null;
   const lower = needle.toLowerCase();
   for (const raw of patch.split("\n")) {
     if (raw.toLowerCase().includes(lower)) {
-      return raw.length > 240 ? `${raw.slice(0, 237)}...` : raw;
+      return raw.length > 240 ? `${sliceCodeUnits(raw, 237)}...` : raw;
     }
   }
   return null;
