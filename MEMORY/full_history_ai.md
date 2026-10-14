@@ -2330,3 +2330,22 @@ context_for_next_session:
   - SRC_UI_APP_JS_SHORTJSON_HAS_THE_SAME_SLICE_render_only_left_alone
 followups: []
 ---
+
+---
+session: 2026-10-14T07:30:00Z
+duration_min: 10   # computed: plan comment ~2026-10-14T07:30Z -> code commit, approx
+issue: 217
+branch: session/2026-10-14-0730-issue-217
+focus: TRACE_SERVER_READ_ITS_ONE_FLAG_WITH_ARGV_INCLUDES_SO_A_TYPOD_MEMROY_SILENTLY_STARTED_PGSTORE_AND_HELP_HELD_A_PORT_THE_THIRD_BIN_188_AND_161_DID_NOT_ENUMERATE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "955 passed / 10 skipped (5 red + 1 baseline new); typecheck clean"
+decisions_made: []
+measured: "main, DATABASE_URL unreachable, PORT=0: --memroy and --help both printed 'started with PgStore', bound a port, GET /api/runs 500 ECONNREFUSED. Branch: --memroy / memory / --memory --port=9000 exit 2 naming the argument, --help / -h exit 0 with usage, none binds. Revert 5 red / 1 green (--memory baseline)."
+context_for_next_session:
+  - A_CLI_CONTRACT_FIX_enumerate_EVERY_file_in_src_bin_not_the_one_the_issue_named
+  - A_REFUSAL_TEST_FOR_A_SERVER_must_assert_the_process_EXITS_ON_ITS_OWN_a_bound_server_never_does
+followups: []
+---
