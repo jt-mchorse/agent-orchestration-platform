@@ -1802,3 +1802,13 @@ while the in-memory store kept it. Now a step cost that would push the total
 past what the column can hold is skipped, the same way other unusable costs
 already are, and token totals likewise stay within what the database stores
 exactly. Verified against a real Postgres 17.
+
+## 2026-10-13 — CI-check recordings get a file per ref (#207)
+
+The CI-check tool reads recorded check results from a file named after the
+owner, repository and branch. Slashes in the name were turned into
+underscores, so branches like `feature/x` and `feature_x` shared one file: only
+one of them could be recorded, and asking for the other reported a corrupt
+recording instead of "no recording". This is the same naming problem fixed in
+the file-reading tool yesterday; the CI-check tool now uses the same
+collision-free naming.

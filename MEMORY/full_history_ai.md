@@ -2241,5 +2241,21 @@ measured: "real Postgres 17 (homebrew postgresql@17, data /tmp/pg17_hunt_aop, po
 context_for_next_session:
   - A_PER_SUMMAND_GUARD_DOES_NOT_BOUND_THE_SUM_check_the_value_the_column_RECEIVES_after_summing_AND_after_rounding
   - D_015_SKIP_POSTURE_KEPT_no_throw_crossing_summand_skipped
+
+session: 2026-10-13T07:21:00Z
+duration_min: 6   # computed: plan comment ~2026-10-13T07:21Z -> PR opened (gh createdAt), approx
+issue: 207
+branch: session/2026-10-13-0721-issue-207
+focus: RUN_CHECK_BUILT_ITS_FIXTURE_NAME_WITH_THE_SAME_NON_INJECTIVE_KEY_202_REPLACED_IN_READ_FILE_AT_REF_202_DID_NOT_LIST_IT
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "912 -> 917 passed / 7 skipped; typecheck clean"
+decisions_made: []
+measured: "main: feature/x recorded, feature_x -> ToolError internal 'coordinates do not match' (should be missing_fixture); both refs unrecordable together. Branch: missing_fixture, and both refs read their own. Revert probe (export kept, OLD key body, so the file still loads): 4 red / 1 green control (single-file-name arm)."
+context_for_next_session:
+  - A_KEY_FIX_IN_ONE_TOOL_grep_the_EXPRESSION_not_the_function_name_run_check_had_the_identical_replace_line
+  - REVERT_PROBE_FOR_A_NEWLY_EXPORTED_HELPER_keep_the_export_swap_the_body_or_the_test_file_fails_to_load_and_counts_as_red_for_the_wrong_reason
 followups: []
 ---
