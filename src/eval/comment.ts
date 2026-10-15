@@ -210,7 +210,12 @@ export function resolveToken(opts: UpsertOptions): string {
     throw new Error(
       `GitHub token missing: pass \`token\` or set ${TOKEN_ENV_NAMES.join(" / ")}. ` +
         "An empty or whitespace-only value counts as missing. " +
-        "In Actions, `permissions: pull-requests: write` makes this automatic.",
+        // Was "In Actions, `permissions: pull-requests: write` makes this
+        // automatic." It does not: `permissions` sets what the job token may
+        // do, not whether a `run:` step can see it. Following that hint left
+        // the env unchanged and reproduced this same error (#219).
+        "In Actions, map it into the step with `env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` " +
+        "and give the job `permissions: pull-requests: write` so it can post.",
     );
   }
   return token;
