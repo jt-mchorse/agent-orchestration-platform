@@ -1867,3 +1867,13 @@ database connection error that said nothing about the flag. `--help` did the
 same and held a port open. The other two command-line tools already reject an
 unknown flag and answer `--help`; the trace viewer now does too, before it
 starts anything.
+
+## 2026-10-15 — The missing-token hint now names the step a workflow is missing (#219)
+
+When `eval --comment` ran with no GitHub token, its error said that giving the
+job `permissions: pull-requests: write` "makes this automatic". It does not.
+That setting only controls what the job's token is allowed to do. A `run:`
+step only sees the token if the workflow maps it in with
+`env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`, which is what this repo's own
+eval workflow does. An operator who followed the old hint got the same error
+again. The hint now names the `env:` mapping and the permission together.
