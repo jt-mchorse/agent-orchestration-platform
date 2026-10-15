@@ -1888,3 +1888,12 @@ never used that kind of attribute, so the viewer looked fine until you opened a
 run. The styling now lives with the rest of the page's styles, and a test fails
 if that kind of attribute comes back. Checked in a real Chrome against both
 sample runs.
+
+## 2026-10-15 — A mistyped run link no longer blanks the trace viewer (#223)
+
+The viewer puts the open run in the page address (`#run=<id>`). A hand-typed
+address with a stray `%` in it made the page fail while reading it, and the
+whole viewer went blank, including the run list. The server had already been
+fixed for the same input (#155) and treats it as a run that does not exist. The
+page now does the same: it shows its normal "run not found" message with a
+link back to the list. Checked in a real Chrome.
