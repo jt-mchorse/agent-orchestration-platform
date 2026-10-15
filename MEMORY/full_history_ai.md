@@ -2367,3 +2367,22 @@ context_for_next_session:
   - AN_ERROR_HINT_IS_A_PROSE_ASSERTION_follow_it_literally_and_check_the_error_goes_away
 followups: []
 ---
+
+---
+session: 2026-10-15T07:42:40Z
+duration_min: 10   # computed: issue filed 2026-10-15T07:42:40Z -> PR opened (gh createdAt), approx
+issue: 221
+branch: session/2026-10-15-0742-issue-221
+focus: THE_RUN_DETAIL_SCREEN_NEVER_RENDERED_A_STRING_STYLE_ATTRIBUTE_IN_AN_HTM_TEMPLATE_IS_REACT_ERROR_62_AND_WITH_NO_ERROR_BOUNDARY_THE_WHOLE_ROOT_UNMOUNTED
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "984 passed / 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 22516af, trace-server --memory + headless Chrome (playwright-core): list screen renders; #run=sample-finalized and #run=sample-aborted root empty, pageerror 'Minified React error #62'; #run=nope renders its 404 text (error branch has no style attr). Branch: both sample runs render, .review .meta computed 10px / 12px / rgb(138,147,166). Revert 2 red / 1 green (class-defined check, green on main by construction); index.html-only revert 2 red."
+context_for_next_session:
+  - APP_JS_IS_ONLY_TESTED_AS_AN_OPAQUE_STATIC_ASSET_render_it_in_a_real_browser_the_success_branch_after_a_fetch_is_where_this_hid
+  - USEHASHROUTE_DECODEURICOMPONENT_ON_A_HAND_TYPED_HASH_THROWS_URIERROR_IN_RENDER_the_client_twin_of_155
+followups: []
+---

@@ -1877,3 +1877,14 @@ step only sees the token if the workflow maps it in with
 `env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`, which is what this repo's own
 eval workflow does. An operator who followed the old hint got the same error
 again. The hint now names the `env:` mapping and the permission together.
+
+## 2026-10-15 — The trace viewer's run-detail screen renders again (#221)
+
+Clicking any run in the trace viewer showed a blank page, for every run,
+including the two sample runs the viewer ships with. One line of the detail
+screen set its styling as a plain text attribute, which the React library the
+page uses refuses outright; the error took the whole page down. The list of runs
+never used that kind of attribute, so the viewer looked fine until you opened a
+run. The styling now lives with the rest of the page's styles, and a test fails
+if that kind of attribute comes back. Checked in a real Chrome against both
+sample runs.
