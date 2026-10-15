@@ -1835,3 +1835,14 @@ that comparison is always false for "not a number", so the policy was
 accepted. The retry then slept a 1 ms timer with a Node warning, and the trace
 recorded the delay as `null`. A zero delay is now zero at every attempt, and the
 check and the retry loop use one shared calculation.
+
+## 2026-10-14 — An odd character in a branch name no longer crashes a review (#213)
+
+The fix for #201 named cached files by percent-encoding each part of the name.
+That encoding fails outright on a "lone surrogate", a broken half of an emoji
+that JSON can still carry. The tools accepted such names, so when the planner
+asked `read_file_at_ref` for one, the tool crashed with an unexpected error and
+the whole agent run stopped without a review. `run_check` did the same once
+#208 landed (mid-session), because it adopts the same naming. Both tools now reject
+these names as invalid input, and the planner sees that as an ordinary failed
+step it can plan around. No real branch or file name can contain one.

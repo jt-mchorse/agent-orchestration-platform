@@ -1,13 +1,15 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { fixtureKeyPart } from "./fixture-key.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
+// Every component is a `cacheKeyFile` component (#213).
 const inputSchema = z.object({
-  owner: z.string().min(1),
-  repo: z.string().min(1),
-  ref: z.string().min(1),
-  path: z.string().min(1),
+  owner: fixtureKeyPart,
+  repo: fixtureKeyPart,
+  ref: fixtureKeyPart,
+  path: fixtureKeyPart,
 });
 
 const outputSchema = z.object({
