@@ -120,8 +120,43 @@ async function maybeSeedMemoryStore(store: MemoryStore): Promise<void> {
 /** Port the README documents (`http://localhost:8766/`). */
 const DEFAULT_PORT = 8766;
 
+const USAGE =
+  "usage: trace-server [--memory]\n" +
+  "\n" +
+  "  --memory  Serve a MemoryStore seeded with two sample runs (no database).\n" +
+  "            Without it the server reads Postgres (DATABASE_URL or the local default).\n" +
+  "  PORT      Environment variable; default 8766, 0 picks a free port.\n";
+
+/**
+ * Every argument is checked before a store is built or a port is bound (#217).
+ * `process.argv.includes("--memory")` ignored everything else, so a typo'd
+ * `--memroy` silently started the Postgres-backed server -- on a fresh clone
+ * every call a 500 naming the refused connection, not the flag -- and `--help`
+ * held a port. Same contract as `validate.ts` (#188) and `eval-runner.ts` (#161):
+ * unknown argument exit 2, `--help` exit 0.
+ */
+function parseArgs(argv: string[]): { useMemory: boolean } | { exit: number } {
+  let useMemory = false;
+  for (const a of argv) {
+    if (a === "--memory") useMemory = true;
+    else if (a === "--help" || a === "-h") {
+      process.stdout.write(USAGE);
+      return { exit: 0 };
+    } else {
+      process.stderr.write(`unknown argument: ${a}\n${USAGE}`);
+      return { exit: 2 };
+    }
+  }
+  return { useMemory };
+}
+
 async function main(): Promise<void> {
-  const useMemory = process.argv.includes("--memory");
+  const args = parseArgs(process.argv.slice(2));
+  if ("exit" in args) {
+    process.exitCode = args.exit;
+    return;
+  }
+  const { useMemory } = args;
   // `Number(process.env.PORT) || 8766` until #132: it rejected the values
   // that are falsy rather than the ones that are invalid, so `PORT=0` (the
   // standard "pick a free port") was unreachable while `PORT=abc` and

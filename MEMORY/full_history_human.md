@@ -1856,3 +1856,14 @@ inside the JSON it stores, so the whole run was lost, while the in-memory store
 kept it. The tool's own input was fine; the shortening created the problem.
 The cut now steps back one unit instead of splitting a character. Verified
 against a real Postgres 17.
+
+## 2026-10-14 — The trace viewer refuses a mistyped flag instead of starting the wrong server (#217)
+
+The trace viewer has one option, `--memory`, which starts it with two sample
+runs and no database. It only checked whether that exact word was present and
+ignored everything else, so a typo such as `--memroy` quietly started the
+database-backed server instead; on a fresh clone every page then failed with a
+database connection error that said nothing about the flag. `--help` did the
+same and held a port open. The other two command-line tools already reject an
+unknown flag and answer `--help`; the trace viewer now does too, before it
+starts anything.
