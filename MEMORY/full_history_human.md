@@ -1897,3 +1897,15 @@ whole viewer went blank, including the run list. The server had already been
 fixed for the same input (#155) and treats it as a run that does not exist. The
 page now does the same: it shows its normal "run not found" message with a
 link back to the list. Checked in a real Chrome.
+
+## 2026-10-15 — The trace viewer shows why a tool was retried or swapped (#225)
+
+When a tool call fails, the agent can retry it or switch to a backup tool, and
+it records each of those as an event in the run's history. The trace viewer
+was built two days before those two events existed and never learned to show
+them. It printed them as raw data cut off after 120 characters, and the cut
+landed before the error message, so the reason for the retry or the switch
+never appeared. Both events now get their own readable line with the tool
+names, the attempt and wait time, and the error, and their own colour in the
+timeline. A test now fails if a new event type is added without the viewer
+showing it. Checked in a real Chrome.

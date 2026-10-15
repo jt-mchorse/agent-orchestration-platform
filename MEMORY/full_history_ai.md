@@ -2405,3 +2405,22 @@ context_for_next_session:
   - APP_JS_HELPERS_ARE_TESTED_BY_EVALUATING_THEIR_SHIPPED_SOURCE_it_imports_React_from_a_CDN_and_renders_at_import
 followups: []
 ---
+
+---
+session: 2026-10-15T07:54:00Z
+duration_min: 15   # computed: issue filed ~2026-10-15T07:53Z -> code commit, approx
+issue: 225
+branch: session/2026-10-15-0754-issue-225
+focus: THE_VIEWER_PREDATES_THE_RETRY_EVENTS_EVENTBODY_HAD_NO_CASE_FOR_RETRY_ATTEMPTED_OR_FALLBACK_USED_SO_THE_120_CHAR_JSON_CUT_DROPPED_THE_ERROR_MESSAGE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 22
+  suite: "1003 passed / 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 22516af, eventBody evaluated from the shipped source: retry_attempted -> '{\"ts\":...,\"kind\":\"retry_attempted\",...,\"error\":{\"name...' and fallback_used likewise cut inside error; observation with the same ToolError shows 'error: timeout - <message>'. Headless Chrome (playwright-core, #222 + #224 applied, MemoryStore run with all nine kinds): both rows truncated JSON with border-colour dots. Branch: both rows show tool/attempt/backoff or from->to plus '<kind> - <message>', dots rgb(252,211,77). Revert 6 red / 16 green (the seven pre-existing kinds' case + dot rows, observation body, union sanity); index.html-only revert 2 red, app.js-only 4 red."
+context_for_next_session:
+  - A_UNION_THE_VIEWER_SWITCHES_ON_IS_NOW_READ_FROM_SRC_AGENT_TRACE_TS_a_new_TraceEvent_kind_fails_test_ui_app_event_body_until_app_js_and_index_html_render_it
+  - TIMELINE_TS_IS_RAW_EPOCH_MS_and_the_review_meta_line_loses_the_space_after_two_separators_htm_trims_newline_whitespace_before_an_interpolation_not_filed
+followups: []
+---
