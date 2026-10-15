@@ -48,8 +48,15 @@ function eventBody(ev) {
     case "observation": {
       const o = ev.observation;
       if (o.outcome.kind === "ok") return `ok: ${o.step.tool} → ${shortJson(o.outcome.value)}`;
-      return `error: ${o.outcome.error.kind} — ${o.outcome.error.message}`;
+      return `error: ${errorLine(o.outcome.error)}`;
     }
+    // The recovery events #5 added (#225). They fell to `default`, whose
+    // 120-char JSON cut spent its budget on `ts` and `kind` and ended inside
+    // `error`, so the message these events exist to record never showed.
+    case "retry_attempted":
+      return `${ev.toolName} attempt ${ev.attempt} failed, retrying in ${ev.backoffMs}ms · error: ${errorLine(ev.error)}`;
+    case "fallback_used":
+      return `${ev.from} → ${ev.to} · error: ${errorLine(ev.error)}`;
     case "re_plan_triggered":
       return `${ev.reason.kind}: ${ev.reason.toolName}`;
     case "finalized":
@@ -59,6 +66,10 @@ function eventBody(ev) {
     default:
       return shortJson(ev);
   }
+}
+
+function errorLine(error) {
+  return `${error.kind} — ${error.message}`;
 }
 
 function eventClass(ev) {
