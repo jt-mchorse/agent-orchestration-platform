@@ -90,3 +90,60 @@ describe("search_repo (replay) — tolerates a malformed .json in the fixtures d
     expect(result.truncated).toBe(false);
   });
 });
+
+describe("search_repo hint cap keeps surrogate pairs whole (#215)", () => {
+  // `${raw.slice(0, 237)}...` counted UTF-16 code units, so an astral
+  // character straddling the cut left a lone high surrogate in the hint.
+  // PgStore persists the observation as jsonb, which refuses one, so the run
+  // was lost there while MemoryStore kept it. Built from code points.
+  const EMOJI = String.fromCodePoint(0x1f600);
+  const LONE = /\p{Cs}/u;
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true });
+    dir = "";
+  });
+
+  async function hintFor(line: string): Promise<string> {
+    dir = await mkdtemp(path.join(tmpdir(), "aop-215-"));
+    await writeFile(
+      path.join(dir, "pr.json"),
+      JSON.stringify({ repo: "o/r", files: [{ filename: "a.txt", patch: `@@ -0,0 +1 @@\n${line}` }] }),
+    );
+    const out = await searchRepoTool.run(
+      { owner: "o", repo: "r", query: "needle", maxResults: 20 },
+      { mode: "replay", fixturesDir: dir },
+    );
+    const hint = out.matches[0]?.lineHint;
+    if (hint === undefined) throw new Error("no match");
+    return hint;
+  }
+
+  // The emoji's high half lands at code unit 232..238, around the 237 cut.
+  it.each([231, 232, 233, 234, 235, 236, 237])(
+    "an emoji after %i ASCII units leaves a well-formed hint of at most 240 units",
+    async (pad) => {
+      const line = `+${"x".repeat(pad)}${EMOJI}needle${"z".repeat(20)}`;
+      const hint = await hintFor(line);
+      expect(LONE.test(hint)).toBe(false);
+      expect(hint.length).toBeLessThanOrEqual(240);
+      expect(hint.endsWith("...")).toBe(true);
+      // Nothing beyond the one split character is dropped.
+      expect(line.startsWith(hint.slice(0, -3))).toBe(true);
+      expect(hint.length).toBeGreaterThanOrEqual(239);
+    },
+  );
+
+  it("a line of emoji is cut between pairs, not inside one", async () => {
+    // 8 units of prefix put every pair's high half on an even index, 236 included.
+    const hint = await hintFor(`+needle ${EMOJI.repeat(200)}`);
+    expect(LONE.test(hint)).toBe(false);
+    expect(hint.length).toBeLessThanOrEqual(240);
+  });
+
+  it("an all-ASCII line is cut exactly where it was", async () => {
+    const line = `+needle${"a".repeat(300)}`;
+    expect(await hintFor(line)).toBe(`${line.slice(0, 237)}...`);
+  });
+});

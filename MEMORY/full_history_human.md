@@ -1846,3 +1846,13 @@ the whole agent run stopped without a review. `run_check` did the same once
 #208 landed (mid-session), because it adopts the same naming. Both tools now reject
 these names as invalid input, and the planner sees that as an ordinary failed
 step it can plan around. No real branch or file name can contain one.
+
+## 2026-10-14 — A search result next to an emoji no longer loses the run (#215)
+
+`search_repo` shortens a long matching line to 240 characters. It counted in
+JavaScript's internal units, where an emoji takes two, so when an emoji sat
+exactly on the cut, the hint kept half of it. Postgres refuses that broken half
+inside the JSON it stores, so the whole run was lost, while the in-memory store
+kept it. The tool's own input was fine; the shortening created the problem.
+The cut now steps back one unit instead of splitting a character. Verified
+against a real Postgres 17.
