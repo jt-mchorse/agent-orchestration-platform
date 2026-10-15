@@ -176,6 +176,9 @@ function RunDetail({ runId, onBack }) {
   // htm passes that attribute through as a string, React accepts only an object
   // for `style` and throws #62, and with no error boundary the throw unmounted
   // the app: this screen was blank for every run that loaded.
+  // Never end a text line just before a line that starts with `${...}` (#227).
+  // htm trims newline-bearing whitespace at both ends of every text chunk, so
+  // "· \n ${x}" renders as "·x": the status line read "·1200/300 tokens ·$0.02".
   return html`
     <div class="nav"><a onClick=${onBack}>← runs</a> · <span class="crumb">${run.run_id}</span></div>
     <h2>${run.pr.owner}/${run.pr.repo}#${run.pr.number}</h2>
@@ -187,9 +190,7 @@ function RunDetail({ runId, onBack }) {
       <div class="meta">
         Status: <span class=${"status-" + run.status}>${run.status}</span> ·
         Started ${fmtTs(run.started_at)} ·
-        Finalized ${fmtTs(run.finalized_at)} ·
-        ${run.total_cost.input_tokens}/${run.total_cost.output_tokens} tokens ·
-        ${fmtDollars(run.total_cost.dollars)}
+        Finalized ${fmtTs(run.finalized_at)} · ${run.total_cost.input_tokens}/${run.total_cost.output_tokens} tokens · ${fmtDollars(run.total_cost.dollars)}
       </div>
     </div>
     <h2>Timeline (${run.events.length})</h2>
