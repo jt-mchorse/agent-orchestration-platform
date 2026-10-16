@@ -144,6 +144,10 @@ function RunDetail({ runId, onBack }) {
   }, [runId]);
   if (err) return html`<div class="empty">Failed to load run: ${err}</div>`;
   if (!run) return html`<div class="empty">Loading…</div>`;
+  // Styling goes in index.html's classes, never an inline `style="..."` (#221).
+  // htm passes that attribute through as a string, React accepts only an object
+  // for `style` and throws #62, and with no error boundary the throw unmounted
+  // the app: this screen was blank for every run that loaded.
   return html`
     <div class="nav"><a onClick=${onBack}>← runs</a> · <span class="crumb">${run.run_id}</span></div>
     <h2>${run.pr.owner}/${run.pr.repo}#${run.pr.number}</h2>
@@ -152,7 +156,7 @@ function RunDetail({ runId, onBack }) {
       ${run.recommendation
         ? html`<div class=${"reco reco-" + run.recommendation}>${recoLabel(run.recommendation)}</div>`
         : null}
-      <div style="margin-top: 10px; font-size: 12px; color: var(--muted);">
+      <div class="meta">
         Status: <span class=${"status-" + run.status}>${run.status}</span> ·
         Started ${fmtTs(run.started_at)} ·
         Finalized ${fmtTs(run.finalized_at)} ·
