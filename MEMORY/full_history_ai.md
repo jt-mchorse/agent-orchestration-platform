@@ -2349,3 +2349,21 @@ context_for_next_session:
   - A_REFUSAL_TEST_FOR_A_SERVER_must_assert_the_process_EXITS_ON_ITS_OWN_a_bound_server_never_does
 followups: []
 ---
+
+---
+session: 2026-10-15T07:17:00Z
+duration_min: 8   # computed: branch cut 2026-10-15T07:17Z -> memory commit, approx (plan comment posted 2026-10-14T07:49:06Z)
+issue: 219
+branch: session/2026-10-15-0717-issue-219
+focus: THE_MISSING_TOKEN_HINT_SAID_PERMISSIONS_PULL_REQUESTS_WRITE_MAKES_THE_TOKEN_AUTOMATIC_BUT_PERMISSIONS_ONLY_SCOPES_IT_A_RUN_STEP_NEEDS_THE_ENV_MAPPING
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "969 passed / 10 skipped on d18a6dd; 984 passed / 11 skipped after rebase onto 22516af; typecheck clean"
+decisions_made: []
+measured: "origin/main d18a6dd: env -u GITHUB_TOKEN -u GH_TOKEN npm run -s eval -- --comment --repo a/b --pr 1 -> ::error:: ending 'In Actions, `permissions: pull-requests: write` makes this automatic.' exit 2. Branch: hint names `env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` plus the permission. Revert 3 red (2 new unit tests + the extended CLI preflight test) / 1 green control (workflow-parity test, the old text also named the permission)."
+context_for_next_session:
+  - AN_ERROR_HINT_IS_A_PROSE_ASSERTION_follow_it_literally_and_check_the_error_goes_away
+followups: []
+---

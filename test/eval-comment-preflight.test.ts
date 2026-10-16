@@ -8,7 +8,7 @@
  * `signal`, so a server that accepted and never answered hung the step.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -16,7 +16,7 @@ import path from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { upsertStickyComment, STICKY_MARKER } from "../src/eval/comment.js";
+import { resolveToken, upsertStickyComment, STICKY_MARKER, TOKEN_ENV_NAMES } from "../src/eval/comment.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "aop-comment-preflight-"));
@@ -51,7 +51,43 @@ describe("eval --comment preflight (#173)", () => {
     expect(r.stderr).toContain("::error::GitHub token missing");
     expect(r.stderr).not.toMatch(/\n\s+at /);
     expect(r.stdout).not.toContain("eval results:");
+    // The hint names the step a workflow is missing (#219).
+    expect(r.stderr).toContain("env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
   }, 130_000);
+});
+
+describe("the missing-token hint (#219)", () => {
+  // `permissions: pull-requests: write` only scopes the job token; a `run:`
+  // step sees it only through an `env:` mapping, as `.github/workflows/eval.yml`
+  // does. The old hint said the permission alone "makes this automatic", so an
+  // operator who followed it got this same error back.
+  function missingTokenMessage(): string {
+    const saved = TOKEN_ENV_NAMES.map((n) => [n, process.env[n]] as const);
+    for (const [n] of saved) delete process.env[n];
+    try {
+      resolveToken({});
+    } catch (e) {
+      return (e as Error).message;
+    } finally {
+      for (const [n, v] of saved) if (v !== undefined) process.env[n] = v;
+    }
+    throw new Error("resolveToken did not throw with no token set");
+  }
+
+  it("names the env mapping that puts the token into a run: step", () => {
+    expect(missingTokenMessage()).toContain("env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+  });
+
+  it("does not claim the permissions block alone makes the token available", () => {
+    expect(missingTokenMessage()).not.toMatch(/automatic/i);
+  });
+
+  it("matches the mapping the repo's own eval workflow uses", () => {
+    const wf = readFileSync(path.join(ROOT, ".github", "workflows", "eval.yml"), "utf8");
+    expect(wf).toContain("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    expect(wf).toContain("pull-requests: write");
+    expect(missingTokenMessage()).toContain("permissions: pull-requests: write");
+  });
 });
 
 describe("GitHub calls are bounded (#173)", () => {
