@@ -77,6 +77,24 @@ function shortJson(v) {
   }
 }
 
+// The run id a `#run=<id>` hash names, or null for any other hash.
+//
+// Decoded under a guard (#223). A hand-typed malformed escape (`#run=%`, `%ZZ`,
+// a truncated UTF-8 sequence) made `decodeURIComponent` throw `URIError` during
+// render, and with no error boundary that blanked the whole app. #155 fixed the
+// same throw on the server and settled the answer: a malformed id names no run.
+// So the raw capture is kept as the id; `RunDetail` encodes it, the server
+// decodes it back, and the screen shows its ordinary "HTTP 404".
+function runIdFromHash(hash) {
+  const m = hash.match(/^#run=([^&]+)/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash);
   useEffect(() => {
@@ -84,8 +102,7 @@ function useHashRoute() {
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
-  const m = hash.match(/^#run=([^&]+)/);
-  return m ? decodeURIComponent(m[1]) : null;
+  return runIdFromHash(hash);
 }
 
 function RunList({ onPick }) {

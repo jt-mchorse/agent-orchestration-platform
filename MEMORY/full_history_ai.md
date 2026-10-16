@@ -2386,3 +2386,22 @@ context_for_next_session:
   - USEHASHROUTE_DECODEURICOMPONENT_ON_A_HAND_TYPED_HASH_THROWS_URIERROR_IN_RENDER_the_client_twin_of_155
 followups: []
 ---
+
+---
+session: 2026-10-15T07:45:28Z
+duration_min: 8   # computed: issue filed -> PR opened (gh createdAt), approx
+issue: 223
+branch: session/2026-10-15-0745-issue-223
+focus: USEHASHROUTE_DECODED_THE_RUN_HASH_UNGUARDED_DURING_RENDER_SO_A_HAND_TYPED_PERCENT_THREW_URIERROR_AND_BLANKED_THE_APP_THE_CLIENT_TWIN_OF_155
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "988 passed / 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 22516af (and with #221's fix applied), headless Chrome: #run=% and #run=%E0%A4%A root empty, pageerror 'URI malformed' at useHashRoute; #run=nope renders 'Failed to load run: HTTP 404'. Branch: #run=%, #run=%E0%A4%A and #run=%25 all render the 404 text, list screen unchanged. Semantic revert (guard removed, runIdFromHash kept) 5 red / 2 green (well-formed ids, no-run hashes); full stash revert fails all 7 at load."
+context_for_next_session:
+  - A_SERVER_SIDE_DECODE_FIX_HAS_A_CLIENT_TWIN_the_viewer_hash_is_also_a_hand_typed_URL
+  - APP_JS_HELPERS_ARE_TESTED_BY_EVALUATING_THEIR_SHIPPED_SOURCE_it_imports_React_from_a_CDN_and_renders_at_import
+followups: []
+---
