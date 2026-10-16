@@ -2470,7 +2470,7 @@ phase: shipped
 delta:
   files_changed: 2
   tests_added: 7
-  suite: "1028 passed, 11 skipped; typecheck clean"
+  suite: "1026 passed, 11 skipped; typecheck clean"
 decisions_made: []
 measured: "/tmp/aop sp/aop: / and /app.js 404 naming aop%20sp on main; 200 after. Revert 6 of 7 red; the serve arm is green on a space-free CI path."
 context_for_next_session:
