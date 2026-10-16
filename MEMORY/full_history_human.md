@@ -1919,3 +1919,11 @@ drops line breaks and the spaces around them at the edge of each piece of text,
 and those two dots happened to end a line just before a value. The line is now
 laid out so nothing is dropped, and a test fails if a template uses that layout
 again. Checked in a real Chrome.
+
+## 2026-10-16 — The trace viewer's default files load from a folder with a space in its path (#231)
+
+When the trace server was started from code without naming its static folder,
+it worked out the folder from its own module URL but kept the URL encoding,
+so a space became `%20` and the page and script returned 404. The path is now
+decoded properly, and a test checks that no source file uses the encoded form
+again.

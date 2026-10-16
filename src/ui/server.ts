@@ -26,6 +26,7 @@ import {
 } from "node:http";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { TraceStore } from "../trace/store.js";
 
 export interface TraceServerOptions {
@@ -59,9 +60,20 @@ export function describeError(err: unknown): string {
   return "internal error";
 }
 
+/**
+ * The directory holding *moduleUrl*'s file, as a filesystem path (#231).
+ *
+ * `new URL(import.meta.url).pathname` is percent-encoded: a checkout under
+ * `/tmp/aop sp/` became `/tmp/aop%20sp/...`, a directory that does not exist,
+ * and the default trace server answered 404 for `/` and `/app.js`.
+ * `fileURLToPath` decodes it, as `src/bin/*` already do.
+ */
+export function defaultStaticDir(moduleUrl: string): string {
+  return path.dirname(fileURLToPath(moduleUrl));
+}
+
 export function createTraceServer(opts: TraceServerOptions): Server {
-  const staticDir =
-    opts.staticDir ?? path.dirname(new URL(import.meta.url).pathname);
+  const staticDir = opts.staticDir ?? defaultStaticDir(import.meta.url);
 
   return createServer(async (req, res) => {
     try {
