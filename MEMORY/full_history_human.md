@@ -1909,3 +1909,13 @@ never appeared. Both events now get their own readable line with the tool
 names, the attempt and wait time, and the error, and their own colour in the
 timeline. A test now fails if a new event type is added without the viewer
 showing it. Checked in a real Chrome.
+
+## 2026-10-15 — The run-detail status line spaces its separators evenly (#227)
+
+The line under each run's summary in the trace viewer reads "Status · Started
+· Finalized · tokens · cost". Two of its four dots were stuck to the text after
+them ("·1200/300 tokens ·$0.02") on every run. The page's templating library
+drops line breaks and the spaces around them at the edge of each piece of text,
+and those two dots happened to end a line just before a value. The line is now
+laid out so nothing is dropped, and a test fails if a template uses that layout
+again. Checked in a real Chrome.

@@ -2356,6 +2356,14 @@ duration_min: 8   # computed: branch cut 2026-10-15T07:17Z -> memory commit, app
 issue: 219
 branch: session/2026-10-15-0717-issue-219
 focus: THE_MISSING_TOKEN_HINT_SAID_PERMISSIONS_PULL_REQUESTS_WRITE_MAKES_THE_TOKEN_AUTOMATIC_BUT_PERMISSIONS_ONLY_SCOPES_IT_A_RUN_STEP_NEEDS_THE_ENV_MAPPING
+---
+
+---
+session: 2026-10-15T07:59:00Z
+duration_min: 12   # computed: issue filed ~2026-10-15T07:58Z -> code commit, approx
+issue: 227
+branch: session/2026-10-15-0759-issue-227
+focus: HTM_TRIMS_NEWLINE_WHITESPACE_AT_BOTH_EDGES_OF_EVERY_TEXT_CHUNK_INCLUDING_AT_AN_INTERPOLATION_SO_A_SEPARATOR_ENDING_A_LINE_BEFORE_A_DOLLAR_BRACE_LINE_LOST_ITS_SPACE
 phase: shipped
 delta:
   files_changed: 2
@@ -2422,5 +2430,15 @@ measured: "origin/main 22516af, eventBody evaluated from the shipped source: ret
 context_for_next_session:
   - A_UNION_THE_VIEWER_SWITCHES_ON_IS_NOW_READ_FROM_SRC_AGENT_TRACE_TS_a_new_TraceEvent_kind_fails_test_ui_app_event_body_until_app_js_and_index_html_render_it
   - TIMELINE_TS_IS_RAW_EPOCH_MS_and_the_review_meta_line_loses_the_space_after_two_separators_htm_trims_newline_whitespace_before_an_interpolation_not_filed
+followups: []
+---
+
+---
+  suite: "984 passed / 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 22516af, htm@3.1.1 in node on the verbatim template: 'Finalized ... ·1200/300 tokens ·$0.02'. Headless Chrome (#222 applied): .review .meta innerHTML 'Finalized ... ·1/2 tokens ·$0.50', running run 'Finalized — ·0/0 tokens ·$0.00'. Branch: ' · 1/2 tokens · $0.50' and ' · 0/0 tokens · $0.00'. htm's rule read from dist/htm.mjs: replace(/^\\s*\\n\\s*|\\s*\\n\\s*$/g,''). Revert 3 red / 0 green."
+context_for_next_session:
+  - HTM_WHITESPACE_IS_NOT_JSX_WHITESPACE_a_text_line_followed_by_a_line_starting_with_an_interpolation_glues_them_test_ui_app_status_line_scans_app_js_for_the_shape
+  - REVIEW_SUMMARY_OVERFLOWS_THE_CARD_ON_A_NARROW_VIEWPORT_a_long_URL_in_review_summary_which_lacks_the_word_break_event_body_has_not_filed
 followups: []
 ---
