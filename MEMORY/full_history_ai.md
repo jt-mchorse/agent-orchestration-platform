@@ -2442,3 +2442,20 @@ context_for_next_session:
   - REVIEW_SUMMARY_OVERFLOWS_THE_CARD_ON_A_NARROW_VIEWPORT_a_long_URL_in_review_summary_which_lacks_the_word_break_event_body_has_not_filed
 followups: []
 ---
+
+---
+session: 2026-10-16T11:05Z
+issue: 231
+branch: session/2026-10-16-0835-issue-231
+focus: CREATETRACESERVER_DEFAULT_STATICDIR_WAS_A_PERCENT_ENCODED_URL_PATHNAME_UI_404D_FROM_A_PATH_WITH_A_SPACE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1028 passed, 11 skipped; typecheck clean"
+decisions_made: []
+measured: "/tmp/aop sp/aop: / and /app.js 404 naming aop%20sp on main; 200 after. Revert 6 of 7 red; the serve arm is green on a space-free CI path."
+context_for_next_session:
+  - URL_pathname_IS_PERCENT_ENCODED_sweep_new_URL_import_meta_url_pathname_PORTFOLIO_WIDE_aiapp_169_mcp_245_aop_231_found_so_far
+followups: []
+---
