@@ -1919,3 +1919,12 @@ drops line breaks and the spaces around them at the edge of each piece of text,
 and those two dots happened to end a line just before a value. The line is now
 laid out so nothing is dropped, and a test fails if a template uses that layout
 again. Checked in a real Chrome.
+
+## 2026-10-16 — Switching runs in the trace viewer shows the run you picked (#229)
+
+The run-detail screen kept its state when the URL switched to a different run.
+After a "Failed to load run" error, correcting the address loaded the right
+run but still showed the error. When switching quickly, a slow response for
+the previous run could arrive last and replace the run you had just picked.
+Each run now gets a fresh screen, and late responses for a run no longer on
+screen are ignored.
