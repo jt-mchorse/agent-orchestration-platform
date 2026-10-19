@@ -79,10 +79,18 @@ function eventClass(ev) {
   return "event " + ev.kind;
 }
 
+// The cut lands on a code-point boundary (#233): slicing at a fixed UTF-16
+// offset can split a surrogate pair, and the lone high half renders as U+FFFD
+// before the "...". Same rule as `sliceCodeUnits` in src/tools/search-repo.ts
+// (#215), inlined because this file loads from a CDN and cannot import it.
 function shortJson(v) {
   try {
     const s = JSON.stringify(v);
-    return s.length > 120 ? s.slice(0, 117) + "..." : s;
+    if (s.length <= 120) return s;
+    const last = s.charCodeAt(116);
+    const next = s.charCodeAt(117);
+    const splitsPair = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
+    return s.slice(0, splitsPair ? 116 : 117) + "...";
   } catch {
     return String(v);
   }

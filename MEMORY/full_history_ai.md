@@ -2477,3 +2477,21 @@ context_for_next_session:
   - URL_pathname_IS_PERCENT_ENCODED_sweep_new_URL_import_meta_url_pathname_PORTFOLIO_WIDE_aiapp_169_mcp_245_aop_231_found_so_far
 followups: []
 ---
+
+---
+session: 2026-10-19T07:40Z
+issue: 233
+branch: session/2026-10-19-0724-issue-233
+focus: FIXED_OFFSET_CUTS_SPLIT_A_SURROGATE_PAIR_SHORTJSON_IN_APP_JS_AND_CAPBASEFORTEMP_IN_ATOMIC_WRITE_THE_SIBLINGS_215_DID_NOT_REACH
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 9
+  suite: "1037 passed, 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 0ead37b: shortJson on an ok observation {text: 'a'*107 + 3 emoji} ends 'aa\\ud83d...' (not well-formed); capBaseForTemp('a'*197 + 2 emoji) -> 198 units ending '\\ud83d', 200 bytes. Revert 6 of 9 new arms red; the 3 green are controls (emoji inside the kept prefix, short value, emoji that fits the byte budget exactly)."
+context_for_next_session:
+  - "APP_JS_CANNOT_IMPORT_TS_HELPERS_the_215_sliceCodeUnits_rule_is_inlined_in_shortJson_keep_them_in_step"
+  - "NOT_FIXED_src_tools_types_ts_RetryPolicy_maxAttempts_doc_says_clamped_to_1_but_since_29_it_throws_RangeError"
+followups: []
+---

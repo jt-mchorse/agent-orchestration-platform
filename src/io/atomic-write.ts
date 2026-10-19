@@ -53,15 +53,21 @@ import path from "node:path";
 //
 // The base in the temp name is cosmetic (`ls`-ability); uniqueness comes from
 // the pid + 12 random hex + O_EXCL, so truncating it is safe. Budget is in
-// BYTES because NAME_MAX is a byte limit, and we trim by whole characters so a
-// multi-byte codepoint is never split.
+// BYTES because NAME_MAX is a byte limit, and we trim by whole code points so a
+// multi-byte codepoint is never split. A code point outside the BMP is TWO
+// UTF-16 units; trimming one unit at a time could stop on a lone high
+// surrogate, which `Buffer.byteLength` counts as 3 bytes (it encodes as U+FFFD),
+// so the temp name carried a replacement character (#233).
 const MAX_TEMP_BASE_BYTES = 200;
 
 function capBaseForTemp(base: string): string {
   if (Buffer.byteLength(base, "utf8") <= MAX_TEMP_BASE_BYTES) return base;
   let out = base;
   while (out.length > 0 && Buffer.byteLength(out, "utf8") > MAX_TEMP_BASE_BYTES) {
-    out = out.slice(0, -1);
+    const low = out.charCodeAt(out.length - 1);
+    const high = out.charCodeAt(out.length - 2);
+    const endsInPair = low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff;
+    out = out.slice(0, endsInPair ? -2 : -1);
   }
   return out;
 }

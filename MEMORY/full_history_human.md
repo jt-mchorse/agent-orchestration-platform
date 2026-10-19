@@ -1936,3 +1936,14 @@ it worked out the folder from its own module URL but kept the URL encoding,
 so a space became `%20` and the page and script returned 404. The path is now
 decoded properly, and a test checks that no source file uses the encoded form
 again.
+
+## 2026-10-19 — Cutting text short no longer leaves half an emoji (#233)
+
+Two places shortened text at a fixed position counted in JavaScript string
+units, and an emoji takes two of those units. When the cut fell between them,
+half an emoji was left behind. In the trace viewer, an observation row's
+shortened value then showed a replacement-character box just before the
+"...". The safe-write helper's shortened temporary file name could carry the
+same broken character, even though its comment said that could not happen.
+Both now cut before the whole emoji, using the rule #215 applied to
+`search_repo`.
