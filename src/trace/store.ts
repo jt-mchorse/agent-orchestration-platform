@@ -404,12 +404,29 @@ export function assertPrNumber(fn: string, pr: { number: number }): number {
  */
 const UNSTORABLE_RUN_ID_CHAR = /[\0\p{Cs}]/u;
 
+/**
+ * Ids the trace server can list but never serve (#236). The viewer fetches
+ * `/api/runs/` + `encodeURIComponent(id)`, which leaves dots alone, and WHATWG
+ * URL parsing removes a `.` or `..` path segment (and `%2E`, which it treats
+ * as a dot) before the request is sent. So `GET /api/runs` listed the run and
+ * its detail URL was a 404 (`..` even became `/api/`). Only the WHOLE id is
+ * a dot segment: `...`, `.a` and `a.b` are fetched as themselves. The empty id
+ * has the same symptom but #209 keeps it legal on purpose (#235).
+ */
+const DOT_SEGMENT_RUN_IDS: ReadonlySet<string> = new Set([".", ".."]);
+
 export function isStorableRunId(runId: string): boolean {
-  return !UNSTORABLE_RUN_ID_CHAR.test(runId);
+  return !UNSTORABLE_RUN_ID_CHAR.test(runId) && !DOT_SEGMENT_RUN_IDS.has(runId);
 }
 
 /** Called from BOTH `writeRun`s, like `assertPrNumber`, and with its posture. */
 export function assertRunId(fn: string, runId: string): string {
+  if (DOT_SEGMENT_RUN_IDS.has(runId)) {
+    throw new TypeError(
+      `${fn}: run_id must not be "." or ".." (a URL dot segment, so no ` +
+        `/api/runs/<id> request can reach it); got ${JSON.stringify(runId)}`,
+    );
+  }
   if (!isStorableRunId(runId)) {
     throw new TypeError(
       `${fn}: run_id must not contain U+0000 or a lone surrogate (the runs.run_id TEXT ` +

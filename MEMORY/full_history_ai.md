@@ -2495,3 +2495,21 @@ context_for_next_session:
   - "NOT_FIXED_src_tools_types_ts_RetryPolicy_maxAttempts_doc_says_clamped_to_1_but_since_29_it_throws_RangeError"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:28Z
+issue: 236
+branch: session/2026-10-19-0728-issue-236
+focus: RUN_IDS_DOT_AND_DOTDOT_WERE_STORED_AND_LISTED_BUT_WHATWG_DOT_SEGMENT_REMOVAL_MADE_EVERY_DETAIL_URL_A_404_READ_PATH_STRICTER_THAN_WRITE_PATH
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "1036 passed, 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 0ead37b, MemoryStore + createTraceServer: writeRun('.')/('..') ok, GET /api/runs lists both, GET /api/runs/. -> 404 path=/api/runs/, GET /api/runs/.. -> 404 path=/api/. Revert 7 of 8 new arms red; the green one is the control (ids that only contain dots stay legal)."
+context_for_next_session:
+  - "EMPTY_RUN_ID_HAS_THE_SAME_SYMPTOM_BUT_209_LOCKS_IT_AS_LEGAL_decision_revisit_235_JT_gated_do_not_fix"
+  - "PERCENT_2E_IS_ALSO_A_DOT_SEGMENT_IN_WHATWG_so_no_client_side_encoding_reaches_these_ids_refusal_at_write_is_the_only_shape"
+followups: []
+---
