@@ -148,3 +148,71 @@ describe("the trace server", () => {
     expect(await status(new PgStore({ pool: recordingPool().pool }), "/api/runs/abc%00def")).toBe(404);
   });
 });
+
+/**
+ * `"."` and `".."` are URL dot segments (#236): `GET /api/runs` listed them,
+ * but the viewer's `/api/runs/` + `encodeURIComponent(id)` is normalised by
+ * WHATWG URL parsing before it is sent, so no detail URL could reach them.
+ * The controls are ids that merely CONTAIN dots, which a guard on
+ * `id.includes(".")` or `/^\.+$/` would wrongly refuse.
+ */
+const DOT_SEGMENT_IDS = [".", ".."];
+const DOTTED_LEGAL_IDS = ["...", ".a", "a.b", "a.."];
+
+describe("both writeRuns refuse a run_id that is a URL dot segment (#236)", () => {
+  for (const id of DOT_SEGMENT_IDS) {
+    it(`MemoryStore: ${JSON.stringify(id)}`, async () => {
+      const store = new MemoryStore();
+      await expect(store.writeRun(run(id))).rejects.toThrow(/run_id must not be "\." or "\.\."/);
+      expect(await store.listRuns()).toEqual([]);
+    });
+
+    it(`PgStore: ${JSON.stringify(id)}, before any statement is sent`, async () => {
+      const { pool, queries } = recordingPool();
+      const store = new PgStore({ pool });
+      await expect(store.writeRun(run(id))).rejects.toThrow(TypeError);
+      expect(queries).toEqual([]);
+    });
+
+    it(`PgStore.getRun(${JSON.stringify(id)}) is null without querying`, async () => {
+      const { pool, queries } = recordingPool();
+      expect(await new PgStore({ pool }).getRun(id)).toBeNull();
+      expect(queries).toEqual([]);
+    });
+  }
+
+  it("control: ids that only contain dots are still legal", async () => {
+    const store = new MemoryStore();
+    for (const id of DOTTED_LEGAL_IDS) {
+      await store.writeRun(run(id));
+      expect((await store.getRun(id))?.run_id).toBe(id);
+    }
+  });
+});
+
+describe("the trace server serves every run it lists (#236)", () => {
+  let server: Server | null = null;
+  afterEach(async () => {
+    await new Promise<void>((r) => (server ? server.close(() => r()) : r()));
+    server = null;
+  });
+
+  it("each listed run's detail URL, built as app.js builds it, is a 200 for that run", async () => {
+    const store = new MemoryStore();
+    for (const id of [...DOT_SEGMENT_IDS, ...DOTTED_LEGAL_IDS, "ok"]) {
+      await store.writeRun(run(id)).catch(() => {});
+    }
+    server = createTraceServer({ store });
+    await new Promise<void>((r) => server!.listen(0, "127.0.0.1", () => r()));
+    const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    const listed = ((await (await fetch(`${base}/api/runs`)).json()) as { runs: { run_id: string }[] }).runs.map(
+      (r) => r.run_id,
+    );
+    expect([...listed].sort()).toEqual([...DOTTED_LEGAL_IDS, "ok"].sort());
+    for (const id of listed) {
+      const res = await fetch(`${base}/api/runs/${encodeURIComponent(id)}`);
+      expect(res.status, id).toBe(200);
+      expect(((await res.json()) as { run_id: string }).run_id).toBe(id);
+    }
+  });
+});
