@@ -1966,3 +1966,13 @@ two queries could see different saves, so the page showed one review's
 summary over another review's events. On a local Postgres 17 stress test this
 happened in 883 of 22453 reads. Both queries now run inside one read-only
 transaction that sees a single snapshot, and the same test showed 0 torn reads.
+
+## 2026-10-19 — A "no" on an approval is never retried (#240)
+
+A tool's retry settings could list the approval errors as retryable. When
+they did, a human who denied a destructive action was asked again, up to the
+tool's retry limit (three prompts in the reproduction). The code that decides
+fallbacks already said the retry layer never retries approval errors. The
+retry helper now ignores those two error kinds whatever the settings say, so a
+denial is asked once and goes straight back to the planner. Other kinds the
+settings list still retry as before.
