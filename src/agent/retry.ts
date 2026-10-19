@@ -17,9 +17,20 @@ import { ToolError, type RetryPolicy, type ToolErrorKind } from "../tools/types.
  * - `approval_denied`, `approval_missing`: human/runtime decision; not
  *   for the retry layer to second-guess.
  *
- * Tool authors can override via `RetryPolicy.retryableErrorKinds`.
+ * Tool authors can override via `RetryPolicy.retryableErrorKinds`, except for
+ * the approval kinds, which are never retried (`NEVER_RETRIED_KINDS`).
  */
 export const DEFAULT_RETRYABLE_KINDS: readonly ToolErrorKind[] = ["internal"] as const;
+
+/**
+ * Kinds `withRetry` never retries, even when `retryableErrorKinds` lists them
+ * (#240): a denied or un-wired approval is a human/runtime decision, and the
+ * approval check runs inside the retried call, so a retry re-asks the human.
+ */
+export const NEVER_RETRIED_KINDS: readonly ToolErrorKind[] = [
+  "approval_denied",
+  "approval_missing",
+] as const;
 
 /** One observed failure during a retried call. */
 export interface RetryAttempt {
@@ -216,6 +227,14 @@ export async function withRetry<T>(
   const retryable = new Set<ToolErrorKind>(
     policy.retryableErrorKinds ?? DEFAULT_RETRYABLE_KINDS,
   );
+  // Approval kinds are never retried, whatever the policy lists (#240). The
+  // approval check runs inside `fn`, so retrying `approval_denied` re-prompted
+  // the human who had just said no: a policy listing it asked 3 times at
+  // maxAttempts 3. The executor's fallback gate (#69) already refuses these
+  // kinds unconditionally, citing this layer as doing the same; now it does.
+  // Ignored rather than rejected by `validatePolicy`: that throws a RangeError
+  // which ends the run, and the tool's other listed kinds are still valid.
+  for (const kind of NEVER_RETRIED_KINDS) retryable.delete(kind);
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

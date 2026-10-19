@@ -2531,3 +2531,21 @@ context_for_next_session:
   - "THE_STRESS_ARM_LIVES_IN_pg_store_test_ts_BECAUSE_CI_PG_INTEGRATION_ONLY_RUNS_THAT_FILE_the_gated_describe_in_pg_store_transaction_test_ts_never_runs_in_CI"
 followups: []
 ---
+
+---
+session: 2026-10-19T08:12Z
+issue: 240
+branch: session/2026-10-19-0812-issue-240
+focus: WITHRETRY_RETRIED_APPROVAL_KINDS_WHEN_A_POLICY_LISTED_THEM_RE_PROMPTING_A_HUMAN_WHO_SAID_NO_THE_RETRY_LAYER_THE_69_GATE_CLAIMED_TO_MIRROR
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 6
+  suite: "1051 passed, 11 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 8373bf4, destructive tool with retry {maxAttempts: 3, retryableErrorKinds: ['internal','approval_denied']} and a deny-all approver: 3 approval prompts after a 'no', 2 retry_attempted events (with or without fallbackTo); after the fix 1 prompt, 0 retry_attempted. Revert 4 of 6 new arms red; the 2 green are controls (a listed internal still retries, in withRetry and in the executor)."
+context_for_next_session:
+  - "APPROVAL_KINDS_ARE_IGNORED_NOT_REJECTED_validatePolicy_throws_RangeError_which_ends_the_run_and_the_policy_other_kinds_stay_valid_NEVER_RETRIED_KINDS_in_retry_ts"
+  - "VALIDATION_KINDS_ARE_ALSO_DOCUMENTED_NEVER_SENSIBLE_TO_RETRY_but_left_policy_overridable_not_in_scope_of_240"
+followups: []
+---

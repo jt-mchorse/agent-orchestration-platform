@@ -5,7 +5,7 @@ import { ScriptedPlanner } from "../../src/agent/planner.js";
 import { Trace } from "../../src/agent/trace.js";
 import type { Plan, Review } from "../../src/agent/types.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
-import { ToolError, type Tool, type ToolContext } from "../../src/tools/types.js";
+import { ToolError, type Tool, type ToolContext, type ToolErrorKind } from "../../src/tools/types.js";
 
 // ---------------------------------------------------------------------
 // Test fixtures
@@ -792,6 +792,84 @@ describe("AgentRun — retry and fallback", () => {
     if (obs[0]?.observation.outcome.kind === "error") {
       expect(obs[0].observation.outcome.error.kind).toBe("approval_missing");
     }
+  });
+
+  // #240: the #69 gate above says the retry layer "also never retries approval
+  // kinds". With retryableErrorKinds listing them it did, re-invoking the tool
+  // and so re-prompting the human after a "no": 3 prompts at maxAttempts 3.
+  function approvalRetryRun(kinds: ToolErrorKind[], approvals?: ToolContext["approvals"], failFirst = 0) {
+    let runs = 0;
+    const post: Tool<typeof postIn, typeof postOut> = {
+      name: "retryingPost",
+      description: "destructive, with a policy that lists approval kinds",
+      inputSchema: postIn,
+      outputSchema: postOut,
+      annotations: {
+        destructive: true,
+        destructiveReason: "post on a real PR",
+        retry: { maxAttempts: 3, backoffMs: 0, retryableErrorKinds: kinds },
+      },
+      async run() {
+        runs += 1;
+        if (runs <= failFirst) throw new ToolError("retryingPost", "internal", "flaky");
+        return { posted: true };
+      },
+    };
+    const registry = new ToolRegistry();
+    registry.register(post);
+    const initial: Plan = {
+      goal: "try to post",
+      steps: [{ rationale: "send the comment", tool: "retryingPost", input: { body: "hi" } }],
+    };
+    const planner = new ScriptedPlanner(initial, [() => ({ goal: "skip posting", steps: [] })]);
+    const trace = new Trace();
+    const ctx: ToolContext = { mode: "replay", fixturesDir: "fixtures/sample-prs", ...(approvals ? { approvals } : {}) };
+    return {
+      trace,
+      runs: () => runs,
+      go: () => new AgentRun(registry, planner, trace, ctx, { sleep: noSleep }).run(PR),
+    };
+  }
+
+  it("asks once and does not retry a denial, even when the policy lists approval_denied (#240)", async () => {
+    let prompts = 0;
+    const denyAll = {
+      async requestApproval() {
+        prompts += 1;
+        return { approved: false, reason: "operator said no" };
+      },
+    };
+    const r = approvalRetryRun(["internal", "approval_denied"], denyAll);
+    await r.go();
+    expect(prompts).toBe(1);
+    expect(r.trace.ofKind("retry_attempted")).toHaveLength(0);
+    expect(r.runs()).toBe(0);
+    expect(r.trace.ofKind("re_plan_triggered")[0]?.reason.kind).toBe("approval_denied");
+  });
+
+  it("does not retry approval_missing, even when the policy lists it (#240)", async () => {
+    const r = approvalRetryRun(["internal", "approval_missing"]);
+    await r.go();
+    expect(r.trace.ofKind("retry_attempted")).toHaveLength(0);
+    const obs = r.trace.ofKind("observation");
+    if (obs[0]?.observation.outcome.kind === "error") {
+      expect(obs[0].observation.outcome.error.kind).toBe("approval_missing");
+    } else {
+      throw new Error("expected an approval_missing observation");
+    }
+  });
+
+  it("control: the same policy still retries an internal failure after approval (#240)", async () => {
+    const approveAll = {
+      async requestApproval() {
+        return { approved: true };
+      },
+    };
+    const r = approvalRetryRun(["internal", "approval_denied", "approval_missing"], approveAll, 1);
+    await r.go();
+    expect(r.trace.ofKind("retry_attempted")).toHaveLength(1);
+    expect(r.runs()).toBe(2);
+    expect(r.trace.ofKind("observation")[0]?.observation.outcome.kind).toBe("ok");
   });
 
   it("does NOT route a non-retryable output_validation error to the fallback (would double-execute side effects, #95)", async () => {

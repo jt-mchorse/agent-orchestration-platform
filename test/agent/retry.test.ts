@@ -128,6 +128,48 @@ describe("withRetry — abort paths", () => {
     expect(n).toBe(2);
   });
 
+  // #240: the approval check runs inside fn, so retrying an approval kind
+  // re-asked a human who had just said no (3 prompts at maxAttempts 3). The
+  // executor's #69 gate says this layer never retries them; now it doesn't,
+  // whatever the policy lists.
+  for (const kind of ["approval_denied", "approval_missing"] as const) {
+    it(`never retries ${kind}, even when retryableErrorKinds lists it (#240)`, async () => {
+      const sleep = makeRecordedSleep();
+      const attempts: number[] = [];
+      const policy: RetryPolicy = { maxAttempts: 3, backoffMs: 1, retryableErrorKinds: ["internal", kind] };
+      const fn = vi.fn(async () => {
+        throw new ToolError("post", kind, "operator said no");
+      });
+
+      await expect(withRetry(fn, policy, (a) => attempts.push(a.attempt), sleep.fn)).rejects.toMatchObject({ kind });
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(attempts).toEqual([]);
+      expect(sleep.sleeps).toEqual([]);
+    });
+  }
+
+  it("control: the same policy still retries the non-approval kind it lists (#240)", async () => {
+    const sleep = makeRecordedSleep();
+    let n = 0;
+    const policy: RetryPolicy = {
+      maxAttempts: 3,
+      backoffMs: 1,
+      retryableErrorKinds: ["internal", "approval_denied", "approval_missing"],
+    };
+    const result = await withRetry(
+      async () => {
+        n += 1;
+        if (n < 3) throw new ToolError("x", "internal", "flaky");
+        return "ok";
+      },
+      policy,
+      () => {},
+      sleep.fn,
+    );
+    expect(result).toBe("ok");
+    expect(n).toBe(3);
+  });
+
   it("surfaces the final error when maxAttempts is exhausted", async () => {
     const sleep = makeRecordedSleep();
     const policy: RetryPolicy = { maxAttempts: 3, backoffMs: 1 };
