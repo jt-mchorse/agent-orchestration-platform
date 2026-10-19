@@ -1947,3 +1947,13 @@ shortened value then showed a replacement-character box just before the
 same broken character, even though its comment said that could not happen.
 Both now cut before the whole emoji, using the rule #215 applied to
 `search_repo`.
+
+## 2026-10-19 — Run ids "." and ".." are refused (#236)
+
+A run could be saved under the id "." or "..". It then showed up in the trace
+viewer's run list, but opening it always gave "HTTP 404". Browsers treat those
+names as "this folder" and "the parent folder" and rewrite the address before
+it is sent, so no address could reach the run. Both stores now refuse those two
+ids when a run is saved. Ids that only contain dots, like "a.b", still work.
+An empty id has the same problem, but an earlier change kept it legal on
+purpose, so that question is left to JT in #235.
