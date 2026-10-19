@@ -94,7 +94,9 @@ export interface RetryPolicy {
   /**
    * Which `ToolError` kinds are retryable. Default is `["internal"]` —
    * transient runtime failures only. Validation kinds and approval kinds
-   * are never sensible to retry without changing the inputs.
+   * are never sensible to retry without changing the inputs. Approval kinds
+   * (`approval_denied`, `approval_missing`) are ignored here: `withRetry`
+   * never retries them, since a retry would re-prompt the human (#240).
    */
   retryableErrorKinds?: ToolErrorKind[];
 }
