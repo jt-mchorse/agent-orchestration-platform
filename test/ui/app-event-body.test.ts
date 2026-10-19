@@ -99,3 +99,44 @@ describe("trace viewer app.js: eventBody (#225)", () => {
     expect(INDEX_HTML).toMatch(new RegExp(`\\.event\\.${kind}(\\.[a-z]+)?::before\\s*\\{`));
   });
 });
+
+/** `String.prototype.isWellFormed` without the es2024 lib: no lone surrogate. */
+function isWellFormed(s: string): boolean {
+  return !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+}
+
+describe("trace viewer app.js: shortJson cuts on a code-point boundary (#233)", () => {
+  // `{"text":"` is 9 UTF-16 units, so `prefix` units of "a" put the next
+  // character at unit 9 + prefix. The cut keeps units 0..116.
+  // The key variant: `{"` is 2 units, so 114 units of "k" put the emoji at 116.
+  const E = String.fromCodePoint(0x1f600);
+  const PREFIX = "ok: search_repo → ";
+  const okBody = (value: unknown) =>
+    eventBody({
+      ts: 1760000000006,
+      kind: "observation",
+      observation: { step: { tool: "search_repo" }, outcome: { kind: "ok", value } },
+    });
+
+  it.each([
+    ["an emoji spanning units 116-117", { text: "a".repeat(107) + E.repeat(3) }],
+    ["an emoji run ending on the cut", { text: "a".repeat(105) + E.repeat(4) }],
+    ["a long string key with the emoji on the cut", { ["k".repeat(114) + E + "z".repeat(20)]: 1 }],
+  ])("%s: the row stays well-formed and ends in ...", (_label, value) => {
+    const body = okBody(value);
+    expect(isWellFormed(body)).toBe(true);
+    expect(body.endsWith("...")).toBe(true);
+    // Maximal: only the split pair is dropped, so 116 units remain before "...".
+    expect(body.length).toBe(PREFIX.length + 116 + 3);
+  });
+
+  it("control: an emoji wholly inside the kept prefix is kept, cut stays at 117", () => {
+    const body = okBody({ text: "a".repeat(106) + E.repeat(3) });
+    expect(isWellFormed(body)).toBe(true);
+    expect(body.length).toBe(PREFIX.length + 117 + 3);
+  });
+
+  it("control: a value under 120 units is rendered whole", () => {
+    expect(okBody({ text: E })).toBe(`${PREFIX}{"text":"${E}"}`);
+  });
+});

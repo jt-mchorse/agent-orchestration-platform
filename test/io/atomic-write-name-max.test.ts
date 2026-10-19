@@ -19,7 +19,8 @@
  * write (a shorter NAME_MAX, an exotic filesystem) skips that row rather than
  * failing, so the test never asserts something only this machine believes.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as fsMod from "node:fs";
 import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -116,5 +117,54 @@ describe("the cap itself", () => {
     const target = path.join(tmpRoot, base);
     await atomicWriteFile(target, "y");
     expect(await readFile(target, "utf-8")).toBe("y");
+  });
+});
+
+/** `String.prototype.isWellFormed` without the es2024 lib: no lone surrogate. */
+function isWellFormed(s: string): boolean {
+  return !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+}
+
+describe("the cap never leaves half a surrogate pair (#233)", () => {
+  // An emoji is ONE code point but TWO UTF-16 units and 4 UTF-8 bytes. The cap
+  // used to trim one unit at a time, and a lone high surrogate counts as 3
+  // bytes (it encodes as U+FFFD), so a base whose last emoji straddles the
+  // 200-byte budget with exactly 3 bytes to spare stopped on the high half and
+  // the temp file was created with a replacement character in its name.
+  const E = String.fromCodePoint(0x1f600);
+
+  /** The `<base>` part of the temp name `atomicWriteFile` renames from. */
+  async function tempBaseFor(base: string): Promise<string> {
+    const renameSpy = vi.spyOn(fsMod.promises, "rename");
+    try {
+      await atomicWriteFile(path.join(tmpRoot, base), "x");
+      const tmp = path.basename(String(renameSpy.mock.calls[0]?.[0]));
+      const m = tmp.match(/^\.([\s\S]*)\.\d+\.[0-9a-f]{12}\.tmp$/);
+      if (!m) throw new Error(`unexpected temp name ${JSON.stringify(tmp)}`);
+      return m[1] as string;
+    } finally {
+      renameSpy.mockRestore();
+    }
+  }
+
+  it.each([
+    // [label, base, the maximal well-formed cap]
+    ["ASCII prefix, 3 bytes to spare", `${"a".repeat(197)}${E}${E}`, "a".repeat(197)],
+    ["2-byte prefix, 3 bytes to spare", `${"é".repeat(98)}a${E}${E}`, `${"é".repeat(98)}a`],
+    ["emoji run, 3 bytes to spare", `${"a".repeat(193)}${E}${E}${E}`, `${"a".repeat(193)}${E}`],
+  ])("%s: the temp base is well-formed and maximal", async (_label, base, expected) => {
+    if (!(await plainWriteWorks(base))) return;
+    const capped = await tempBaseFor(base);
+    expect(isWellFormed(capped)).toBe(true);
+    expect(capped).toBe(expected);
+    expect(await readFile(path.join(tmpRoot, base), "utf-8")).toBe("x");
+  });
+
+  it("control: an emoji that fits exactly is kept whole", async () => {
+    // 196 + 4 = 200 bytes: the budget lands on a code-point boundary, so the
+    // unit-at-a-time trim reached the same answer. Passes before and after.
+    const base = `${"a".repeat(196)}${E}${E}`;
+    if (!(await plainWriteWorks(base))) return;
+    expect(await tempBaseFor(base)).toBe(`${"a".repeat(196)}${E}`);
   });
 });
