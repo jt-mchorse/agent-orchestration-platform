@@ -1957,3 +1957,12 @@ it is sent, so no address could reach the run. Both stores now refuse those two
 ids when a run is saved. Ids that only contain dots, like "a.b", still work.
 An empty id has the same problem, but an earlier change kept it legal on
 purpose, so that question is left to JT in #235.
+
+## 2026-10-19 — A run's details are read in one consistent snapshot (#238)
+
+With the Postgres store, opening a run read its summary and its event list as
+two separate queries. If the same run was being rewritten at that moment, the
+two queries could see different saves, so the page showed one review's
+summary over another review's events. On a local Postgres 17 stress test this
+happened in 883 of 22453 reads. Both queries now run inside one read-only
+transaction that sees a single snapshot, and the same test showed 0 torn reads.

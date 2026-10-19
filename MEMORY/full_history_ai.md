@@ -2513,3 +2513,21 @@ context_for_next_session:
   - "PERCENT_2E_IS_ALSO_A_DOT_SEGMENT_IN_WHATWG_so_no_client_side_encoding_reaches_these_ids_refusal_at_write_is_the_only_shape"
 followups: []
 ---
+
+---
+session: 2026-10-19T08:09Z
+issue: 238
+branch: session/2026-10-19-0809-issue-238
+focus: PGSTORE_GETRUN_READ_RUNS_AND_TRACE_EVENTS_IN_TWO_AUTOCOMMIT_SNAPSHOTS_TORN_READ_UNDER_CONCURRENT_REWRITE_THE_READ_SIDE_177_DID_NOT_COVER
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 5
+  suite: "1049 passed, 12 skipped; 1061 passed with DATABASE_URL on Postgres 17; typecheck clean"
+decisions_made: []
+measured: "Postgres 17, writer alternating PR #1/#2 under one run_id for 4 s: origin/main 8373bf4 PgStore torn=883 of 22453 reads (e.g. summary 'review of #1' over PR #2's events), MemoryStore 0; after the fix PgStore torn=0 of 17262. Revert 4 of 5 new arms red; the green one is the control (an unstorable id never touches the pool)."
+context_for_next_session:
+  - "GETRUN_NOW_USES_POOL_CONNECT_ANY_FAKE_POOL_IN_TESTS_MUST_IMPLEMENT_CONNECT_run_id_column_domain_recordingPool_query_list_is_now_BEGIN_SELECT_COMMIT"
+  - "THE_STRESS_ARM_LIVES_IN_pg_store_test_ts_BECAUSE_CI_PG_INTEGRATION_ONLY_RUNS_THAT_FILE_the_gated_describe_in_pg_store_transaction_test_ts_never_runs_in_CI"
+followups: []
+---

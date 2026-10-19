@@ -278,21 +278,47 @@ export class PgStore implements TraceStore {
     // lone surrogate, returning a run under a different id.
     if (!isStorableRunId(runId)) return null;
     const pool = await this.getPool();
-    const summary = await pool.query<RunRow>(
-      `SELECT run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
-              total_cost_dollars, total_input_tokens, total_output_tokens, recommendation, summary
-       FROM runs WHERE run_id = $1`,
-      [runId],
-    );
-    if (summary.rows.length === 0) return null;
-    const events = await pool.query<EventRow>(
-      `SELECT seq, ts, kind, payload FROM trace_events WHERE run_id = $1 ORDER BY seq ASC`,
-      [runId],
-    );
-    return {
-      ...rowToSummary(summary.rows[0] as RunRow),
-      events: events.rows.map(eventRowToTraceEvent),
-    };
+    // Both SELECTs on one client, inside one REPEATABLE READ snapshot (#238).
+    // As two autocommit `pool.query` calls each statement took its own READ
+    // COMMITTED snapshot, so a reader racing a rewrite of this run_id (one
+    // transaction since #177) got the summary from one write and the events
+    // from the next. Measured on Postgres 17 with a writer alternating PR #1 and
+    // PR #2: 883 of 22453 reads returned "review of #1" over PR #2's events.
+    // MemoryStore returns one object and never tears.
+    const client = await pool.connect();
+    try {
+      return await this.getRunOn(client, runId);
+    } finally {
+      client.release();
+    }
+  }
+
+  private async getRunOn(client: ClientLike, runId: string): Promise<RunDetail | null> {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY", []);
+    try {
+      const summary = await client.query<RunRow>(
+        `SELECT run_id, pr_owner, pr_repo, pr_number, started_at, finalized_at, status,
+                total_cost_dollars, total_input_tokens, total_output_tokens, recommendation, summary
+         FROM runs WHERE run_id = $1`,
+        [runId],
+      );
+      const row = summary.rows[0];
+      const events =
+        row === undefined
+          ? null
+          : await client.query<EventRow>(
+              `SELECT seq, ts, kind, payload FROM trace_events WHERE run_id = $1 ORDER BY seq ASC`,
+              [runId],
+            );
+      await client.query("COMMIT", []);
+      if (row === undefined || events === null) return null;
+      return { ...rowToSummary(row), events: events.rows.map(eventRowToTraceEvent) };
+    } catch (err) {
+      // The read's own error is the one to report; a failed ROLLBACK (a
+      // dropped connection) must not replace it.
+      await client.query("ROLLBACK", []).catch(() => {});
+      throw err;
+    }
   }
 
   async close(): Promise<void> {

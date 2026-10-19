@@ -114,7 +114,8 @@ describe("getRun answers null for such an id on both backends", () => {
   it("an ordinary getRun still queries", async () => {
     const { pool, queries } = recordingPool();
     expect(await new PgStore({ pool }).getRun("run-1")).toBeNull();
-    expect(queries).toEqual(["SELECT"]);
+    // Inside its read-only snapshot transaction since #238.
+    expect(queries).toEqual(["BEGIN", "SELECT", "COMMIT"]);
   });
 });
 
