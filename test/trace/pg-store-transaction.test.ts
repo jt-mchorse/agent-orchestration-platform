@@ -80,6 +80,99 @@ describe("writeRun's transaction (#177)", () => {
   });
 });
 
+describe("getRun reads one snapshot (#238)", () => {
+  // Two autocommit SELECTs each took their own READ COMMITTED snapshot, so a
+  // reader racing a rewrite got the summary from one write and the events from
+  // the next (883 of 22453 reads on Postgres 17).
+  const RUN_ROW = {
+    run_id: "r",
+    pr_owner: "jt-mchorse",
+    pr_repo: "t",
+    pr_number: 1,
+    started_at: "2023-11-14T22:13:20.000Z",
+    finalized_at: null,
+    status: "running",
+    total_cost_dollars: 0,
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    recommendation: "approve",
+    summary: "s",
+  };
+  const EVENT_ROW = { seq: 0, ts: 1_700_000_000_000, kind: "run_started", payload: { pr: PR } };
+
+  function readPool(opts: { found?: boolean; failOn?: RegExp } = {}) {
+    const found = opts.found ?? true;
+    const viaPool: string[] = [];
+    const viaClient: string[] = [];
+    let released = 0;
+    const answer = (sql: string) => {
+      if (/FROM runs/.test(sql)) return { rows: found ? [RUN_ROW] : [] };
+      if (/FROM trace_events/.test(sql)) return { rows: [EVENT_ROW] };
+      return { rows: [] };
+    };
+    const pool = {
+      async query(sql: string) {
+        viaPool.push(sql.trim().replace(/\s+/g, " "));
+        return answer(sql);
+      },
+      async connect() {
+        return {
+          async query(sql: string) {
+            viaClient.push(sql.trim().replace(/\s+/g, " "));
+            if (opts.failOn && opts.failOn.test(sql)) throw new Error("select rejected");
+            return answer(sql);
+          },
+          release() {
+            released += 1;
+          },
+        };
+      },
+      async end() {},
+    };
+    return { pool, viaPool, viaClient, released: () => released };
+  }
+
+  it("runs both SELECTs on one client inside a REPEATABLE READ transaction", async () => {
+    const r = readPool();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detail = await new PgStore({ pool: r.pool as any }).getRun("r");
+    expect(detail?.run_id).toBe("r");
+    expect(detail?.events).toHaveLength(1);
+    expect(r.viaPool).toEqual([]);
+    expect(r.viaClient[0]).toMatch(/^BEGIN ISOLATION LEVEL REPEATABLE READ\b/);
+    expect(r.viaClient.slice(1, 3).map((q) => q.match(/FROM (\w+)/)?.[1])).toEqual(["runs", "trace_events"]);
+    expect(r.viaClient.at(-1)).toBe("COMMIT");
+    expect(r.released()).toBe(1);
+  });
+
+  it("a missing run still commits, releases, and returns null without reading events", async () => {
+    const r = readPool({ found: false });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await new PgStore({ pool: r.pool as any }).getRun("r")).toBeNull();
+    expect(r.viaPool).toEqual([]);
+    expect(r.viaClient.some((q) => /trace_events/.test(q))).toBe(false);
+    expect(r.viaClient.at(-1)).toBe("COMMIT");
+    expect(r.released()).toBe(1);
+  });
+
+  it("rolls back on the same client, releases it, and reports the read's own error", async () => {
+    const r = readPool({ failOn: /FROM trace_events/ });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await expect(new PgStore({ pool: r.pool as any }).getRun("r")).rejects.toThrow("select rejected");
+    expect(r.viaClient.at(-1)).toBe("ROLLBACK");
+    expect(r.viaClient).not.toContain("COMMIT");
+    expect(r.released()).toBe(1);
+  });
+
+  it("control: an id no run can have never touches the pool (#209)", async () => {
+    const r = readPool();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await new PgStore({ pool: r.pool as any }).getRun("abc" + String.fromCharCode(0))).toBeNull();
+    expect(r.viaPool).toEqual([]);
+    expect(r.viaClient).toEqual([]);
+  });
+});
+
 const DATABASE_URL = process.env.DATABASE_URL;
 const it_pg = DATABASE_URL ? it : it.skip;
 

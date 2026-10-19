@@ -340,6 +340,56 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     }
   });
 
+  it_pg("getRun never returns one write's summary over another write's events (#238)", async () => {
+    // getRun read runs and trace_events in two autocommit statements, each its
+    // own READ COMMITTED snapshot. With a writer alternating two pull requests
+    // under one run_id (each write one transaction, #177), 883 of 22453 reads
+    // on Postgres 17 came back as "review of #1" over PR #2's event log.
+    const writer = new PgStore({ connectionString: DATABASE_URL as string });
+    const reader = new PgStore({ connectionString: DATABASE_URL as string });
+    const runId = await uniqueRunId();
+    const input = (n: number) => {
+      const pr = { owner: "o", repo: "r", number: n };
+      const events: TraceEvent[] = [{ ts: 1_700_000_000_000 + n, kind: "run_started", pr }];
+      for (let i = 0; i < 20; i += 1) {
+        events.push({ ts: 1_700_000_000_100, kind: "plan_emitted", plan: { goal: `g${n}`, steps: [] }, version: i });
+      }
+      return { run_id: runId, pr, events, review: review({ summary: `review of #${n}` }) };
+    };
+    try {
+      await writer.writeRun(input(1));
+      let stop = false;
+      let writes = 0;
+      const w = (async () => {
+        let n = 1;
+        while (!stop) {
+          n = n === 1 ? 2 : 1;
+          await writer.writeRun(input(n));
+          writes += 1;
+        }
+      })();
+      const torn: string[] = [];
+      try {
+        for (let i = 0; i < 1500; i += 1) {
+          const got = await reader.getRun(runId);
+          const evPr = (got?.events[0] as Extract<TraceEvent, { kind: "run_started" }>).pr.number;
+          if (got?.pr.number !== evPr || got?.summary !== `review of #${evPr}`) {
+            torn.push(`summary pr=#${got?.pr.number} over events of #${evPr}`);
+          }
+        }
+      } finally {
+        stop = true;
+        await w;
+      }
+      // Anti-vacuity: the reads must actually have raced rewrites.
+      expect(writes).toBeGreaterThan(10);
+      expect(torn.slice(0, 3)).toEqual([]);
+    } finally {
+      await writer.close();
+      await reader.close();
+    }
+  });
+
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });
