@@ -2442,3 +2442,21 @@ context_for_next_session:
   - REVIEW_SUMMARY_OVERFLOWS_THE_CARD_ON_A_NARROW_VIEWPORT_a_long_URL_in_review_summary_which_lacks_the_word_break_event_body_has_not_filed
 followups: []
 ---
+
+---
+session: 2026-10-16T10:30Z
+issue: 229
+branch: session/2026-10-16-0829-issue-229
+focus: RUNDETAIL_HAD_NO_KEY_AND_NO_EFFECT_CLEANUP_A_404_STUCK_ACROSS_A_HASH_FIX_AND_A_SLOW_OLD_RESPONSE_REPLACED_THE_CURRENT_RUN
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1021 passed, 11 skipped; typecheck clean"
+decisions_made: []
+measured: "jsdom (React 18.3/htm 3.1, outside the repo): missing->good stayed 'HTTP 404' on main, renders good after; slow->fast showed summary-slow under #run=fast on main, summary-fast after. Revert 2/2 red; each partial revert 1/2."
+context_for_next_session:
+  - jsdom_PROBE_AT_tmp_hunt2_uiprobe_app_mjs_IS_A_VERBATIM_COPY_OF_app_js_with_react_htm_jsdom_in_its_own_node_modules_NOT_A_REPO_DEP
+  - NOT_FIXED_createTraceServer_default_staticDir_uses_URL_pathname_breaks_under_a_path_with_a_space_use_fileURLToPath
+followups: []
+---

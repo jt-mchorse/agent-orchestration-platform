@@ -162,13 +162,27 @@ function RunList({ onPick }) {
 function RunDetail({ runId, onBack }) {
   const [run, setRun] = useState(null);
   const [err, setErr] = useState(null);
+  // A response for a run this screen no longer shows is dropped (#229). The
+  // effect re-ran on a hash change but nothing reset `err`, and the previous
+  // run's fetch could resolve last: after `#run=missing` -> `#run=good` the
+  // page still read "Failed to load run: HTTP 404", and a slow response for
+  // the old run replaced the new one while the URL named the new one. `App`
+  // also keys this component by `runId`, so each run starts from empty state.
   useEffect(() => {
+    let current = true;
     fetch("/api/runs/" + encodeURIComponent(runId))
       .then((r) =>
         r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)),
       )
-      .then(setRun)
-      .catch((e) => setErr(e.message));
+      .then((body) => {
+        if (current) setRun(body);
+      })
+      .catch((e) => {
+        if (current) setErr(e.message);
+      });
+    return () => {
+      current = false;
+    };
   }, [runId]);
   if (err) return html`<div class="empty">Failed to load run: ${err}</div>`;
   if (!run) return html`<div class="empty">Loading…</div>`;
@@ -218,7 +232,9 @@ function App() {
   const onBack = () => {
     window.location.hash = "";
   };
-  return runId ? html`<${RunDetail} runId=${runId} onBack=${onBack} />` : html`<${RunList} onPick=${onPick} />`;
+  return runId
+    ? html`<${RunDetail} key=${runId} runId=${runId} onBack=${onBack} />`
+    : html`<${RunList} onPick=${onPick} />`;
 }
 
 createRoot(document.getElementById("root")).render(html`<${App} />`);
