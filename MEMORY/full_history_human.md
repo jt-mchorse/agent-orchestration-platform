@@ -1928,3 +1928,11 @@ run but still showed the error. When switching quickly, a slow response for
 the previous run could arrive last and replace the run you had just picked.
 Each run now gets a fresh screen, and late responses for a run no longer on
 screen are ignored.
+
+## 2026-10-16 — The trace viewer's default files load from a folder with a space in its path (#231)
+
+When the trace server was started from code without naming its static folder,
+it worked out the folder from its own module URL but kept the URL encoding,
+so a space became `%20` and the page and script returned 404. The path is now
+decoded properly, and a test checks that no source file uses the encoded form
+again.
