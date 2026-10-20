@@ -2549,3 +2549,21 @@ context_for_next_session:
   - "VALIDATION_KINDS_ARE_ALSO_DOCUMENTED_NEVER_SENSIBLE_TO_RETRY_but_left_policy_overridable_not_in_scope_of_240"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:48Z
+issue: 243
+branch: session/2026-10-20-0756-issue-243
+focus: VALIDATE_AND_EVAL_RUNNER_CALLED_PROCESS_EXIT_RIGHT_AFTER_AN_ASYNC_PIPE_WRITE_OUTPUT_CUT_AT_64_KIB_ON_MACOS_WINDOWS
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 6
+  suite: "1061 passed, 12 skipped; pg-store 11 passed on Postgres 17; typecheck clean"
+decisions_made: []
+measured: "origin/main 3e2b984, macOS: validate --json with 400 findings 75369 bytes to a file, 65536 piped (JSON.parse fails); human mode with 1000 findings 123670 bytes of stderr to a file, ~65.6 KB piped; eval --dry-run with 400 cases cut partway through the table, no 'eval results:' line. After the fix all complete. Revert: 3 of 6 new arms red; the 3 green are controls (small output, clean exit 0)."
+context_for_next_session:
+  - "LINUX_PIPE_WRITES_ARE_SYNCHRONOUS_so_cli_piped_output_test_ts_is_green_on_CI_with_or_without_the_fix_it_only_goes_red_on_macOS_Windows"
+  - "EVAL_RUNNER_CRASH_ARM_KEEPS_PROCESS_EXIT_1_a_failed_run_may_hold_a_retry_timer_or_socket_validate_ts_has_no_handles_so_both_its_arms_use_exitCode"
+followups: []
+---
