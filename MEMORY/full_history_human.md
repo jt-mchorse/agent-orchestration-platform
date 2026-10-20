@@ -2000,3 +2000,14 @@ README now describes the baseline's real rule (it flags changed files under
 `infra/` or with Terraform names, not a keyword count), which explains the rag
 fixture's 0.093. The retry settings doc now says a `maxAttempts` below 1 is an
 error, not quietly raised to 1.
+
+## 2026-10-20 — A dropped Postgres connection no longer kills the trace server (#242)
+
+After every request the Postgres store keeps its connection open and idle for
+a few seconds. If Postgres restarted, failed over, or closed that connection
+in that window, the connection pool raised an error that nothing was
+listening for, and Node stopped the whole trace server. Every later request
+was then refused. The pool now has a listener that logs the error and carries
+on. The broken connection is already thrown away, and the next request opens
+a fresh one. In the reproduction, the next request now gets a normal 200 and
+the server stays up.
