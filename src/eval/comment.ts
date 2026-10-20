@@ -109,7 +109,7 @@ export function renderEvalMarkdown(run: EvalRun): string {
   for (const c of run.cases) {
     const recMark = c.score.recommendation_match === 1 ? ":white_check_mark:" : ":x:";
     lines.push(
-      `| \`${escape(c.fixture_id)}\` | ${recMark} ` +
+      `| ${codeSpanCell(c.fixture_id)} | ${recMark} ` +
         `(${escape(c.score.recommendation_actual)} vs ${escape(c.score.recommendation_golden)}) ` +
         `| ${c.score.findings_f1.toFixed(3)} ` +
         `| ${c.score.summary_length_ratio.toFixed(3)} ` +
@@ -149,14 +149,35 @@ function headlineFor(run: EvalRun): string {
 // defensively if that type ever loosens.) GitHub renders `\|` as a
 // literal pipe, inside a code span in a table too. This is the TS side of the
 // portfolio-wide sweep (llm-eval-harness #130/#134, embedding-model-shootout
-// #79, chunking-strategies-lab #100) that missed this repo (#89). Both call
-// sites of `escape` are table cells, so the pipe escape belongs here.
+// #79, chunking-strategies-lab #100) that missed this repo (#89). The
+// `fixture_id` cell is a code span, where entities are NOT decoded, so it now
+// goes through `codeSpanCell` and keeps only the pipe escape (#244). Both
+// remaining call sites of `escape` are table cells, so the pipe escape
+// belongs here.
 function escape(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\|/g, "\\|");
+}
+
+// Render a free-form value as an inline-code span inside a GFM table cell
+// (#244). `escape()` is wrong here: CommonMark does not decode entity
+// references inside a code span, so `a&b` rendered as the literal text
+// `a&amp;b`, and `escape()` leaves backticks alone, so a backtick in the id
+// closed the span early. Instead the fence is a backtick run one longer than
+// the longest run in the value, which no run inside it can close (CommonMark
+// §6.1). A
+// value that starts or ends with a backtick, or both starts and ends with a
+// space, is padded with one space each side; the renderer strips exactly that
+// pair back off. The `|` -> `\|` escape from #89 stays: GitHub splits cells
+// before it parses code spans, and it removes the backslash inside one.
+function codeSpanCell(s: string): string {
+  const longestRun = Math.max(0, ...(s.match(/`+/g) ?? []).map((r) => r.length));
+  const fence = "`".repeat(longestRun + 1);
+  const pad = /^`|`$/.test(s) || (/^ /.test(s) && / $/.test(s)) ? " " : "";
+  return `${fence}${pad}${s.replace(/\|/g, "\\|")}${pad}${fence}`;
 }
 
 // ---------- GitHub API plumbing (stdlib-only) ----------
