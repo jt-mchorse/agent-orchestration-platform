@@ -1976,3 +1976,14 @@ fallbacks already said the retry layer never retries approval errors. The
 retry helper now ignores those two error kinds whatever the settings say, so a
 denial is asked once and goes straight back to the planner. Other kinds the
 settings list still retry as before.
+
+## 2026-10-20 — Piped CLI output is no longer cut at 64 KiB (#243)
+
+`npm run validate` and `npm run eval` printed their report and then ended the
+process immediately. On macOS and Windows, output sent into a pipe is written
+in the background, so anything past the first 64 KiB was lost. A 400-finding
+`validate --json` piped into another program arrived as 65536 bytes of
+invalid JSON. Long human-mode finding lists and long `eval --dry-run` tables
+were cut the same way. Both commands now set their exit code and let the
+process finish on its own once the output has been written. Linux was never
+affected, so CI can't see the failure; the new tests guard macOS and Windows.

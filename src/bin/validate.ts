@@ -111,9 +111,18 @@ async function main(): Promise<number> {
   return report.ok ? 0 : 1;
 }
 
+// `process.exitCode`, not `process.exit(code)` (#243). On macOS and Windows a
+// write to a pipe is asynchronous, so `process.exit` right after the report's
+// `write` ended the process with the buffer undrained and the output cut at
+// 64 KiB: `--json | jq` got invalid JSON beside a normal exit 1, and human
+// mode lost the tail of its stderr findings. Nothing here holds the event
+// loop open, so the process ends as soon as stdout and stderr have flushed.
+// Same shape as `trace-server.ts`'s argument exits.
 main()
-  .then((code) => process.exit(code))
+  .then((code) => {
+    process.exitCode = code;
+  })
   .catch((err) => {
     process.stderr.write(`unexpected error: ${(err as Error).message}\n`);
-    process.exit(2);
+    process.exitCode = 2;
   });
