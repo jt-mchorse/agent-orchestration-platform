@@ -197,9 +197,15 @@ async function main(): Promise<number> {
 // `main()` resolves to the intended exit code (0 ok / 2 operator error). Without
 // wiring it to `process.exit`, a resolved promise exits 0 and every non-zero
 // signal — including the #108/#110 `--comment` target validation — is swallowed.
-// Mirrors `validate.ts`.
+// Mirrors `validate.ts`. `process.exitCode` rather than `process.exit(code)`
+// (#243): `--dry-run` prints the whole markdown table, and on a macOS/Windows
+// pipe an immediate `process.exit` cut it short and dropped the
+// `eval results:` line. The crash arm below keeps the forced exit, since a
+// failed run may leave a retry timer or socket open, and a stack trace is short.
 main()
-  .then((code) => process.exit(code))
+  .then((code) => {
+    process.exitCode = code;
+  })
   .catch((err) => {
     console.error(err);
     process.exit(1);
