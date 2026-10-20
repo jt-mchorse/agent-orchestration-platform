@@ -119,10 +119,10 @@ export class PgStore implements TraceStore {
           connectionString: string;
           connectionTimeoutMillis: number;
           query_timeout: number;
-        }) => PoolLike;
+        }) => PoolLike & { on(event: "error", listener: (err: Error) => void): unknown };
       }
     ).Pool;
-    this.pool = new PoolCtor({
+    const pool = new PoolCtor({
       connectionString,
       connectionTimeoutMillis: positiveMs(
         "connectionTimeoutMs",
@@ -131,7 +131,17 @@ export class PgStore implements TraceStore {
       ),
       query_timeout: positiveMs("queryTimeoutMs", this.opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS),
     });
-    return this.pool;
+    // An error on an IDLE pooled client (a Postgres restart, failover or
+    // `pg_terminate_backend` while it sat unused) is emitted on the pool, and
+    // an `'error'` event with no listener throws: it killed the trace server,
+    // not one request (#242). The pool has already discarded that client and
+    // the next query checks out a fresh one, so log and do not rethrow. Only
+    // the pool built here: an injected `opts.pool` belongs to its caller.
+    pool.on("error", (err) => {
+      console.error(`PgStore: idle Postgres client error (client discarded): ${err.message}`);
+    });
+    this.pool = pool;
+    return pool;
   }
 
   async writeRun(input: WriteRunInput): Promise<void> {
