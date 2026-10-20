@@ -1987,3 +1987,16 @@ invalid JSON. Long human-mode finding lists and long `eval --dry-run` tables
 were cut the same way. Both commands now set their exit code and let the
 process finish on its own once the output has been written. Linux was never
 affected, so CI can't see the failure; the new tests guard macOS and Windows.
+
+## 2026-10-20 — Fixture names in the eval comment show exactly as written (#244)
+
+The eval comment on a PR shows each fixture's name in code formatting. The
+name went through HTML escaping first, and Markdown never undoes that inside
+code formatting, so a fixture called `a&b` showed as `a&amp;b`. A backtick in
+the name also broke the formatting. The name now shows exactly as written: it
+is wrapped in a run of backticks longer than any run inside it, and the pipe
+escaping from #89 still applies. Two doc fixes came in the same change. The
+README now describes the baseline's real rule (it flags changed files under
+`infra/` or with Terraform names, not a keyword count), which explains the rag
+fixture's 0.093. The retry settings doc now says a `maxAttempts` below 1 is an
+error, not quietly raised to 1.

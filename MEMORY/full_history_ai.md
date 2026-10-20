@@ -2567,3 +2567,22 @@ context_for_next_session:
   - "EVAL_RUNNER_CRASH_ARM_KEEPS_PROCESS_EXIT_1_a_failed_run_may_hold_a_retry_timer_or_socket_validate_ts_has_no_handles_so_both_its_arms_use_exitCode"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:48Z
+issue: 244
+branch: session/2026-10-20-0757-issue-244
+focus: EVAL_COMMENT_FIXTURE_ID_CODE_SPAN_WAS_ENTITY_ESCAPED_AND_BACKTICK_UNSAFE_PLUS_README_PLANNER_RULE_AND_RETRYPOLICY_MAXATTEMPTS_DOC_DRIFT
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 14
+  suite: "1067 passed, 12 skipped; 1079 passed with DATABASE_URL on Postgres 17; typecheck clean"
+decisions_made: []
+measured: "markdown-it 14 on 11 fixture ids: origin/main 3e2b984 rendered 9 wrong (a&b -> a&amp;b, x<y> -> x&lt;y&gt;, tick`id / a``b`c / leading or trailing backtick broke the span, ' spaced ' lost its spaces), pipe and plain ids correct; after the fix 11/11 verbatim, 5 cells per row throughout. Revert 9 of 26 red (all new verbatim arms); the green new arms are controls (plain id, pipe #89, single-backtick fence, recommendation cells still entity-escaped). Fence-without-padding neighbour: 2 red."
+context_for_next_session:
+  - "FIXTURE_ID_CELL_GOES_THROUGH_codeSpanCell_NOT_escape_recommendation_cells_still_use_escape_because_they_are_plain_text_not_code_spans"
+  - "OLD_TEST_escapes_HTML_unsafe_characters_in_fixture_id_PINNED_THE_BUG_removed_script_tag_is_now_a_verbatim_arm"
+  - "NEWLINE_OR_EMPTY_FIXTURE_ID_NOT_HANDLED_a_newline_breaks_the_table_row_whatever_the_fence_not_reachable_from_a_normal_filename"
+followups: []
+---
