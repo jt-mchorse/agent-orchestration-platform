@@ -210,9 +210,13 @@ annotation-vs-policy-map.
 Today's eval numbers from the committed scripted planner against the two
 hand-labeled fixtures under `fixtures/sample-prs/`. These are the real
 outputs of `evaluateAll(discoverCases(...))`, not placeholders. The
-current scripted planner is deliberately a baseline (it deduces a
-recommendation from the diff's `request_changes` keyword count and emits
-zero structured findings), so the composite is **honest-low**, not aspirational:
+current scripted planner is deliberately a baseline (it recommends
+`request_changes` when any changed filename matches `/\.tf$|infra\/|terraform/i`,
+`approve_with_comments` otherwise, and emits zero structured findings), so the
+composite is **honest-low**, not aspirational. The rag fixture's
+`infra/postgres/init.sql` matches that rule, so the baseline says
+`request_changes` against a golden `approve_with_comments`; that miss is why
+it scores 0.093:
 
 | metric | value |
 | --- | --- |

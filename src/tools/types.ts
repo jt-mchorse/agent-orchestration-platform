@@ -69,7 +69,10 @@ export interface ToolAnnotations {
  * `retryableErrorKinds` are retried; everything else short-circuits.
  */
 export interface RetryPolicy {
-  /** Total attempts, including the first. Clamped to `>= 1` at runtime. */
+  /**
+   * Total attempts, including the first. Must be an integer `>= 1`;
+   * `withRetry` throws `RangeError` otherwise (#29), it does not clamp (#244).
+   */
   maxAttempts: number;
   /** Initial backoff. Subsequent attempts multiply by `backoffMultiplier`. */
   backoffMs: number;

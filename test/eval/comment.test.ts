@@ -88,20 +88,6 @@ describe("renderEvalMarkdown", () => {
     expect(md).toContain(":x: composite < 0.65");
   });
 
-  it("escapes HTML-unsafe characters in fixture_id", () => {
-    const run = fakeRun({
-      cases: [
-        {
-          ...fakeRun().cases[0]!,
-          fixture_id: "<script>alert(1)</script>",
-        },
-      ],
-    });
-    const md = renderEvalMarkdown(run);
-    expect(md).not.toContain("<script>");
-    expect(md).toContain("&lt;script&gt;");
-  });
-
   it("renders 0-case run with 'no fixtures' headline", () => {
     const md = renderEvalMarkdown(fakeRun({ cases: [], composite_mean: 0 }));
     expect(md).toContain("0 fixture(s)");
@@ -135,6 +121,78 @@ describe("renderEvalMarkdown", () => {
     // same number of pipe-delimited fields (the corruption signature).
     const fields = (row: string): number => row.split(/(?<!\\)\|/).length;
     expect(fields(dataRow)).toBe(fields(headerRow));
+  });
+});
+
+// Regression (#244): the fixture_id cell is an inline-code span, and CommonMark
+// decodes no entity references inside one, so the entity escaping it used to
+// get showed up literally (`a&b` rendered as `a&amp;b`), and a backtick in the
+// id closed the span early. `codeSpanOf` reads a cell back the way CommonMark
+// §6.1 does: an opening run of N backticks closes at the next run of EXACTLY N,
+// one leading+trailing space pair is stripped, and GitHub's table pass turns
+// `\|` back into `|`. Returns the text the reader sees, or null when the cell
+// is not one whole code span.
+function codeSpanOf(cell: string): string | null {
+  const open = /^`+/.exec(cell);
+  if (!open) return null;
+  const n = open[0].length;
+  const rest = cell.slice(n);
+  const closer = new RegExp(`(?<!\`)\`{${n}}(?!\`)`);
+  const m = closer.exec(rest);
+  if (!m || m.index + n !== rest.length) return null;
+  let body = rest.slice(0, m.index).replace(/\\\|/g, "|");
+  if (body.length >= 2 && body.startsWith(" ") && body.endsWith(" ") && body.trim() !== "") {
+    body = body.slice(1, -1);
+  }
+  return body;
+}
+
+function fixtureCell(id: string): string {
+  const run = fakeRun({ cases: [{ ...fakeRun().cases[0]!, fixture_id: id }] });
+  const row = renderEvalMarkdown(run)
+    .split("\n")
+    .find((l) => l.includes(":white_check_mark: (approve"))!;
+  // First cell: everything between the leading `| ` and the first unescaped
+  // ` | ` delimiter.
+  return row.slice(2).split(/(?<!\\) \| /)[0]!;
+}
+
+describe("renderEvalMarkdown fixture_id code span (#244)", () => {
+  // Red against the entity-escaping renderer.
+  it.each([
+    ["ampersand", "a&b"],
+    ["angle brackets", "x<y>"],
+    ["an HTML tag", "<script>alert(1)</script>"],
+    ["a single backtick", "tick`id"],
+    ["a double-backtick run", "a``b`c"],
+    ["a leading backtick", "`lead"],
+    ["a trailing backtick", "trail`"],
+    ["a pipe AND a backtick", "p|q`r"],
+    ["a space at both ends", " spaced "],
+  ])("shows an id with %s verbatim", (_label, id) => {
+    expect(codeSpanOf(fixtureCell(id))).toBe(id);
+  });
+
+  // Controls: green before and after #244.
+  it.each([
+    ["a plain id", "rag-production-kit_pr9_hybrid_retrieval"],
+    ["a pipe (#89)", "lang=py|framework=next"],
+  ])("shows %s verbatim", (_label, id) => {
+    expect(codeSpanOf(fixtureCell(id))).toBe(id);
+  });
+
+  it("keeps a plain id in a single-backtick span", () => {
+    expect(fixtureCell("alpha")).toBe("`alpha`");
+  });
+
+  it("still entity-escapes the recommendation cells, which are not code spans", () => {
+    const base = fakeRun().cases[0]!;
+    const run = fakeRun({
+      cases: [{ ...base, score: { ...base.score, recommendation_actual: "<b>x</b>" as never } }],
+    });
+    const md = renderEvalMarkdown(run);
+    expect(md).toContain("(&lt;b&gt;x&lt;/b&gt; vs approve)");
+    expect(md).not.toContain("<b>x</b>");
   });
 });
 
