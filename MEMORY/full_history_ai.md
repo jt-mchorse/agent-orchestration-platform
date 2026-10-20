@@ -2586,3 +2586,21 @@ context_for_next_session:
   - "NEWLINE_OR_EMPTY_FIXTURE_ID_NOT_HANDLED_a_newline_breaks_the_table_row_whatever_the_fence_not_reachable_from_a_normal_filename"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:48Z
+issue: 242
+branch: session/2026-10-20-0755-issue-242
+focus: PGSTORE_POOL_HAD_NO_ERROR_LISTENER_AN_IDLE_CLIENT_DROPPED_BY_RESTART_FAILOVER_OR_PG_TERMINATE_BACKEND_KILLED_THE_TRACE_SERVER_NOT_ONE_REQUEST
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "1058 passed, 13 skipped; 1071 passed with DATABASE_URL on Postgres 17; typecheck clean"
+decisions_made: []
+measured: "origin/main 3e2b984, Postgres 17, real trace-server: GET /api/runs 200, pg_terminate_backend on the idle pooled backend -> process exits 1 (57P01, Emitted 'error' event on BoundPool), next curl 000; after the fix the same sequence logs one stderr line and the next GET is 200, process alive. Revert 2 of 4 new arms red; the 2 green are controls (an unlistened bare pg.Pool emit throws; an injected pool gets no listener)."
+context_for_next_session:
+  - "LISTENER_IS_IN_GETPOOL_NOT_THE_CONSTRUCTOR_the_pool_is_built_lazily_an_injected_opts_pool_is_the_callers_and_is_left_alone"
+  - "AN_IN_PROCESS_PG_TERMINATE_ARM_STAYS_GREEN_ON_UNFIXED_CODE_vitest_reports_the_crash_as_an_Unhandled_Error_beside_a_passing_test_so_the_live_arm_runs_in_a_child_and_asserts_exit_0"
+followups: []
+---

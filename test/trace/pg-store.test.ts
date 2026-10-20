@@ -10,9 +10,11 @@
  *   DATABASE_URL=postgresql://agent:agent@localhost:5433/agent_trace npm test
  */
 
+import { spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import type { TraceEvent } from "../../src/agent/trace.js";
 import type { PlannerState, Review } from "../../src/agent/types.js";
@@ -20,6 +22,7 @@ import { searchRepoTool } from "../../src/tools/search-repo.js";
 import { PgStore } from "../../src/trace/pg-store.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const it_pg = DATABASE_URL ? it : it.skip;
 
 const PR: PlannerState["pr"] = { owner: "jt-mchorse", repo: "test", number: 42 };
@@ -389,6 +392,48 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
       await reader.close();
     }
   });
+
+  it_pg("survives its idle pooled connection being terminated (#242)", async () => {
+    // A request leaves its connection idle in the pool; a Postgres restart or
+    // failover in that window used to kill the process, because the pool
+    // emitted 'error' with no listener. Run in a child so "the process died"
+    // is this arm's own failure, not an unhandled error the runner reports
+    // beside a green test.
+    const script = `
+      import pg from "pg";
+      import { PgStore } from ${JSON.stringify(pathToFileURL(path.join(REPO_ROOT, "src", "trace", "pg-store.ts")).href)};
+      const url = process.env.DATABASE_URL;
+      const store = new PgStore({ connectionString: url });
+      await store.listRuns({ limit: 1 });
+      // The private pool is reached only to learn which backend sits idle in it.
+      const { rows } = await (await store.getPool()).query("SELECT pg_backend_pid() AS pid");
+      const admin = new pg.Pool({ connectionString: url, max: 1 });
+      const killed = await admin.query("SELECT pg_terminate_backend($1) AS ok", [rows[0].pid]);
+      await admin.end();
+      if (killed.rows[0].ok !== true) throw new Error("backend not terminated");
+      // Let the termination reach the idle client before the next checkout.
+      await new Promise((done) => setTimeout(done, 300));
+      await store.listRuns({ limit: 1 });
+      console.log("survived");
+      await store.close();
+    `;
+    const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+        cwd: REPO_ROOT,
+        env: { ...process.env, DATABASE_URL: DATABASE_URL as string },
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+      child.on("error", reject);
+      child.on("close", (code) => resolve({ code, stdout, stderr }));
+    });
+    expect(run.stderr).not.toContain("Emitted 'error' event");
+    expect({ code: run.code, stdout: run.stdout.trim() }).toEqual({ code: 0, stdout: "survived" });
+    // Logged, so an operator still sees the dropped connection.
+    expect(run.stderr).toContain("PgStore: idle Postgres client error");
+  }, 30_000);
 
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
