@@ -2021,3 +2021,17 @@ link ran off the right edge of the card. The summary now keeps its line breaks,
 like the timeline entries below it already did, and breaks a long link to fit
 the card. In a 420-pixel-wide browser the old summary was 65 pixels wider than
 its card. The new one fits exactly.
+
+## 2026-10-21 — The approval prompt shows the comment being approved (#250)
+
+Before the agent posts a review comment, the interactive checkpoint asks the
+operator to approve it. The README and the use-case doc say the operator sees
+the rendered comment. In fact the prompt printed the tool's raw input as JSON,
+with the summary squashed into one escaped line and the findings as nested
+objects. The prompt now prints the same Markdown the comment tool produces:
+heading, summary paragraphs, findings list and recommendation. Other tools
+still show their input as JSON. The use-case doc also said the checkpoint does
+nothing in replay mode, but it does ask there. That is deliberate: live posting
+isn't built yet, so replay is the only place the approval gate gets exercised.
+The doc now says so and points replay runs that shouldn't prompt to the
+auto-approve provider.

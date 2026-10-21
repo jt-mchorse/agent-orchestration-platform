@@ -2622,3 +2622,21 @@ context_for_next_session:
   - "EVENT_BODY_STILL_USES_DEPRECATED_word_break_break_word_equivalent_to_overflow_wrap_anywhere_left_alone_out_of_scope"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:43Z
+issue: 250
+branch: session/2026-10-21-0743-issue-250
+focus: CLI_APPROVAL_PROMPT_PRINTED_JSON_STRINGIFY_INPUT_NOT_THE_RENDERED_COMMENT_PLUS_USE_CASE_DOC_CLAIMED_REPLAY_CHECKPOINT_WAS_A_NO_OP
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 6
+  suite: "1082 passed, 13 skipped (pg-store skipped without DATABASE_URL; trace store untouched); typecheck clean"
+decisions_made: []
+measured: "origin/main 459c874, replay mode, createCliApprovalProvider on PassThrough streams: the prompt fired and printed the input as a JSON blob (summary as the escaped string \"Adds hybrid retrieval.\\n\\nSee the `k` constant.\"); after the fix it prints renderPreview's Markdown under 'Comment:'. Revert of the 2 source files + docs/use-case.md: 4 of 6 new arms red; the 2 green are controls (n still denies; JSON fallback for other tools and unparseable post_review_comment input)."
+context_for_next_session:
+  - "REPLAY_CLAIM_FIXED_IN_THE_DOC_NOT_THE_REGISTRY_replay_is_the_only_mode_that_exercises_approval_missing_approval_denied_replan_and_every_HITL_test_while_live_posting_is_stubbed_revisit_when_live_lands"
+  - "TEST_COMPARES_AGAINST_postReviewCommentTool_run_REPLAY_PREVIEW_NOT_AN_IMPORTED_renderPreview_so_the_file_still_loads_against_unfixed_code_and_the_probe_counts_tests_not_a_load_failure"
+followups: []
+---
