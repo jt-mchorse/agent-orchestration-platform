@@ -52,7 +52,14 @@
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 14px 16px; margin: 14px 0 20px;
     }
-    .review .summary { font-size: 14px; }
+    /* The summary is the review's main output and is multi-paragraph prose
+       that can carry a long URL (#251). Without pre-wrap its newlines
+       collapsed into one run-on paragraph, and an unbreakable URL ran past
+       the card's right edge. */
+    .review .summary {
+      font-size: 14px;
+      white-space: pre-wrap; overflow-wrap: anywhere;
+    }
     .review .reco {
       display: inline-block; padding: 2px 8px; border-radius: 4px;
       font-size: 11px; font-weight: 600; text-transform: uppercase;
