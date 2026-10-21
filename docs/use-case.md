@@ -65,7 +65,10 @@ criteria.
 The destructive action in this agent's surface is **posting a public comment
 on someone else's PR**. The checkpoint pauses before the comment is posted,
 shows the operator the rendered comment, and asks for explicit approval.
-Replay mode never posts, so the checkpoint is a no-op there.
+Replay mode never posts, but the checkpoint still fires there: it is how the
+approval gate, the fail-closed `approval_missing` path and the
+`approval_denied` re-plan are exercised while live posting is stubbed. A
+replay run that should not prompt wires `autoApproveProvider` (#250).
 
 Note: there's no "destructive on the codebase" surface — the agent doesn't
 edit files or push commits. It only reads.
