@@ -1,7 +1,6 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { fixtureKeyPart } from "./fixture-key.js";
+import { fixtureKeyPart, readExactFixture } from "./fixture-key.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
 // owner, repo and ref name the checks fixture file (#207, #213).
@@ -54,8 +53,8 @@ export function checksFixtureFile(owner: string, repo: string, ref: string): str
   return `${[owner, repo, ref].map(encodeURIComponent).join("+")}.json`;
 }
 
-function fixturePath(fixturesDir: string, owner: string, repo: string, ref: string): string {
-  return path.resolve(fixturesDir, "..", CHECKS_SUBDIR, checksFixtureFile(owner, repo, ref));
+function checksDir(fixturesDir: string): string {
+  return path.resolve(fixturesDir, "..", CHECKS_SUBDIR);
 }
 
 export const runCheckTool: Tool<typeof inputSchema, typeof outputSchema> = {
@@ -74,11 +73,15 @@ export const runCheckTool: Tool<typeof inputSchema, typeof outputSchema> = {
         "live mode is stubbed until the planner (#3) wires the GitHub client",
       );
     }
-    const candidate = fixturePath(ctx.fixturesDir, input.owner, input.repo, input.ref);
-    let raw: string;
-    try {
-      raw = await readFile(candidate, "utf8");
-    } catch {
+    const dir = checksDir(ctx.fixturesDir);
+    const name = checksFixtureFile(input.owner, input.repo, input.ref);
+    const candidate = path.join(dir, name);
+    // Exact-name read (#249): on a case-insensitive filesystem a plain
+    // `readFile` of `release/v1`'s name opened `release/V1`'s fixture, which
+    // then failed the coordinate check below as `internal`. A fixture recorded
+    // only under a case-folded name is a missing fixture.
+    const raw = await readExactFixture(dir, name);
+    if (raw === null) {
       return {
         owner: input.owner,
         repo: input.repo,
@@ -110,6 +113,10 @@ export const runCheckTool: Tool<typeof inputSchema, typeof outputSchema> = {
     if (!parsed.success) {
       throw new ToolError("run_check", "internal", `checks fixture at ${candidate} failed schema: ${parsed.error.message}`);
     }
+    // Past the exact-name read the file is this input's own fixture (the name
+    // is injective), so a coordinate mismatch is a mis-recorded fixture, the
+    // same corrupt-content case as the two checks above, and stays `internal`.
+    // A case-folded name never reaches here: it is `missing_fixture` (#249).
     if (parsed.data.owner !== input.owner || parsed.data.repo !== input.repo || parsed.data.ref !== input.ref) {
       throw new ToolError(
         "run_check",

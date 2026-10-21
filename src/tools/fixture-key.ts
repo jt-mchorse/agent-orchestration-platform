@@ -1,3 +1,5 @@
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
 import { z } from "zod";
 
 /**
@@ -25,3 +27,26 @@ export const fixtureKeyPart = z
   .refine((s) => !LONE_SURROGATE.test(s), {
     message: "must not contain a lone surrogate (no git ref, path, owner or repo can)",
   });
+
+/**
+ * Read the replay fixture named exactly `name` in `dir`, or `null` (#249).
+ *
+ * The fixture names are distinct strings, but on a case-insensitive
+ * filesystem (macOS APFS by default, Windows) `README.md` and `readme.md`
+ * name one file, while git paths and refs are case-sensitive. A plain
+ * `readFile` of the unrecorded input's name opened the recorded one:
+ * `read_file_at_ref` served `README.md`'s content labelled `file_cache` for
+ * `readme.md`, and `run_check` failed its coordinate check as `internal` for
+ * `release/v1` against a recorded `release/V1`. The directory listing carries
+ * each name as it was written, so the fixture is read only when that exact
+ * name is there; a case-folded match is a missing fixture.
+ */
+export async function readExactFixture(dir: string, name: string): Promise<string | null> {
+  try {
+    const entries = await readdir(dir);
+    if (!entries.includes(name)) return null;
+    return await readFile(path.join(dir, name), "utf8");
+  } catch {
+    return null;
+  }
+}
