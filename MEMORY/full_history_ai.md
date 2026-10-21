@@ -2640,3 +2640,22 @@ context_for_next_session:
   - "TEST_COMPARES_AGAINST_postReviewCommentTool_run_REPLAY_PREVIEW_NOT_AN_IMPORTED_renderPreview_so_the_file_still_loads_against_unfixed_code_and_the_probe_counts_tests_not_a_load_failure"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:43Z
+issue: 248
+branch: session/2026-10-21-0743-issue-248
+focus: PGSTORE_CHECKED_OUT_CLIENT_HAD_NO_ERROR_LISTENER_PG_TERMINATE_BACKEND_INSIDE_GETRUN_OR_WRITERUN_TRANSACTION_KILLED_THE_TRACE_SERVER_242_WAS_IDLE_ONLY
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "1084 passed, 14 skipped; pg-store.test.ts 13/13 with DATABASE_URL on Postgres 17; typecheck clean; eval --dry-run exit 0"
+decisions_made: []
+measured: "origin/main 459c874, Postgres 17, real trace-server, LOCK TABLE runs + GET /api/runs/run-1 + pg_terminate_backend on the waiting backend: curl 000, process exits 1 (Connection terminated unexpectedly, Emitted 'error' event on Client instance), next GET 000. After the fix: in-flight GET 500, process alive, next GET /api/runs 200 and /api/runs/run-1 200. Revert 5 of 9 new arms red (4 fake-client getRun/writeRun arms + the live child arm); the 4 green are controls (healthy getRun, healthy writeRun, a plain query error re-pools the client, an unlistened emit on a real pg.Client throws)."
+context_for_next_session:
+  - "EVERY_POOL_CONNECT_GOES_THROUGH_withClient_it_listens_for_the_checkout_removes_the_listener_BEFORE_release_and_release_err_discards_the_client"
+  - "CLIENTLIKE_ON_REMOVELISTENER_ARE_OPTIONAL_because_a_dozen_test_fakes_are_bare_objects_a_real_pg_Client_is_always_an_EventEmitter"
+  - "PG_POOL_REATTACHES_ITS_IDLE_LISTENER_IN__release_so_errors_after_release_reach_the_242_pool_handler"
+followups: []
+---

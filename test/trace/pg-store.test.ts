@@ -435,6 +435,74 @@ describe("PgStore (integration; DATABASE_URL required)", () => {
     expect(run.stderr).toContain("PgStore: idle Postgres client error");
   }, 30_000);
 
+  it_pg("survives its checked-out connection being terminated mid-transaction (#248)", async () => {
+    // pg-pool drops its idle listener while a client is checked out, so a
+    // terminated backend inside getRun's or writeRun's transaction emitted
+    // 'error' with no listener and the process exited 1. Each call is held on
+    // a table lock, its backend is terminated while it waits, and the call must
+    // reject while the process lives and the next call works. In a child for
+    // the same reason as the #242 arm above.
+    const runId = await uniqueRunId();
+    const script = `
+      import pg from "pg";
+      import { PgStore } from ${JSON.stringify(pathToFileURL(path.join(REPO_ROOT, "src", "trace", "pg-store.ts")).href)};
+      const url = process.env.DATABASE_URL;
+      const runId = ${JSON.stringify(runId)};
+      const pr = { owner: "jt-mchorse", repo: "test", number: 42 };
+      const input = { run_id: runId, pr, review: { summary: "s", findings: [], recommendation: "approve" },
+                      events: [{ ts: 1700000000000, kind: "run_started", pr }] };
+      const store = new PgStore({ connectionString: url });
+      await store.writeRun(input);
+      const admin = new pg.Pool({ connectionString: url, max: 2 });
+      async function terminatedWhileLocked(label, call, like) {
+        const locker = await admin.connect();
+        await locker.query("BEGIN");
+        await locker.query("LOCK TABLE runs IN ACCESS EXCLUSIVE MODE");
+        const inFlight = call();
+        let pid = null;
+        for (let i = 0; i < 200 && pid === null; i += 1) {
+          const { rows } = await admin.query(
+            "SELECT pid FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE $1 AND pid <> $2",
+            [like, (await locker.query("SELECT pg_backend_pid() AS p")).rows[0].p],
+          );
+          pid = rows[0]?.pid ?? null;
+          if (pid === null) await new Promise((done) => setTimeout(done, 25));
+        }
+        if (pid === null) throw new Error(label + ": never blocked on the lock");
+        const killed = await admin.query("SELECT pg_terminate_backend($1) AS ok", [pid]);
+        if (killed.rows[0].ok !== true) throw new Error(label + ": backend not terminated");
+        const outcome = await inFlight.then(() => "resolved", (err) => "rejected");
+        await locker.query("COMMIT");
+        locker.release();
+        console.log(label + ":" + outcome);
+      }
+      await terminatedWhileLocked("getRun", () => store.getRun(runId), "%FROM runs WHERE run_id%");
+      console.log("getRun-after:" + ((await store.getRun(runId))?.run_id === runId));
+      await terminatedWhileLocked("writeRun", () => store.writeRun(input), "%INSERT INTO runs%");
+      await store.writeRun(input);
+      console.log("writeRun-after:true");
+      await admin.end();
+      await store.close();
+    `;
+    const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+        cwd: REPO_ROOT,
+        env: { ...process.env, DATABASE_URL: DATABASE_URL as string },
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+      child.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+      child.on("error", reject);
+      child.on("close", (code) => resolve({ code, stdout, stderr }));
+    });
+    expect(run.stderr).not.toContain("Emitted 'error' event");
+    expect({ code: run.code, stdout: run.stdout.trim().split("\n") }).toEqual({
+      code: 0,
+      stdout: ["getRun:rejected", "getRun-after:true", "writeRun:rejected", "writeRun-after:true"],
+    });
+  }, 30_000);
+
   it_pg("returns null for a missing run", async () => {
     // it_pg only runs when DATABASE_URL is set, so the cast is safe.
     const store = new PgStore({ connectionString: DATABASE_URL as string });

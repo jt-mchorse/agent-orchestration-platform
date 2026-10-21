@@ -38,7 +38,12 @@ import type { TraceEvent } from "../agent/trace.js";
 // graph until someone actually constructs a `PgStore`.
 interface ClientLike {
   query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
-  release(): void;
+  /** `err` tells pg-pool to discard the client instead of re-pooling it (#248). */
+  release(err?: Error): void;
+  // A real `pg.Client` is always an EventEmitter; the test fakes are bare
+  // objects, so these are optional and `withClient` skips them when absent.
+  on?(event: "error", listener: (err: Error) => void): unknown;
+  removeListener?(event: "error", listener: (err: Error) => void): unknown;
 }
 
 interface PoolLike {
@@ -173,12 +178,7 @@ export class PgStore implements TraceStore {
     // and a ROLLBACK ran on a connection with nothing to undo -- or on another
     // writer's open transaction. Measured on a 1-connection pool: a rejected
     // run left {runs: 1, events: 10} behind.
-    const client = await pool.connect();
-    try {
-      await this.writeRunOn(client, input, { startedAt, finalizedAt, status, total });
-    } finally {
-      client.release();
-    }
+    await withClient(pool, (client) => this.writeRunOn(client, input, { startedAt, finalizedAt, status, total }));
   }
 
   private async writeRunOn(
@@ -295,12 +295,7 @@ export class PgStore implements TraceStore {
     // from the next. Measured on Postgres 17 with a writer alternating PR #1 and
     // PR #2: 883 of 22453 reads returned "review of #1" over PR #2's events.
     // MemoryStore returns one object and never tears.
-    const client = await pool.connect();
-    try {
-      return await this.getRunOn(client, runId);
-    } finally {
-      client.release();
-    }
+    return withClient(pool, (client) => this.getRunOn(client, runId));
   }
 
   private async getRunOn(client: ClientLike, runId: string): Promise<RunDetail | null> {
@@ -336,6 +331,36 @@ export class PgStore implements TraceStore {
       await this.pool.end();
       this.pool = null;
     }
+  }
+}
+
+/**
+ * Check out one client, run `work` on it, and release it (#248).
+ *
+ * pg-pool removes its idle `'error'` listener from a client while it is
+ * checked out, so a Postgres restart, failover or `pg_terminate_backend`
+ * during `work` emitted `'error'` on a client with no listener, and that throw
+ * killed the trace server instead of failing one request. #242's pool listener
+ * only covers idle clients. Here a listener is attached for the whole
+ * checkout: pg has already rejected the in-flight query, so `work` fails
+ * normally, and the client is released with the error so the pool discards it
+ * rather than handing a dead connection to the next request. Every
+ * `pool.connect()` goes through here, so a new call site can't forget it.
+ */
+async function withClient<R>(pool: PoolLike, work: (client: ClientLike) => Promise<R>): Promise<R> {
+  const client = await pool.connect();
+  let connectionError: Error | undefined;
+  const onError = (err: Error): void => {
+    connectionError ??= err;
+  };
+  client.on?.("error", onError);
+  try {
+    return await work(client);
+  } finally {
+    // Removed before release: pg-pool re-attaches its idle listener there,
+    // and any later error belongs to it.
+    client.removeListener?.("error", onError);
+    client.release(connectionError);
   }
 }
 
