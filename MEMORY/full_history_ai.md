@@ -2659,3 +2659,24 @@ context_for_next_session:
   - "PG_POOL_REATTACHES_ITS_IDLE_LISTENER_IN__release_so_errors_after_release_reach_the_242_pool_handler"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:52Z
+issue: 249
+branch: session/2026-10-21-0752-issue-249
+focus: REPLAY_FIXTURE_READ_OPENED_A_CASE_FOLDED_SIBLING_ON_APFS_readme_md_SERVED_README_md_AS_FILE_CACHE_AND_run_check_release_v1_THREW_INTERNAL_PLAIN_BUG_HALF_ONLY
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: "1103 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean; eval --dry-run exit 0"
+decisions_made: []
+measured: "origin/main f4c546f on macOS APFS, temp fixtures with only README.md and release/V1 recorded: read_file_at_ref readme.md and ReadMe.MD -> file_cache 'content of README.md\\n'; run_check release/v1 -> THROW internal (coordinates do not match). After the fix: readme.md/ReadMe.MD -> not_found (or patch_added from its own PR fixture), release/v1 -> missing_fixture, exact names unchanged. Revert of the 3 src/tools files: 4 of 8 new arms red on APFS AND on a mounted case-sensitive APFS volume (TMPDIR); the 4 green are controls (emulated readFile folds case, README.md exact file_cache, release/V1 exact fixture, exact-name fixture with wrong coordinates still internal)."
+context_for_next_session:
+  - "readExactFixture_IN_fixture-key_ts_CHECKS_THE_EXACT_NAME_IS_IN_readdir_BEFORE_readFile_the_file_cache_has_no_stored_coordinates_so_the_dir_entry_name_is_the_coordinate_record"
+  - "RUN_CHECK_COORDINATE_MISMATCH_DELIBERATELY_STAYS_INTERNAL_past_an_exact_name_read_it_can_only_be_a_misrecorded_fixture_the_case_fold_never_reaches_it_explained_in_PR_255"
+  - "TEST_MOCKS_node_fs_promises_readFile_TO_FOLD_CASE_so_it_is_red_on_linux_ci_too"
+  - "RENAME_ENCODING_HALF_OF_249_IS_JT_GATED_no_file-cache_or_checks_fixtures_are_committed_today_so_a_migration_has_nothing_to_rename"
+followups:
+  - "249 encoding/rename half (case-preserving key) awaits JT"
+---

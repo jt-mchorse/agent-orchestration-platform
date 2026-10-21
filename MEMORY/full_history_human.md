@@ -2048,3 +2048,15 @@ one helper that listens for errors for as long as it holds the connection, and
 then hands the broken connection back to be thrown away. In the reproduction,
 the request that lost its connection now gets a 500, the server stays up, and
 the next request gets a normal 200.
+
+## 2026-10-21 — Replay fixtures are read only under their exact name (#249)
+
+On a Mac or Windows filesystem, which ignores letter case, the replay fixture
+for `readme.md` is the same file as the one for `README.md`, even though git
+treats them as different files. With only `README.md` recorded, asking for
+`readme.md` silently returned `README.md`'s content as if it were a cached
+copy. Asking for checks on `release/v1` when only `release/V1` was recorded
+threw an internal error instead of reporting a missing fixture. Both tools now
+read a fixture only when the directory holds that exact name, so these cases
+come back as missing. The other half of the issue, changing the file naming so
+both spellings can be recorded side by side, is a decision left for JT.

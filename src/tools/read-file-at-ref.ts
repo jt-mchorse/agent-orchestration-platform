@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { fixtureKeyPart } from "./fixture-key.js";
+import { fixtureKeyPart, readExactFixture } from "./fixture-key.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
 // Every component is a `cacheKeyFile` component (#213).
@@ -46,12 +46,9 @@ async function tryReadFromCache(
   filePath: string,
 ): Promise<string | null> {
   const cacheRoot = path.resolve(fixturesDir, "..", FILE_CACHE_SUBDIR);
-  const candidate = path.join(cacheRoot, cacheKeyFile(owner, repo, ref, filePath));
-  try {
-    return await readFile(candidate, "utf8");
-  } catch {
-    return null;
-  }
+  // Exact-name read: on a case-insensitive filesystem a plain `readFile` of
+  // `readme.md`'s key opened `README.md`'s cache file (#249).
+  return readExactFixture(cacheRoot, cacheKeyFile(owner, repo, ref, filePath));
 }
 
 export function reconstructAddedFileFromPatch(patch: string | null): string | null {
