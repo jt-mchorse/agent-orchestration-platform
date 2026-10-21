@@ -2035,3 +2035,16 @@ nothing in replay mode, but it does ask there. That is deliberate: live posting
 isn't built yet, so replay is the only place the approval gate gets exercised.
 The doc now says so and points replay runs that shouldn't prompt to the
 auto-approve provider.
+
+## 2026-10-21 — A connection dropped mid-request no longer kills the trace server (#248)
+
+The fix in #242 covered connections sitting idle in the pool. It did not cover
+a connection that a request was still using. Opening a run's detail page and
+saving a run both hold one connection for a short transaction, and while they
+do, the pool stops listening for that connection's errors. If Postgres
+restarted, failed over, or closed the connection at that moment, the error had
+no listener and Node stopped the whole trace server. Both paths now go through
+one helper that listens for errors for as long as it holds the connection, and
+then hands the broken connection back to be thrown away. In the reproduction,
+the request that lost its connection now gets a 500, the server stays up, and
+the next request gets a normal 200.
