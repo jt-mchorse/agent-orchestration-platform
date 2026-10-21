@@ -2011,3 +2011,13 @@ was then refused. The pool now has a listener that logs the error and carries
 on. The broken connection is already thrown away, and the next request opens
 a fresh one. In the reproduction, the next request now gets a normal 200 and
 the server stays up.
+
+## 2026-10-21 — The review summary in the trace viewer keeps its paragraphs and wraps long links (#251)
+
+The trace viewer shows each run's review summary in a card at the top of the
+page. That card had no rule for line breaks, so a summary written as several
+paragraphs or a bullet list was squashed into one long paragraph, and a long
+link ran off the right edge of the card. The summary now keeps its line breaks,
+like the timeline entries below it already did, and breaks a long link to fit
+the card. In a 420-pixel-wide browser the old summary was 65 pixels wider than
+its card. The new one fits exactly.

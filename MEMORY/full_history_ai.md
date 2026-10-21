@@ -2604,3 +2604,21 @@ context_for_next_session:
   - "AN_IN_PROCESS_PG_TERMINATE_ARM_STAYS_GREEN_ON_UNFIXED_CODE_vitest_reports_the_crash_as_an_Unhandled_Error_beside_a_passing_test_so_the_live_arm_runs_in_a_child_and_asserts_exit_0"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:43Z
+issue: 251
+branch: session/2026-10-21-0743-issue-251
+focus: TRACE_VIEWER_REVIEW_SUMMARY_HAD_NO_WHITE_SPACE_RULE_PARAGRAPHS_COLLAPSED_AND_A_LONG_URL_OVERFLOWED_THE_CARD
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1081 passed, 13 skipped (Postgres arms, no DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "headless Chrome 420 px window, the shipped <style> block, a two-paragraph summary with bullets and a 150-char URL: origin/main 459c874 white-space normal, summary scrollWidth 491 > clientWidth 426, 5 lines; after the fix pre-wrap + overflow-wrap anywhere, 426/426, 9 lines. Revert 2 of 5 red (pre-wrap, anywhere); 3 green controls (app.js renders run.summary into .review .summary, font-size 14px kept, .event .body wrap rule kept)."
+context_for_next_session:
+  - "LOCK_MERGES_EVERY_RULE_WHOSE_SELECTOR_LIST_NAMES_THE_CLASS_comments_stripped_so_a_split_rule_or_a_comment_mentioning_pre_wrap_cannot_fake_it"
+  - "EVENT_BODY_STILL_USES_DEPRECATED_word_break_break_word_equivalent_to_overflow_wrap_anywhere_left_alone_out_of_scope"
+followups: []
+---
