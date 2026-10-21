@@ -1,5 +1,6 @@
 import type { Readable, Writable } from "node:stream";
 import type { ApprovalDecision, ApprovalProvider, ApprovalRequest } from "../tools/types.js";
+import { postReviewCommentTool, renderPreview } from "../tools/post-review-comment.js";
 
 export interface CliApprovalOptions {
   /** Stream to read y/n on. Defaults to process.stdin. */
@@ -10,20 +11,40 @@ export interface CliApprovalOptions {
   format?: (req: ApprovalRequest) => string;
 }
 
-function defaultFormat(req: ApprovalRequest): string {
-  const inputPreview = (() => {
+/**
+ * The text the operator reviews before approving. For `post_review_comment`
+ * that is the rendered Markdown comment, built by the poster's own
+ * `renderPreview`, so the operator approves the text that would be posted
+ * (#250). A JSON dump showed the summary as an escaped one-line string and the
+ * findings as nested objects -- not the comment the README and use-case doc
+ * promise. Any other tool, or an input that does not parse as a review comment
+ * (a direct caller can pass anything), keeps the JSON preview.
+ */
+function previewFor(req: ApprovalRequest): { label: string; body: string } {
+  if (req.toolName === postReviewCommentTool.name) {
+    const parsed = postReviewCommentTool.inputSchema.safeParse(req.input);
+    if (parsed.success) {
+      return { label: "Comment", body: renderPreview(parsed.data) };
+    }
+  }
+  const json = (() => {
     try {
       return JSON.stringify(req.input, null, 2);
     } catch {
       return String(req.input);
     }
   })();
+  return { label: "Input", body: json };
+}
+
+function defaultFormat(req: ApprovalRequest): string {
+  const preview = previewFor(req);
   return [
     "",
     `==> Approval required for destructive tool: ${req.toolName}`,
     `    Effect: ${req.reason}`,
-    `    Input:`,
-    inputPreview
+    `    ${preview.label}:`,
+    preview.body
       .split("\n")
       .map((line) => `      ${line}`)
       .join("\n"),

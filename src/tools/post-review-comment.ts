@@ -31,7 +31,9 @@ const outputSchema = z.object({
   preview: z.string(),
 });
 
-function renderPreview(input: z.infer<typeof inputSchema>): string {
+// Exported so the CLI approval prompt shows the operator this exact rendering
+// -- the comment they are approving -- instead of the raw tool input (#250).
+export function renderPreview(input: z.infer<typeof inputSchema>): string {
   const lines: string[] = [];
   lines.push(`# Review: ${input.owner}/${input.repo}#${input.number}`);
   lines.push("");
