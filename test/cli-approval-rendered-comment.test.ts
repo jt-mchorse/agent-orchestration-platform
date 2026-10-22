@@ -122,3 +122,88 @@ describe("docs/use-case.md describes the replay-mode checkpoint (#250)", () => {
     expect(doc).toMatch(/checkpoint still fires there/);
   });
 });
+
+/**
+ * The rendered comment reaches the operator's terminal, and its text comes from
+ * the planner's review of the PR, so a PR author can steer it (#257). Before
+ * #253 the JSON dump escaped C0 controls; the rendered preview printed them
+ * raw, so a CR + `ESC[2K` could erase the line the operator was approving.
+ * Controls are built from codepoints.
+ */
+describe("the approval prompt escapes terminal control characters (#257)", () => {
+  const ESC = String.fromCharCode(0x1b);
+  const CR = String.fromCharCode(0x0d);
+  const BEL = String.fromCharCode(0x07);
+  const DEL = String.fromCharCode(0x7f);
+  const CSI8 = String.fromCharCode(0x9b); // 8-bit CSI: JSON.stringify leaves it raw
+  const RLO = String.fromCharCode(0x202e);
+  const LRI = String.fromCharCode(0x2066);
+  const TAB = String.fromCharCode(0x09);
+
+  /** Every codepoint in `s` a terminal would act on, other than `\n`. */
+  const rawControls = (s: string) =>
+    [...s]
+      .map((c) => c.codePointAt(0)!)
+      .filter(
+        (c) =>
+          (c < 0x20 && c !== 0x0a) ||
+          (c >= 0x7f && c <= 0x9f) ||
+          (c >= 0x202a && c <= 0x202e) ||
+          (c >= 0x2066 && c <= 0x2069),
+      );
+
+  const hostile = {
+    ...comment,
+    summary: `LGTM, ship it.${CR}${ESC}[2KMalicious hidden text${BEL}`,
+    findings: [
+      {
+        ...comment.findings[0],
+        file: `src/${RLO}yp.evil${LRI}`,
+        message: `fine${ESC}[8m but hidden${DEL}${CSI8}1A`,
+      },
+    ],
+  };
+
+  it("prints no raw control codepoint from the summary, finding path or finding text", async () => {
+    const { prompt } = await promptFor(hostile);
+    expect(rawControls(prompt)).toEqual([]);
+  });
+
+  it("makes each one visible instead of dropping it", async () => {
+    const { prompt } = await promptFor(hostile);
+    expect(prompt).toContain("LGTM, ship it.\\r\\x1b[2KMalicious hidden text\\x07");
+    expect(prompt).toContain("src/\\u202eyp.evil\\u2066");
+    expect(prompt).toContain("fine\\x1b[8m but hidden\\x7f\\x9b1A");
+  });
+
+  // JSON.stringify escapes C0 but not C1 or bidi, so the fallback path is
+  // sanitised too.
+  it("escapes C1 and bidi in the JSON fallback preview", async () => {
+    let out = "";
+    const output = new PassThrough();
+    output.on("data", (c: Buffer) => (out += c.toString("utf8")));
+    const input = new PassThrough();
+    const decision = createCliApprovalProvider({ input, output }).requestApproval({
+      toolName: "noop_destructive",
+      reason: "r",
+      input: { note: `a${CSI8}2K${RLO}b` },
+    });
+    input.write("n\n");
+    await decision;
+    expect(rawControls(out)).toEqual([]);
+    expect(out).toContain('"note": "a\\x9b2K\\u202eb"');
+  });
+
+  // Control: green before and after. Multi-line text, tabs and ordinary
+  // non-ASCII come through untouched.
+  it("leaves plain multi-line text, tabs and non-ASCII unchanged", async () => {
+    const plain = { ...comment, summary: `Line one.\n\nLine${TAB}two — naïve café.` };
+    const { preview } = await postReviewCommentTool.run(plain, {
+      mode: "replay",
+      fixturesDir: "fixtures/sample-prs",
+    });
+    const { prompt } = await promptFor(plain);
+    expect(dedent(prompt)).toContain(preview);
+    expect(prompt).toContain(`Line${TAB}two — naïve café.`);
+  });
+});
