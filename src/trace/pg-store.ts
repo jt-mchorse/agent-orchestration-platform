@@ -83,7 +83,12 @@ function positiveMs(name: string, value: number | undefined, fallback: number): 
 export const DEFAULT_CONNECTION_STRING = "postgresql://agent:agent@localhost:5433/agent_trace";
 
 export class PgStore implements TraceStore {
-  private pool: PoolLike | null = null;
+  // The pool PROMISE, not the pool (#259). Memoising the built pool let every
+  // caller that arrived during the `import("pg")` await pass the empty check
+  // and build its own Pool; `close()` then ended only the last one, and the
+  // others held their connections until pg's idle timeout. Measured on Postgres
+  // 17: 5 concurrent first `listRuns()` left 4 backends after `close()`.
+  private poolPromise: Promise<PoolLike> | null = null;
   private readonly opts: PgStoreOptions;
 
   constructor(opts: PgStoreOptions = {}) {
@@ -92,11 +97,23 @@ export class PgStore implements TraceStore {
     positiveMs("connectionTimeoutMs", opts.connectionTimeoutMs, DEFAULT_CONNECTION_TIMEOUT_MS);
     positiveMs("queryTimeoutMs", opts.queryTimeoutMs, DEFAULT_QUERY_TIMEOUT_MS);
     this.opts = opts;
-    if (opts.pool) this.pool = opts.pool;
+    if (opts.pool) this.poolPromise = Promise.resolve(opts.pool);
   }
 
-  private async getPool(): Promise<PoolLike> {
-    if (this.pool) return this.pool;
+  private getPool(): Promise<PoolLike> {
+    if (this.poolPromise) return this.poolPromise;
+    // A rejected build is forgotten, so the next call retries, as it did when
+    // only a built pool was remembered. Only if it is still the current one: a
+    // `close()` may have cleared it and a later call started another build.
+    const building: Promise<PoolLike> = this.buildPool().catch((err: unknown) => {
+      if (this.poolPromise === building) this.poolPromise = null;
+      throw err;
+    });
+    this.poolPromise = building;
+    return building;
+  }
+
+  private async buildPool(): Promise<PoolLike> {
     // `??` fires on null/undefined only, so an empty `DATABASE_URL` -- or an
     // empty `opts.connectionString` -- used to be handed to `new Pool()`
     // verbatim, bypassing the documented default below (#124). One rule for
@@ -145,7 +162,6 @@ export class PgStore implements TraceStore {
     pool.on("error", (err) => {
       console.error(`PgStore: idle Postgres client error (client discarded): ${err.message}`);
     });
-    this.pool = pool;
     return pool;
   }
 
@@ -327,10 +343,14 @@ export class PgStore implements TraceStore {
   }
 
   async close(): Promise<void> {
-    if (this.pool) {
-      await this.pool.end();
-      this.pool = null;
-    }
+    // Awaits a build still in flight and ends THAT pool (#259); cleared first,
+    // so a call after `close()` builds a fresh pool. A build that failed left
+    // no pool to end.
+    const pending = this.poolPromise;
+    if (!pending) return;
+    this.poolPromise = null;
+    const pool = await pending.catch(() => null);
+    if (pool) await pool.end();
   }
 }
 
