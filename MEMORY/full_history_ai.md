@@ -2681,3 +2681,22 @@ context_for_next_session:
 followups:
   - "249 encoding/rename half (case-preserving key) awaits JT"
 ---
+
+---
+session: 2026-10-22T07:47Z
+issue: 257
+branch: session/2026-10-22-0746-issue-257
+focus: CLI_APPROVAL_PROMPT_PRINTED_RAW_ESC_CR_C1_BIDI_FROM_PR_INFLUENCED_REVIEW_TEXT_REGRESSION_FROM_253_RENDERED_PREVIEW_AND_JSON_FALLBACK_NEVER_ESCAPED_C1_OR_BIDI
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1107 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 85cdce2, tsx, controls from codepoints: post_review_comment with CR+ESC[2K in summary, RLO in finding path, U+009B in message -> raw codepoints [13, 27, 8238, 155] in the prompt; non-review tool JSON fallback with U+009B+RLO -> [155, 8238] (JSON.stringify escapes C0 only). After the fix: [] and []. Revert of src/agent/cli-approval.ts: 3 of 4 new arms red; the green one is the control (plain multi-line text, tab, non-ASCII unchanged and renderPreview output still verbatim in the prompt)."
+context_for_next_session:
+  - "ESCAPING_IS_IN_defaultFormat_NOT_renderPreview_because_renderPreview_is_also_the_posted_text_which_must_stay_verbatim_and_defaultFormat_covers_the_JSON_fallback_too"
+  - "escapeForTerminal_KEEPS_TAB_AND_NEWLINE_shows_CR_as_backslash_r_others_le_0xff_as_backslash_xNN_bidi_as_backslash_uNNNN"
+  - "A_custom_format_OPTION_BYPASSES_THE_ESCAPING_by_design_the_caller_owns_that_rendering"
+followups: []
+---
