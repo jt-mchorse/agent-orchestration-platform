@@ -2720,3 +2720,21 @@ context_for_next_session:
 followups:
   - "259 PgStore.getPool lazy-init race is next, separate branch"
 ---
+
+---
+session: 2026-10-22T07:50Z
+issue: 259
+branch: session/2026-10-22-0750-issue-259
+focus: PGSTORE_GETPOOL_MEMOISED_THE_BUILT_POOL_NOT_THE_PROMISE_CONCURRENT_FIRST_CALLS_EACH_BUILT_A_POOL_AND_CLOSE_ENDED_ONLY_THE_LAST
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 8
+  suite: "1111 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean; eval --dry-run exit 0"
+decisions_made: []
+measured: "origin/main 85cdce2, no Postgres, real pg Pools with pg-pool prototype query/end stubbed: 5 concurrent first listRuns built 5 Pools, close() ended [0,0,0,0,1]; close() during the first build ended [0]. After the fix: 1 Pool, [1], [1]. Revert of src/trace/pg-store.ts: 3 of 8 new arms red; 5 green controls. Wrong-fix probes: memoising the rejection -> 'failed build is retried' red; clearing on rejection without the identity check -> 'build failing after close does not clear the next build' red."
+context_for_next_session:
+  - "PGSTORE_HOLDS_poolPromise_A_REJECTION_CLEARS_IT_ONLY_IF_STILL_CURRENT_close_CLEARS_FIRST_THEN_AWAITS_AND_ENDS"
+  - "VITEST_1X_vi_mock_RACES_CONCURRENT_FIRST_DYNAMIC_IMPORTS_some_get_the_real_module_even_after_a_warmup_import_spy_on_the_pg-pool_prototype_instead"
+followups: []
+---
