@@ -37,8 +37,34 @@ function previewFor(req: ApprovalRequest): { label: string; body: string } {
   return { label: "Input", body: json };
 }
 
+/**
+ * Terminal-control and bidi codepoints the preview must not print raw (#257).
+ * C0 except `\t` and `\n`, DEL, C1 (U+0080-009F; U+009B is an 8-bit CSI on
+ * some terminals), and the bidi embeddings/overrides/isolates/marks. The
+ * comment text comes from the planner's review of someone else's PR, so a PR
+ * author can steer it: a CR or `ESC[2K` rewrites the line the operator is
+ * reading, `ESC[8m` hides text, an RLO reorders it -- and the operator
+ * approves something other than what gets posted. `JSON.stringify` escaped
+ * C0 for the old JSON dump, but never C1 or bidi, so the fallback path goes
+ * through this too.
+ */
+const TERMINAL_UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f؜‎‏‪-‮⁦-⁩]/g;
+
+/**
+ * Make each unsafe codepoint visible instead of dropping it, so the operator
+ * sees that something odd is there: `\r`, `\x1b`, `‮`.
+ */
+function escapeForTerminal(text: string): string {
+  return text.replace(TERMINAL_UNSAFE, (c) => {
+    if (c === "\r") return "\\r";
+    const code = c.charCodeAt(0);
+    return code <= 0xff ? `\\x${code.toString(16).padStart(2, "0")}` : `\\u${code.toString(16).padStart(4, "0")}`;
+  });
+}
+
 function defaultFormat(req: ApprovalRequest): string {
-  const preview = previewFor(req);
+  const raw = previewFor(req);
+  const preview = { label: raw.label, body: escapeForTerminal(raw.body) };
   return [
     "",
     `==> Approval required for destructive tool: ${req.toolName}`,

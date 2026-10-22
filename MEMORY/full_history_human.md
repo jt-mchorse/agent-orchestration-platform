@@ -2060,3 +2060,18 @@ threw an internal error instead of reporting a missing fixture. Both tools now
 read a fixture only when the directory holds that exact name, so these cases
 come back as missing. The other half of the issue, changing the file naming so
 both spellings can be recorded side by side, is a decision left for JT.
+
+## 2026-10-22 — The approval prompt no longer lets the review text control the terminal (#257)
+
+Since #253 the approval prompt prints the rendered review comment, and that
+text comes from the agent's reading of someone else's PR. Invisible terminal
+control characters in it reached the operator's terminal as they were. A
+carriage return followed by an "erase line" code could wipe out the line being
+read, another code could hide text, and a right-to-left override could reorder
+it. The operator could end up approving something different from what gets
+posted. The prompt now shows each of these characters as visible text, such as
+`\r`, `\x1b` or `‮`, rather than passing it through. That way the operator
+can see that something odd is in the text. The same applies to the JSON
+preview other tools use, which had escaped the common control characters but
+not the rarer 8-bit ones or the direction overrides. The comment that would be
+posted is unchanged.
