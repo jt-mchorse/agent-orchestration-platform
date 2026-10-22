@@ -2086,3 +2086,13 @@ climbed out of the wrong folder. The real file was left with its old content,
 and a new file appeared somewhere else. The helper now starts from the link's
 real folder, so it writes the same file a plain write would. Links that point
 at a file that does not exist yet, and link loops, behave as before.
+
+## 2026-10-22 — The Postgres trace store opens one connection pool, however many first requests arrive together (#259)
+
+The Postgres trace store sets up its connection pool the first time it is used.
+If several requests arrived at once, before the first one had finished setting
+it up, each request set up its own pool. Closing the store then shut only the
+last one, and the rest kept their database connections open for about ten
+seconds, which kept the program from exiting. Requests that arrive together
+now share the one pool being set up, and closing the store shuts it, even if
+the setup was still in progress.
