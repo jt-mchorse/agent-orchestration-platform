@@ -92,7 +92,13 @@ async function resolveSymlinkedTarget(target: string): Promise<string> {
       throw err;
     }
     if (!isLink) return current;
-    current = path.resolve(path.dirname(current), await fs.readlink(current));
+    // A relative target is resolved against the directory the link PHYSICALLY
+    // lives in, as the kernel does (#258). `path.dirname(current)` is lexical:
+    // reached through a symlinked directory, a `..` in the target climbed out of
+    // the alias instead of the real directory, so the write missed the file
+    // `fs.writeFile` updates and created a new one elsewhere. The link exists
+    // (lstat just saw it), so its parent does and `realpath` cannot ENOENT.
+    current = path.resolve(await fs.realpath(path.dirname(current)), await fs.readlink(current));
   }
   const err = new Error(`ELOOP: too many symbolic links, write '${target}'`) as NodeJS.ErrnoException;
   err.code = "ELOOP";

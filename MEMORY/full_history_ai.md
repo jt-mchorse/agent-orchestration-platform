@@ -2700,3 +2700,23 @@ context_for_next_session:
   - "A_custom_format_OPTION_BYPASSES_THE_ESCAPING_by_design_the_caller_owns_that_rendering"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:47Z
+issue: 258
+branch: session/2026-10-22-0746-issue-258
+focus: ATOMICWRITEFILE_RESOLVED_A_RELATIVE_SYMLINK_TARGET_AGAINST_THE_LEXICAL_DIRNAME_THROUGH_A_SYMLINKED_DIR_A_DOTDOT_TARGET_WROTE_A_STRAY_FILE_AND_LEFT_THE_REAL_ONE_STALE_197_SIBLING
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1109 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean; eval --dry-run exit 0"
+decisions_made: []
+measured: "origin/main 85cdce2 on macOS APFS, r/alias -> real/sub, real/sub/out.md -> ../target.md, write NEW to r/alias/out.md: fs.writeFile -> real/target.md NEW, no r/target.md; atomicWriteFile -> real/target.md OLD, r/target.md NEW. After the fix both match. Revert of src/io/atomic-write.ts: 3 of 6 new arms red (dotdot through alias, second hop reached through alias, dangling dotdot through alias); the 3 green are controls (no-dotdot target, absolute target, dotdot link reached by its real path)."
+context_for_next_session:
+  - "RESOLVESYMLINKEDTARGET_RESOLVES_EACH_HOP_AGAINST_fs_realpath_OF_THE_LINKS_DIRNAME_the_link_exists_so_its_parent_does_and_realpath_cannot_ENOENT"
+  - "KEPT_THE_HOP_LOOP_NOT_A_WHOLE_TARGET_realpath_because_realpath_rejects_a_dangling_link_and_197_settled_dangling_creates_the_named_file"
+  - "TEST_COMPARES_fs_writeFile_AND_atomicWriteFile_IN_FRESH_TREES_its_walker_does_not_follow_symlinked_dirs_because_readdir_recursive_does_and_double_lists"
+followups:
+  - "259 PgStore.getPool lazy-init race is next, separate branch"
+---

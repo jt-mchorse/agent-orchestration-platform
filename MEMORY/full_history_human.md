@@ -2075,3 +2075,14 @@ can see that something odd is in the text. The same applies to the JSON
 preview other tools use, which had escaped the common control characters but
 not the rarer 8-bit ones or the direction overrides. The comment that would be
 posted is unchanged.
+
+## 2026-10-22 — Atomic writes follow a relative symlink the way the OS does (#258)
+
+When the file being written is a symlink, the safe-write helper writes to the
+file the link points at, as a plain write does. It worked out where a relative
+link points from the path it was given, not from the folder the link really
+sits in. If that path went through a symlinked folder, a `..` in the link
+climbed out of the wrong folder. The real file was left with its old content,
+and a new file appeared somewhere else. The helper now starts from the link's
+real folder, so it writes the same file a plain write would. Links that point
+at a file that does not exist yet, and link loops, behave as before.
