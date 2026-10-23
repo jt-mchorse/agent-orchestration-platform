@@ -30,6 +30,7 @@ import {
   type TraceStore,
   type WriteRunInput,
 } from "./store.js";
+import { MAX_TIMER_MS } from "../agent/retry.js";
 import type { TraceEvent } from "../agent/trace.js";
 
 // Minimal subset of `pg.Pool` we use, captured as an interface so this
@@ -75,6 +76,19 @@ function positiveMs(name: string, value: number | undefined, fallback: number): 
   if (value === undefined) return fallback;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     throw new RangeError(`PgStore: ${name} must be a positive finite number of ms, got ${String(value)}`);
+  }
+  // Finite and positive was not enough (#264). `pg` arms both deadlines with
+  // `setTimeout`, which clamps anything above `MAX_TIMER_MS` to 1 ms, so an
+  // operator asking for "effectively no timeout" got every request failing at
+  // once. Measured on Postgres 17: connectionTimeoutMs 2147483648 threw
+  // "Connection terminated due to connection timeout" after 1 ms, and
+  // queryTimeoutMs 2147483648 threw "Query read timeout" after 5 ms behind a
+  // 1.5 s lock that 2147483647 waited out.
+  if (value > MAX_TIMER_MS) {
+    throw new RangeError(
+      `PgStore: ${name} must be <= ${MAX_TIMER_MS} (Node's setTimeout limit), got ${value}. ` +
+        "A larger delay is silently clamped to 1 ms.",
+    );
   }
   return value;
 }
