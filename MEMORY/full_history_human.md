@@ -2109,3 +2109,15 @@ one disk, writing into a new folder through such a path failed with "no such
 file or directory". The helper now asks the operating system for the real
 destination folder and creates the temporary file there. Ordinary paths behave
 as before.
+
+## 2026-10-23 — A huge timeout is refused up front instead of quietly becoming 1 ms (#264)
+
+Node cannot set a timer longer than about 24.8 days. If it is given a longer
+one, it sets the timer to 1 ms instead and prints a warning. The Postgres trace
+store's connection and query timeouts, and the timeout on the GitHub calls that
+post the eval comment, all accepted values above that limit. So someone who
+passed a very large number to mean "no real timeout" got the opposite: every
+request failed at once. Both settings now refuse a value above the limit, with
+an error that names the setting and the limit. The trace store refuses it when
+it is created. The comment calls refuse it before contacting GitHub. The limit
+itself and every smaller value work as before.
