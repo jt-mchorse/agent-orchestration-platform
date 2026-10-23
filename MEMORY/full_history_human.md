@@ -2096,3 +2096,16 @@ last one, and the rest kept their database connections open for about ten
 seconds, which kept the program from exiting. Requests that arrive together
 now share the one pool being set up, and closing the store shuts it, even if
 the setup was still in progress.
+
+## 2026-10-23 — Atomic writes put their temporary file in the real destination folder (#265)
+
+The safe-write helper writes to a temporary file next to the destination, then
+renames it into place. It worked out "next to" by reading the path as text, so
+a `..` straight after a symlinked folder climbed out of the link's own folder.
+The operating system, though, follows the link first. The temporary file ended
+up in one folder while the rename went to another. If those folders were on
+different disks the write failed outright with a "cross-device link" error. On
+one disk, writing into a new folder through such a path failed with "no such
+file or directory". The helper now asks the operating system for the real
+destination folder and creates the temporary file there. Ordinary paths behave
+as before.

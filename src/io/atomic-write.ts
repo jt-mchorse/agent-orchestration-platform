@@ -116,8 +116,18 @@ export async function atomicWriteFile(
   const base = path.basename(target);
   await fs.mkdir(dir, { recursive: true });
 
+  // The temp goes in the directory the RENAME lands in, i.e. the physical
+  // parent (#265). `path.join` collapses `..` lexically, but the kernel resolves
+  // `alias/..` through the symlink. So for `link/../out.md` the temp was opened
+  // beside `link`, while the rename targeted the link's real parent. Across
+  // volumes that is EXDEV. On one volume a write to `link/../new/out.md` failed
+  // ENOENT, because `mkdir` (the kernel) created `new` under the real parent
+  // and the temp's lexical directory did not exist. `mkdir` just ran, so the
+  // directory exists and `realpath` cannot ENOENT. Same move as #258's link
+  // resolution above.
+  const realDir = await fs.realpath(dir);
   const token = randomBytes(6).toString("hex");
-  const tmp = path.join(dir, `.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
+  const tmp = path.join(realDir, `.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
 
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another

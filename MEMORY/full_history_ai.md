@@ -2738,3 +2738,22 @@ context_for_next_session:
   - "VITEST_1X_vi_mock_RACES_CONCURRENT_FIRST_DYNAMIC_IMPORTS_some_get_the_real_module_even_after_a_warmup_import_spy_on_the_pg-pool_prototype_instead"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:41Z
+issue: 265
+branch: session/2026-10-23-0805-issue-265
+focus: ATOMICWRITEFILE_BUILT_ITS_TEMP_PATH_WITH_A_LEXICAL_path_join_A_DOTDOT_AFTER_A_SYMLINKED_DIR_PUT_THE_TEMP_BESIDE_THE_ALIAS_NOT_THE_RENAMES_REAL_PARENT_EXDEV_ACROSS_VOLUMES_258_SIBLING
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1127 passed, 14 skipped (pg-store skipped without DATABASE_URL), same on Node 20.20.2; typecheck clean; eval --dry-run exit 0"
+decisions_made: []
+measured: "origin/main 2192994 on macOS APFS, r/alias -> real/sub: write r/alias/../out.md with real/ on an attached disk image -> EXDEV rename 'r/.out.md.<pid>.<hex>.tmp' -> 'r/alias/../out.md'; one volume -> ok but temp opened in r/; r/alias/../newdir/out.md on ONE volume -> ENOENT on the temp open (mkdir created real/newdir, lexical r/newdir absent). After the fix all ok, temp in real/ and real/newdir. Revert of src/io/atomic-write.ts: 3 of 6 new arms red (temp dir for new file, temp dir for overwrite, newdir create); 3 green controls (matches fs.writeFile with no leftover temp, alias without dotdot, plain path)."
+context_for_next_session:
+  - "ATOMICWRITEFILE_NOW_realpath_S_THE_PARENT_AFTER_mkdir_AND_BUILDS_THE_TEMP_THERE_rename_AND_stat_STILL_USE_target_WHICH_THE_KERNEL_RESOLVES_TO_THE_SAME_DIR"
+  - "THE_NEWDIR_ENOENT_SHAPE_IS_THE_SINGLE_VOLUME_RED_FOR_THIS_CLASS_no_second_filesystem_needed_in_CI"
+  - "TESTS_BUILD_REQUESTED_PATHS_BY_STRING_CONCAT_path_join_IN_A_TEST_WOULD_NORMALISE_THE_DOTDOT_AWAY_AND_PASS_AGAINST_UNFIXED_CODE"
+followups: []
+---
