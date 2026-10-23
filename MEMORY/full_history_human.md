@@ -2121,3 +2121,15 @@ request failed at once. Both settings now refuse a value above the limit, with
 an error that names the setting and the limit. The trace store refuses it when
 it is created. The comment calls refuse it before contacting GitHub. The limit
 itself and every smaller value work as before.
+
+## 2026-10-23 — A destructive tool's side effect runs once when its output fails validation, whatever its retry policy says (#263)
+
+A tool's output is checked only after the tool has run, so when a destructive
+tool such as "post a comment" returns a badly shaped result, the post has
+already gone out. If the tool's retry policy listed that kind of failure as
+retryable, the agent asked for approval and posted again on every retry, then
+once more through the tool's fallback. One planned step produced four approval
+prompts and four posts. For destructive tools this failure is now never retried
+and never sent to the fallback. The run reports the validation error and the
+planner decides what to do next. Tools that are not destructive can still opt
+in to retrying it.
