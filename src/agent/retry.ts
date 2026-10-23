@@ -18,7 +18,9 @@ import { ToolError, type RetryPolicy, type ToolErrorKind } from "../tools/types.
  *   for the retry layer to second-guess.
  *
  * Tool authors can override via `RetryPolicy.retryableErrorKinds`, except for
- * the approval kinds, which are never retried (`NEVER_RETRIED_KINDS`).
+ * the approval kinds, which are never retried (`NEVER_RETRIED_KINDS`), and
+ * `output_validation` on a destructive tool, which the executor drops before
+ * calling `withRetry` because the side effect has already committed (#263).
  */
 export const DEFAULT_RETRYABLE_KINDS: readonly ToolErrorKind[] = ["internal"] as const;
 
