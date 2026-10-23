@@ -2776,3 +2776,22 @@ context_for_next_session:
   - "timeoutMs_ZERO_NEGATIVE_NAN_NOT_RANGE_CHECKED_AbortSignal_timeout_already_TypeErrors_on_negative_and_NaN_and_0_is_a_legal_immediate_deadline"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:41Z
+issue: 263
+branch: session/2026-10-23-0805-issue-263
+focus: A_DESTRUCTIVE_TOOLS_POLICY_LISTING_OUTPUT_VALIDATION_RERAN_ITS_COMMITTED_SIDE_EFFECT_ON_EVERY_RETRY_AND_AGAIN_VIA_THE_95_FALLBACK_GATE_240_SIBLING
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 7
+  suite: "1128 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 2192994, destructive post returning {id:'not-a-number'}, retry {maxAttempts:3, retryableErrorKinds:[internal,output_validation]}, fallbackTo altPost (destructive), approve-all: 4 prompts, side effects post x3 + altPost x1, outcome ok. After the fix: 1 prompt, post x1, outcome error output_validation. Revert of src/: 4 of 7 new arms red; 3 green controls (non-destructive still retries+falls back, internal still retries for destructive, default policy runs once). Per-site partial reverts: retry site only -> 3 red, fallback gate only -> 2 red."
+context_for_next_session:
+  - "effectiveRetryableKinds_IN_executor_ts_IS_THE_ONE_SOURCE_FOR_BOTH_invokeWithRetry_AND_THE_95_FALLBACK_GATE_policy_minus_NEVER_RETRIED_KINDS_minus_output_validation_if_destructive"
+  - "withRetry_STAYS_PURE_the_executor_passes_a_narrowed_retryableErrorKinds_so_the_fallback_tools_own_retry_is_narrowed_too"
+  - "input_validation_NOT_NARROWED_registry_throws_it_before_approval_and_run_so_nothing_committed"
+followups: []
+---

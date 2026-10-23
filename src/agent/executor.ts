@@ -1,7 +1,17 @@
 import type { ToolRegistry } from "../tools/registry.js";
-import { ToolError, type ToolContext, type ToolErrorKind } from "../tools/types.js";
+import {
+  ToolError,
+  type ToolAnnotations,
+  type ToolContext,
+  type ToolErrorKind,
+} from "../tools/types.js";
 import type { Planner } from "./planner.js";
-import { DEFAULT_RETRYABLE_KINDS, type SleepFn, withRetry } from "./retry.js";
+import {
+  DEFAULT_RETRYABLE_KINDS,
+  NEVER_RETRIED_KINDS,
+  type SleepFn,
+  withRetry,
+} from "./retry.js";
 import type { Trace } from "./trace.js";
 import type { Observation, PlannerState, PlannedStep, ReplanReason, Review } from "./types.js";
 
@@ -176,10 +186,12 @@ export class AgentRun {
       // means the primary's run() ALREADY committed its side effect, so the
       // fallback DOUBLE-executes. Surface it to the replan path instead, mirroring
       // the approval-kind gate above (#95). The retryable set is the primary
-      // tool's own policy (default: `internal` only).
-      const primaryRetryable = new Set<ToolErrorKind>(
-        this.registry.get(primaryName).annotations?.retry?.retryableErrorKinds ??
-          DEFAULT_RETRYABLE_KINDS,
+      // tool's own policy (default: `internal` only), narrowed exactly as the
+      // retry call narrows it (`effectiveRetryableKinds`). Reading the raw
+      // policy here is how a destructive tool listing `output_validation`
+      // reached the fallback and double-executed after all (#263).
+      const primaryRetryable = effectiveRetryableKinds(
+        this.registry.get(primaryName).annotations,
       );
       if (!primaryRetryable.has(err.kind)) {
         return { step, outcome: { kind: "error", error: err } };
@@ -254,9 +266,16 @@ export class AgentRun {
     if (!policy) {
       return this.registry.invoke(toolName, input, this.ctx);
     }
+    // Hand `withRetry` the narrowed kinds, not the raw policy (#263): it stays
+    // pure and never sees annotations, so the destructive rule is applied here,
+    // once, for the primary and the fallback tool alike.
+    const narrowed = {
+      ...policy,
+      retryableErrorKinds: [...effectiveRetryableKinds(tool.annotations)],
+    };
     return withRetry(
       () => this.registry.invoke(toolName, input, this.ctx),
-      policy,
+      narrowed,
       (attempt) => {
         this.trace.emit({
           kind: "retry_attempted",
@@ -269,6 +288,32 @@ export class AgentRun {
       this.opts.sleep,
     );
   }
+}
+
+/**
+ * The `ToolError` kinds a tool's failure may be retried on, and so (#95) may be
+ * routed to its fallback on. The one place both the retry call and the
+ * fallback gate read it, so the two cannot disagree (#263).
+ *
+ * The policy's list (default `DEFAULT_RETRYABLE_KINDS`), minus:
+ * - `NEVER_RETRIED_KINDS`, which `withRetry` drops itself as well (#240);
+ * - `output_validation` when the tool is `destructive`. The registry validates
+ *   the output AFTER `run()` returned, so the side effect has already committed:
+ *   a retry re-runs it (and re-prompts the approver), and the fallback runs a
+ *   second one. Measured before #263 with `["internal", "output_validation"]`,
+ *   maxAttempts 3 and a destructive fallback: 4 approval prompts and 4 side
+ *   effects for one planned step. Non-destructive tools keep the policy's list,
+ *   so a tool author can still opt a read-only tool into retrying it.
+ *   `input_validation` is not narrowed: the registry throws it before the
+ *   approval prompt and before `run()`, so nothing has committed.
+ */
+function effectiveRetryableKinds(annotations: ToolAnnotations | undefined): Set<ToolErrorKind> {
+  const kinds = new Set<ToolErrorKind>(
+    annotations?.retry?.retryableErrorKinds ?? DEFAULT_RETRYABLE_KINDS,
+  );
+  for (const kind of NEVER_RETRIED_KINDS) kinds.delete(kind);
+  if (annotations?.destructive) kinds.delete("output_validation");
+  return kinds;
 }
 
 /**

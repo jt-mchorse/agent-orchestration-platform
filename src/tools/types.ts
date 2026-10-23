@@ -100,6 +100,10 @@ export interface RetryPolicy {
    * are never sensible to retry without changing the inputs. Approval kinds
    * (`approval_denied`, `approval_missing`) are ignored here: `withRetry`
    * never retries them, since a retry would re-prompt the human (#240).
+   * `output_validation` is ignored too when the tool is `destructive`: the
+   * output is validated after `run()` committed its side effect, so a retry or
+   * the `fallbackTo` tool would execute it again (#263). Non-destructive tools
+   * may still list it.
    */
   retryableErrorKinds?: ToolErrorKind[];
 }
