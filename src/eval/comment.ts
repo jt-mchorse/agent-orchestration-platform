@@ -1,3 +1,4 @@
+import { MAX_TIMER_MS } from "../agent/retry.js";
 import { firstNonBlank } from "../io/env.js";
 import type { EvalRun } from "./runner.js";
 
@@ -205,6 +206,23 @@ export interface UpsertOptions {
 const DEFAULT_API_BASE = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * Refuse a `timeoutMs` that `AbortSignal.timeout` cannot honour (#264). Node
+ * clamps a timer delay above `MAX_TIMER_MS` to 1 ms, so a huge value meant as
+ * "effectively no deadline" aborted every GitHub call at once: measured,
+ * 2147483647 posted and 2147483648 threw `TimeoutError` after 1 ms. Checked at
+ * call entry, before any fetch, by both exported entry points.
+ */
+function assertTimeoutMs(opts: UpsertOptions): void {
+  const value = opts.timeoutMs;
+  if (value !== undefined && value > MAX_TIMER_MS) {
+    throw new RangeError(
+      `UpsertOptions.timeoutMs must be <= ${MAX_TIMER_MS} (Node's setTimeout limit), got ${value}. ` +
+        "A larger delay is silently clamped to 1 ms.",
+    );
+  }
+}
+
 /** Environment variables consulted, in precedence order. */
 export const TOKEN_ENV_NAMES = ["GITHUB_TOKEN", "GH_TOKEN"] as const;
 
@@ -256,6 +274,7 @@ export async function findStickyCommentId(
   pr: number,
   opts: UpsertOptions = {},
 ): Promise<number | null> {
+  assertTimeoutMs(opts);
   const token = resolveToken(opts);
   const f = opts.fetchImpl ?? fetch;
   const base = opts.apiBase ?? DEFAULT_API_BASE;
@@ -286,6 +305,7 @@ export async function upsertStickyComment(
   body: string,
   opts: UpsertOptions = {},
 ): Promise<number> {
+  assertTimeoutMs(opts);
   const marker = opts.marker ?? STICKY_MARKER;
   if (!body.includes(marker)) {
     throw new Error("body is missing the sticky marker; refusing to upsert");

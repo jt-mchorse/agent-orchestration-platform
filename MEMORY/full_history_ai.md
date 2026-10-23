@@ -2757,3 +2757,22 @@ context_for_next_session:
   - "TESTS_BUILD_REQUESTED_PATHS_BY_STRING_CONCAT_path_join_IN_A_TEST_WOULD_NORMALISE_THE_DOTDOT_AWAY_AND_PASS_AGAINST_UNFIXED_CODE"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:41Z
+issue: 264
+branch: session/2026-10-23-0805-issue-264
+focus: PGSTORE_TIMEOUTS_AND_STICKY_COMMENT_timeoutMs_ACCEPTED_VALUES_ABOVE_2_POW_31_MINUS_1_WHICH_NODE_CLAMPS_TO_1MS_EVERY_REQUEST_FAILED_AT_ONCE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 8
+  suite: "1129 passed, 14 skipped (pg-store skipped without DATABASE_URL) on Node 25.5 and Node 20.9; typecheck clean"
+decisions_made: []
+measured: "origin/main 2192994, fetch stub answering in 300 ms: upsertStickyComment timeoutMs 2147483647 posted after ~600 ms; 2147483648 threw TimeoutError after 3 ms with TimeoutOverflowWarning. new PgStore({connectionTimeoutMs/queryTimeoutMs: 2147483648}) constructed (hunt repro on PG 17: failed after 1 ms / 5 ms). After the fix: RangeError at construction / before any fetch; 2147483647 unchanged. Revert of src/trace/pg-store.ts + src/eval/comment.ts: 4 of 8 new arms red; 4 green controls (2147483647 accepted per option, old PgStore message for 0/Infinity unchanged, upsert at the limit posts)."
+context_for_next_session:
+  - "BOTH_SITES_REUSE_MAX_TIMER_MS_FROM_src_agent_retry_ts_one_constant_for_the_setTimeout_limit"
+  - "assertTimeoutMs_RUNS_IN_BOTH_EXPORTED_ENTRY_POINTS_findStickyCommentId_AND_upsertStickyComment_findStickyCommentId_is_exported_and_arms_AbortSignal_timeout_on_its_own"
+  - "timeoutMs_ZERO_NEGATIVE_NAN_NOT_RANGE_CHECKED_AbortSignal_timeout_already_TypeErrors_on_negative_and_NaN_and_0_is_a_legal_immediate_deadline"
+followups: []
+---
