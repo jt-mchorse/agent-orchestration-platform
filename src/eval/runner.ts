@@ -258,7 +258,14 @@ export async function discoverCases(fixturesDir: string): Promise<EvalCase[]> {
       golden_path: path.join(fixturesDir, golden),
     });
   }
-  return out.sort((a, b) => a.fixture_id.localeCompare(b.fixture_id));
+  // Plain code-unit comparison, deliberately not `localeCompare` (#270): this
+  // order is the row order of the eval comment and the byte-locked
+  // `docs/eval_snapshot.md`, and `localeCompare` follows the host locale
+  // (under `LANG=da_DK.UTF-8` "aa" collates as "å", after "zz"). Same rule as
+  // the pair tiebreak in `score.ts`.
+  return out.sort((a, b) =>
+    a.fixture_id < b.fixture_id ? -1 : a.fixture_id > b.fixture_id ? 1 : 0,
+  );
 }
 
 /**
