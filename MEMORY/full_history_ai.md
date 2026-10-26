@@ -2815,3 +2815,22 @@ context_for_next_session:
 followups:
   - "built eval-runner default fixtures/results dirs resolve under dist/ (reported to the orchestrator, not filed)"
 ---
+
+---
+session: 2026-10-26T07:31Z
+issue: 270
+branch: session/2026-10-26-0731-issue-270
+focus: DISCOVERCASES_SORTED_WITH_localeCompare_SO_THE_EVAL_COMMENT_AND_SNAPSHOT_ROW_ORDER_FOLLOWED_THE_HOST_LANG_da_DK_PUTS_aa_AFTER_zz
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1145 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 6a13c88, committed pairs copied as aa-rag_pr9*/zz-vsas_pr6*, eval-runner --dry-run: LANG=en_US.UTF-8 -> aa, zz; LANG=da_DK.UTF-8 -> zz, aa. After: aa, zz under both. Revert of src/eval/runner.ts: 3 of 3 new arms red (B-case/a-case order, da_DK child order, source sweep found eval/runner.ts)."
+context_for_next_session:
+  - "discoverCases_USES_CODE_UNIT_LT_GT_LIKE_score_ts_THE_ONLY_REMAINING_localeCompare_IN_src_IS_store_ts_625_WHICH_IS_119_AND_THE_SOURCE_ARM_ALLOWS_IT_BY_NAME_resolving_119_must_update_that_arm"
+  - "A_CASE_ONLY_ID_PAIR_B_vs_a_IS_A_LOCALE_INDEPENDENT_RED_FOR_localeCompare_VS_CODE_UNIT_no_LANG_needed"
+  - "THE_da_DK_CHILD_ARM_ASSERTS_ITS_OWN_localeCompare_DIFFERS_FROM_en_US_SO_A_HOST_WITHOUT_ICU_LOCALE_DATA_FAILS_LOUDLY_NOT_VACUOUSLY"
+followups: []
+---
