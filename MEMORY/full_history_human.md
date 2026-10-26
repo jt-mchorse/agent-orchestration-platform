@@ -2144,3 +2144,15 @@ worked. The build now runs a small copy step after compiling. The step copies
 every non-TypeScript file under `src/` into the build, so a new asset added
 later is included without a code change. A new test runs the build's own steps
 into a scratch folder, starts the built server and loads the UI from it.
+
+## 2026-10-26 — Eval case order no longer depends on the machine's language setting (#270)
+
+The eval runner sorted its cases with a comparison that follows the computer's
+language setting. On a machine set to Danish, "aa" is sorted as the letter "å",
+which comes after "zz". So the same fixtures could be listed in a different
+order in the eval comment and the eval snapshot. The current fixture names sort
+the same way everywhere, so nothing changed in practice yet, but a new fixture
+name could have triggered it. Cases are now sorted by plain character code, the
+same rule the scorer already uses. One other locale-dependent sort remains in the
+in-memory trace store, and it is deliberately left alone because it is an open
+decision (#119).
