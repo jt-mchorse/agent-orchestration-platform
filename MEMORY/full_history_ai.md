@@ -2834,3 +2834,21 @@ context_for_next_session:
   - "THE_da_DK_CHILD_ARM_ASSERTS_ITS_OWN_localeCompare_DIFFERS_FROM_en_US_SO_A_HOST_WITHOUT_ICU_LOCALE_DATA_FAILS_LOUDLY_NOT_VACUOUSLY"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:33Z
+issue: 271
+branch: session/2026-10-26-0733-issue-271
+focus: ENV_EXAMPLE_SAID_UNSET_DATABASE_URL_EQUALS_IN_MEMORY_AND_SAMPLED_5432_agent_traces_UNSET_IS_PGSTORE_ON_THE_COMPOSE_DEFAULT_5433_agent_trace
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1145 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 6a13c88: env -u DATABASE_URL PORT=0 npx tsx src/bin/trace-server.ts -> 'started with PgStore', GET /api/runs 500 ECONNREFUSED 127.0.0.1:5433. Revert of .env.example: 3 of 3 new arms red (sample != DEFAULT_CONNECTION_STRING, port 5432 != compose 5433, 'unset = in-memory' matched); 4 pre-existing arms green."
+context_for_next_session:
+  - "env-example_test_PINS_THE_DATABASE_URL_SAMPLE_TO_DEFAULT_CONNECTION_STRING_AND_TO_docker-compose_yml_PARSED_WITH_js-yaml_changing_the_compose_port_or_db_now_fails_until_the_code_default_and_example_follow"
+  - "THE_ONLY_IN_MEMORY_PATH_IS_trace-server_--memory_NOTHING_SWITCHES_ON_DATABASE_URL_ABSENCE"
+followups: []
+---
