@@ -2156,3 +2156,15 @@ name could have triggered it. Cases are now sorted by plain character code, the
 same rule the scorer already uses. One other locale-dependent sort remains in the
 in-memory trace store, and it is deliberately left alone because it is an open
 decision (#119).
+
+## 2026-10-26 — `.env.example` describes the database setting correctly (#271)
+
+The example environment file said that leaving `DATABASE_URL` unset gives an
+in-memory trace store. It does not. The trace store then connects to the local
+Postgres started by docker-compose. Only the trace server's `--memory` flag
+gives an in-memory store. The example URL was also wrong: it named port 5432
+and database `agent_traces`, but docker-compose runs the database on port 5433
+as `agent_trace`. The comment now says what really happens, and the example URL
+is the docker-compose one, which is also the code's built-in default. A test
+now checks the example URL against both the code default and the
+docker-compose file.

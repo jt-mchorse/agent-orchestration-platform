@@ -10,6 +10,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import yaml from "js-yaml";
+
+import { DEFAULT_CONNECTION_STRING } from "../src/trace/pg-store.js";
 
 const ROOT = resolve(__dirname, "..");
 
@@ -70,5 +73,45 @@ describe(".env.example covers every variable the source reads (#151)", () => {
 
   it("holds no real-looking secret", () => {
     expect(EXAMPLE).not.toMatch(/gh[pousr]_[A-Za-z0-9]{20,}|github_pat_|sk-ant-/);
+  });
+});
+
+describe(".env.example's DATABASE_URL matches what the code does (#271)", () => {
+  // It said "unset = in-memory" beside `postgres://user:password@localhost:5432/agent_traces`.
+  // Measured on main 6a13c88: with DATABASE_URL unset the trace server started
+  // with PgStore and `GET /api/runs` was a 500, ECONNREFUSED on 127.0.0.1:5433;
+  // the sample named the wrong port and database for the compose service.
+  const sample = EXAMPLE.match(/^DATABASE_URL=(.*)$/m)?.[1] ?? "";
+
+  it("the sample is the code's default connection string", () => {
+    expect(sample).toBe(DEFAULT_CONNECTION_STRING);
+  });
+
+  it("the sample points at the docker-compose database", () => {
+    const compose = yaml.load(readFileSync(join(ROOT, "docker-compose.yml"), "utf-8")) as {
+      services: {
+        postgres: { environment: Record<string, string>; ports: string[] };
+      };
+    };
+    const pg = compose.services.postgres;
+    const hostPort = (pg.ports[0] ?? "").split(":")[0];
+    const url = new URL(sample);
+    expect({
+      port: url.port,
+      database: url.pathname.slice(1),
+      user: url.username,
+      password: url.password,
+    }).toEqual({
+      port: hostPort,
+      database: pg.environment.POSTGRES_DB,
+      user: pg.environment.POSTGRES_USER,
+      password: pg.environment.POSTGRES_PASSWORD,
+    });
+  });
+
+  it("does not claim that unset means in-memory", () => {
+    // Unset falls back to DEFAULT_CONNECTION_STRING (`src/trace/pg-store.ts`);
+    // only the trace server's `--memory` flag serves a MemoryStore.
+    expect(EXAMPLE).not.toMatch(/unset\s*=\s*in-memory/i);
   });
 });
