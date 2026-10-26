@@ -2133,3 +2133,14 @@ prompts and four posts. For destructive tools this failure is now never retried
 and never sent to the fallback. The run reports the validation error and the
 planner decides what to do next. Tools that are not destructive can still opt
 in to retrying it.
+
+## 2026-10-26 — The built trace server serves its UI (#269)
+
+`npm run build` only ran the TypeScript compiler, and the compiler only writes
+out the files it compiles. The trace viewer's page and script (`index.html` and
+`app.js`) are not TypeScript, so they never reached `dist/`. A trace server
+started from the build answered "not found" for its own UI, although its API
+worked. The build now runs a small copy step after compiling. The step copies
+every non-TypeScript file under `src/` into the build, so a new asset added
+later is included without a code change. A new test runs the build's own steps
+into a scratch folder, starts the built server and loads the UI from it.

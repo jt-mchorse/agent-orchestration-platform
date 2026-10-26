@@ -2795,3 +2795,23 @@ context_for_next_session:
   - "input_validation_NOT_NARROWED_registry_throws_it_before_approval_and_run_so_nothing_committed"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:28Z
+issue: 269
+branch: session/2026-10-26-0728-issue-269
+focus: BUILD_WAS_TSC_ONLY_SO_dist_src_ui_HELD_server_js_AND_NO_index_html_OR_app_js_THE_BUILT_TRACE_SERVER_404D_ITS_UI_231_SIBLING
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "1146 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 6a13c88: npm run build && PORT=0 node dist/src/bin/trace-server.js --memory -> / 404 (static asset not found .../dist/src/ui/index.html), /app.js 404, /api/runs 200; dist/src/ui = server.{js,d.ts,js.map}. After: 200/200/200, index.html + app.js copied. Revert of package.json + removal of the copy script: 4 of 4 new arms red (e2e statuses 404/404/200, build-script lock, 2 file arms ENOENT)."
+context_for_next_session:
+  - "build_IS_tsc_THEN_node_scripts_copy-static-assets_mjs_[outDir]_IT_COPIES_EVERY_NON_ts_FILE_UNDER_src_NOT_A_LIST"
+  - "THE_TEST_RUNS_THE_build_SCRIPTS_OWN_STEPS_PARSED_FROM_package_json_INTO_A_GITIGNORED_dot_tmp-build_DIR_INSIDE_THE_CHECKOUT_so_the_built_bin_resolves_node_modules_a_tmpdir_outside_the_repo_cannot"
+  - "SIBLING_NOT_FIXED_dist_src_bin_eval-runner_js_RESOLVES_repoRoot_AS_dist_SO_ITS_DEFAULT_fixtures_dir_IS_dist_fixtures_sample-prs_exit_2_not_found"
+followups:
+  - "built eval-runner default fixtures/results dirs resolve under dist/ (reported to the orchestrator, not filed)"
+---
