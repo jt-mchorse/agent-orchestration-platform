@@ -12,23 +12,16 @@
  * checkout (so the built bin resolves `node_modules` the way `dist/` does),
  * then start the BUILT bin and fetch the UI.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { defaultStaticDir } from "../../src/ui/server.js";
+import { buildInto, buildScript, REPO_ROOT } from "../helpers/build-into.js";
 
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const SRC = path.join(REPO_ROOT, "src");
-
-function buildScript(): string {
-  const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")) as {
-    scripts: Record<string, string>;
-  };
-  return pkg.scripts.build as string;
-}
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -44,20 +37,7 @@ describe("build: static assets reach dist (#269)", () => {
     // Run the steps of the `build` script itself, redirected to a scratch
     // outDir (`.tmp-*/` is gitignored), so this follows whatever `build` does.
     outDir = mkdtempSync(path.join(REPO_ROOT, ".tmp-build-"));
-    for (const step of buildScript().split("&&").map((s) => s.trim().split(/\s+/))) {
-      const [cmd, ...args] = step;
-      if (cmd === "tsc") {
-        const tsc = path.join(REPO_ROOT, "node_modules", "typescript", "bin", "tsc");
-        execFileSync(process.execPath, [tsc, ...args, "--outDir", outDir], {
-          cwd: REPO_ROOT,
-          stdio: "pipe",
-        });
-      } else if (cmd === "node") {
-        execFileSync(process.execPath, [...args, outDir], { cwd: REPO_ROOT, stdio: "pipe" });
-      } else {
-        throw new Error(`unrecognised build step: ${step.join(" ")}`);
-      }
-    }
+    buildInto(outDir);
   }, 120_000);
 
   afterAll(() => {
