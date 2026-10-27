@@ -11,10 +11,10 @@
 
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { renderEvalMarkdown, resolveToken, upsertStickyComment } from "../eval/comment.js";
 import { commentTargetError, discoverCases, EvalInputError, evaluateAll } from "../eval/runner.js";
 import { atomicWriteFile } from "../io/atomic-write.js";
+import { repoRootOf } from "../io/repo-root.js";
 
 interface CLIArgs {
   fixturesDir: string;
@@ -93,9 +93,10 @@ async function main(): Promise<number> {
       return 2;
     }
   }
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  // The bin lives at src/bin/, the fixtures dir is at the repo root.
-  const repoRoot = path.resolve(here, "..", "..");
+  // The fixtures and results dirs are at the repo root. The bin is at src/bin/
+  // under tsx and dist/src/bin/ once built, so no fixed `..` count finds the
+  // root from both: walk up to package.json (#275).
+  const repoRoot = repoRootOf(import.meta.url);
   const fixturesDir = path.isAbsolute(args.fixturesDir)
     ? args.fixturesDir
     : path.join(repoRoot, args.fixturesDir);
