@@ -2852,3 +2852,23 @@ context_for_next_session:
   - "THE_ONLY_IN_MEMORY_PATH_IS_trace-server_--memory_NOTHING_SWITCHES_ON_DATABASE_URL_ABSENCE"
 followups: []
 ---
+
+---
+session: 2026-10-27T08:05Z
+issue: 275
+branch: session/2026-10-27-0805-issue-275
+focus: BUILT_dist_src_bin_eval-runner_js_TOOK_repoRoot_AS_here_DOTDOT_DOTDOT_WHICH_IS_dist_SO_DRY_RUN_EXIT_2_AND_RESULTS_IN_dist_results_269_SIBLING
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 5
+  suite: "1157 passed, 14 skipped (pg-store skipped without DATABASE_URL); typecheck clean"
+decisions_made: []
+measured: "origin/main 486679f built into .tmp-build-*: node <out>/src/bin/eval-runner.js --dry-run -> exit 2 'cannot read fixtures dir <out>/fixtures/sample-prs: not found'; absolute --fixtures-dir -> exit 0, result in <out>/results/. After: exit 0, result in <repo>/results/. Revert of src/bin/eval-runner.ts: 1 red (built arm, expected 2 to be 0), 4 green (tsx control + 3 helper arms, helper left in place). cwd-relative wrong fix (process.cwd()): 2 of 2 e2e arms red."
+context_for_next_session:
+  - "src_io_repo-root_ts_findRepoRoot_WALKS_UP_TO_NEAREST_package_json_tsc_DOES_NOT_EMIT_package_json_SO_SAME_ROOT_FROM_src_bin_AND_dist_src_bin"
+  - "269_BUILD_LOOP_MOVED_TO_test_helpers_build-into_ts_buildInto_outDir_BOTH_BUILT_E2E_TESTS_USE_IT"
+  - "SWEEP_trace-server_here_DOTDOT_ui_IS_LAYOUT_INVARIANT_copy-static-assets_mjs_NEVER_BUILT_validate_AND_render-eval-snapshot_ARE_CWD_RELATIVE_eval-runner_WAS_THE_ONLY_SITE"
+  - "THE_E2E_RUNS_WITH_cwd_EQUAL_outDir_SO_A_CWD_RELATIVE_FIX_IS_RED_TOO"
+followups: []
+---

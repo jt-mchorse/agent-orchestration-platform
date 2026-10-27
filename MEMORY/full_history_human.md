@@ -2168,3 +2168,16 @@ as `agent_trace`. The comment now says what really happens, and the example URL
 is the docker-compose one, which is also the code's built-in default. A test
 now checks the example URL against both the code default and the
 docker-compose file.
+
+## 2026-10-27 — The built eval runner finds the repo's fixtures (#275)
+
+The eval runner found the repo root by going up two folders from where it sits.
+That works when it runs from source. After a build it sits one folder deeper,
+so it treated the build folder as the repo root. It could not find the
+fixtures and stopped with an error, and if you pointed it at the fixtures it
+saved its results inside the build folder. It now goes up until it finds the
+folder with `package.json`, which is the repo root from either place. A new
+test builds the project into a scratch folder, runs the built runner from a
+different working folder, and checks that it uses the repo's fixtures and
+results folders. The other entry points were checked: none of them had the
+same problem.
