@@ -89,7 +89,7 @@ describe("evaluateAll refuses a golden_review of the wrong shape (#183)", () => 
 describe("the CLI (#183)", () => {
   it("no golden_review: warns, evaluates the rest, exit 0", async () => {
     await writeFile(edited, NO_REVIEW);
-    const r = await runCLI("--dry-run", "--fixtures-dir", dir);
+    const r = await runCLI("--dry-run", "--fixtures-dir", dir, "--results-dir", path.join(dir, "out"));
     expect(r.code).toBe(0);
     expect(r.stderr).toMatch(/warning: skipping .*no golden_review block/);
     expect(r.stderr).not.toContain("TypeError");
@@ -97,7 +97,7 @@ describe("the CLI (#183)", () => {
 
   it("a null summary: one clean error line, exit 2", async () => {
     await writeFile(edited, NULL_SUMMARY);
-    const r = await runCLI("--dry-run", "--fixtures-dir", dir);
+    const r = await runCLI("--dry-run", "--fixtures-dir", dir, "--results-dir", path.join(dir, "out"));
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("invalid golden");
     expect(r.stderr).not.toContain("TypeError");

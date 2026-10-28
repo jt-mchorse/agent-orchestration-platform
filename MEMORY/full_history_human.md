@@ -2181,3 +2181,14 @@ test builds the project into a scratch folder, runs the built runner from a
 different working folder, and checks that it uses the repo's fixtures and
 results folders. The other entry points were checked: none of them had the
 same problem.
+
+## 2026-10-28 — The test suite no longer leaves eval results in the checkout (#277)
+
+Each `npm test` left five eval result files in `results/`. Four test files
+ran the eval command without telling it where to write, and two of them did
+it through the demo-capture script. Those tests now write to temporary
+folders, and the demo script accepts a `CAPTURE_RESULTS_DIR` setting for the
+same purpose. Without it, the script behaves exactly as before. A check that
+runs around the whole test suite now fails the run, and names the files, if
+any test leaves a new file in `results/`. With the old test files it failed
+and named all five. PR #278.

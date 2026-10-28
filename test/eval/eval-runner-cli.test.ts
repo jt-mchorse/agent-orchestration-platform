@@ -88,7 +88,8 @@ describe("eval-runner CLI exit-code contract (#111)", () => {
   it(
     "exits 0 on a --dry-run against the committed fixtures",
     async () => {
-      const r = await runCLI("--dry-run");
+      // A temp --results-dir, so the run leaves nothing in the checkout (#277).
+      const r = await runCLI("--dry-run", "--results-dir", path.join(emptyDir, "out"));
       expect(r.code).toBe(0);
     },
     20_000,

@@ -21,13 +21,17 @@
  * The script's background trace-server is reaped via EXIT trap, so a
  * failed assertion here doesn't leave a port-holder behind.
  */
-import { describe, it, expect } from "vitest";
+import { afterAll, describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const SCRIPT = resolve(REPO_ROOT, "scripts", "capture_demo.sh");
+// The script's eval step writes an eval-*.json; keep it out of the checkout (#277).
+const RESULTS = mkdtempSync(join(tmpdir(), "aop-capture-smoke-"));
+afterAll(() => rmSync(RESULTS, { recursive: true, force: true }));
 
 interface CaptureResult {
   stdout: string;
@@ -47,6 +51,7 @@ function runCapture(): CaptureResult {
     env: {
       ...process.env,
       CAPTURE_PACE_SECONDS: "0",
+      CAPTURE_RESULTS_DIR: RESULTS,
     },
     encoding: "utf8",
     // Capture-demo (with --memory trace server boot + npm overhead)
@@ -80,6 +85,11 @@ describe("scripts/capture_demo.sh (issue #16)", () => {
     // artifact: the README's "Demo" prose calls it out by name.
     expect(r.stdout).toContain("composite");
     expect(r.stdout).toContain("| fixture | rec");
+  });
+
+  it("surface 1 writes its eval-*.json under CAPTURE_RESULTS_DIR, not the checkout (#277)", () => {
+    runCapture();
+    expect(readdirSync(RESULTS).filter((f) => /^eval-.*\.json$/.test(f))).toHaveLength(1);
   });
 
   it("surface 2: trace:server --memory boots and /api/runs returns the seeded runs", () => {

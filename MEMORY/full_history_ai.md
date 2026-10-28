@@ -2872,3 +2872,22 @@ context_for_next_session:
   - "THE_E2E_RUNS_WITH_cwd_EQUAL_outDir_SO_A_CWD_RELATIVE_FIX_IS_RED_TOO"
 followups: []
 ---
+
+---
+session: 2026-10-28T07:33Z
+issue: 277
+branch: session/2026-10-28-0733-issue-277
+focus: NPM_TEST_LEFT_5_RESULTS_EVAL_JSON_IN_THE_CHECKOUT_TESTS_NOW_USE_TEMP_RESULTS_DIRS_AND_A_GLOBALSETUP_GUARD_FAILS_THE_RUN_ON_A_LEAK
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 1
+  suite: "1158 passed 14 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 3e62455: one vitest run -> 5 results/eval-*.json; per file: eval-runner-cli 1, golden-shape 1, capture-demo-port 2, capture-demo-smoke 1 (the last two via scripts/capture_demo.sh's npm run eval -- --dry-run). A probe config showed a throwing globalSetup teardown exits vitest 1.6.1 with rc 1. Revert probe (5 files == main, guard kept): rc 1 naming 5 files; branch rc 0, results/ empty. PR #278."
+context_for_next_session:
+  - "CAPTURE_RESULTS_DIR_IS_NEW_ON_capture_demo_sh_unset_keeps_the_old_command_byte_for_byte"
+  - "THE_GUARD_IS_A_globalSetup_TEARDOWN_THROW_it_only_compares_before_and_after_so_preexisting_results_files_are_ignored"
+  - "NOT_DONE_dry_run_still_writes_a_results_file_by_documented_contract_Both_modes_write"
+followups: []
+---
