@@ -2192,3 +2192,11 @@ same purpose. Without it, the script behaves exactly as before. A check that
 runs around the whole test suite now fails the run, and names the files, if
 any test leaves a new file in `results/`. With the old test files it failed
 and named all five. PR #278.
+
+## 2026-10-28 — An empty --results-dir no longer dirties the checkout (#279)
+
+Running the eval with an empty results directory (which happens when a CI
+variable is unset) wrote the results file into the repository root instead of
+being rejected. The argument check now treats an empty or spaces-only value
+the same as a missing one, matching how the tool already treats empty
+environment variables and query parameters. PR #283.

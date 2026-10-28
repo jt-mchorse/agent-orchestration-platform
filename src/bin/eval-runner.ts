@@ -11,8 +11,17 @@
 
 import path from "node:path";
 import process from "node:process";
-import { renderEvalMarkdown, resolveToken, upsertStickyComment } from "../eval/comment.js";
-import { commentTargetError, discoverCases, EvalInputError, evaluateAll } from "../eval/runner.js";
+import {
+  renderEvalMarkdown,
+  resolveToken,
+  upsertStickyComment,
+} from "../eval/comment.js";
+import {
+  commentTargetError,
+  discoverCases,
+  EvalInputError,
+  evaluateAll,
+} from "../eval/runner.js";
 import { atomicWriteFile } from "../io/atomic-write.js";
 import { repoRootOf } from "../io/repo-root.js";
 
@@ -39,9 +48,17 @@ function parseArgs(argv: string[]): CLIArgs {
   // `--comment` and swallowed the comment, a trailing `--results-dir` was a raw
   // TypeError, and an unknown flag (`--comments`) was ignored, so the CI step
   // posted nothing at exit 0. `validate.ts` already refuses unknown flags.
+  //
+  // An empty or whitespace-only value is refused too (#279). `--results-dir ""`
+  // joined to the repo root and wrote `eval-*.json` into the checkout at exit 0
+  // -- the CLI-argument sibling of the env seam (#124) and the query seam
+  // (#126), which both treat present-but-empty as missing, and of the test leak
+  // #277 fixed. A CI step with an unset `--results-dir "$VAR"` lands here.
   const value = (i: number, flag: string): string => {
     const v = argv[i + 1];
-    if (v === undefined || v.startsWith("--")) throw new UsageError(`${flag} needs a value`);
+    if (v === undefined || v.startsWith("--") || v.trim() === "") {
+      throw new UsageError(`${flag} needs a value`);
+    }
     return v;
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -53,7 +70,10 @@ function parseArgs(argv: string[]): CLIArgs {
     else if (a === "--repo") args.repo = value(i++, a);
     else if (a === "--pr") {
       const raw = value(i++, a);
-      if (!/^[1-9][0-9]*$/.test(raw)) throw new UsageError(`--pr must be a positive integer; got ${JSON.stringify(raw)}`);
+      if (!/^[1-9][0-9]*$/.test(raw))
+        throw new UsageError(
+          `--pr must be a positive integer; got ${JSON.stringify(raw)}`,
+        );
       args.pr = Number(raw);
     } else throw new UsageError(`unknown argument: ${a}`);
   }
@@ -114,11 +134,15 @@ async function main(): Promise<number> {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     const detail = code === "ENOENT" ? "not found" : (err as Error).message;
-    console.error(`::error::cannot read fixtures dir ${fixturesDir}: ${detail}`);
+    console.error(
+      `::error::cannot read fixtures dir ${fixturesDir}: ${detail}`,
+    );
     return 2;
   }
   if (cases.length === 0) {
-    console.error(`::error::no fixture/golden pairs found under ${fixturesDir}`);
+    console.error(
+      `::error::no fixture/golden pairs found under ${fixturesDir}`,
+    );
     return 2;
   }
   // Each case's fixture/golden `.json` is operator input, the file-content read
@@ -188,7 +212,9 @@ async function main(): Promise<number> {
   try {
     id = await upsertStickyComment(args.repo as string, args.pr as number, md);
   } catch (err) {
-    console.error(`::error::could not post the sticky comment: ${(err as Error).message}`);
+    console.error(
+      `::error::could not post the sticky comment: ${(err as Error).message}`,
+    );
     return 2;
   }
   console.log(`sticky comment id=${id} upserted on ${args.repo}#${args.pr}`);
