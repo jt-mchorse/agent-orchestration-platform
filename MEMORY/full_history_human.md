@@ -2200,3 +2200,11 @@ variable is unset) wrote the results file into the repository root instead of
 being rejected. The argument check now treats an empty or spaces-only value
 the same as a missing one, matching how the tool already treats empty
 environment variables and query parameters. PR #283.
+
+## 2026-10-28 — The trace viewer answers HEAD requests and reports wrong methods correctly (#280)
+
+The trace-server returned "not found" for every HEAD request, so `curl -I` and
+uptime checks saw the viewer as down. It now answers HEAD exactly as GET but
+with no body, and a known address reached with an unsupported method (POST and
+the like) returns "method not allowed" with an `Allow` header instead of "not
+found". PR #284.
