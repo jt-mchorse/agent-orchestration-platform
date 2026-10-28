@@ -25,7 +25,10 @@ function sampleEvents(): TraceEvent[] {
     {
       ts: 2,
       kind: "plan_emitted",
-      plan: { goal: "ping", steps: [{ rationale: "warm", tool: "ping", input: { msg: "hi" } }] },
+      plan: {
+        goal: "ping",
+        steps: [{ rationale: "warm", tool: "ping", input: { msg: "hi" } }],
+      },
       version: 0,
     },
     {
@@ -49,18 +52,31 @@ function sampleEvents(): TraceEvent[] {
 
 async function makeStaticDir(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "trace-ui-"));
-  await writeFile(path.join(dir, "index.html"), "<!doctype html><h1>trace viewer test fixture</h1>", "utf8");
-  await writeFile(path.join(dir, "app.js"), "console.log('test fixture app.js');", "utf8");
+  await writeFile(
+    path.join(dir, "index.html"),
+    "<!doctype html><h1>trace viewer test fixture</h1>",
+    "utf8",
+  );
+  await writeFile(
+    path.join(dir, "app.js"),
+    "console.log('test fixture app.js');",
+    "utf8",
+  );
   return dir;
 }
 
-async function startServer(): Promise<{ url: string; server: Server; store: MemoryStore }> {
+async function startServer(): Promise<{
+  url: string;
+  server: Server;
+  store: MemoryStore;
+}> {
   const store = new MemoryStore();
   const staticDir = await makeStaticDir();
   const server = createTraceServer({ store, staticDir });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const addr = server.address();
-  if (!addr || typeof addr === "string") throw new Error("server.address() returned no port");
+  if (!addr || typeof addr === "string")
+    throw new Error("server.address() returned no port");
   return { url: `http://127.0.0.1:${addr.port}`, server, store };
 }
 
@@ -94,7 +110,11 @@ describe("trace server", () => {
   it("GET /api/runs returns an empty list when the store is empty", async () => {
     const r = await fetch(ctx.url + "/api/runs");
     expect(r.status).toBe(200);
-    const body = (await r.json()) as { runs: unknown[]; limit: number; offset: number };
+    const body = (await r.json()) as {
+      runs: unknown[];
+      limit: number;
+      offset: number;
+    };
     expect(body.runs).toEqual([]);
     expect(body.limit).toBe(50);
     expect(body.offset).toBe(0);
@@ -130,7 +150,11 @@ describe("trace server", () => {
         pr: PR,
         events: [
           { ts: 1_700_000_000_000 + i * 1000, kind: "run_started", pr: PR },
-          { ts: 1_700_000_000_001 + i * 1000, kind: "finalized", review: review() },
+          {
+            ts: 1_700_000_000_001 + i * 1000,
+            kind: "finalized",
+            review: review(),
+          },
         ],
         review: review(),
       });
@@ -156,9 +180,18 @@ describe("trace server", () => {
       events: sampleEvents(),
       review: review(),
     });
-    for (const query of ["?limit=-1&offset=-5", "?limit=abc", "?limit=0", "?limit=1e9"]) {
+    for (const query of [
+      "?limit=-1&offset=-5",
+      "?limit=abc",
+      "?limit=0",
+      "?limit=1e9",
+    ]) {
       const r = await fetch(ctx.url + "/api/runs" + query);
-      const body = (await r.json()) as { runs: Array<{ run_id: string }>; limit: number; offset: number };
+      const body = (await r.json()) as {
+        runs: Array<{ run_id: string }>;
+        limit: number;
+        offset: number;
+      };
       expect(r.status, query).toBe(200);
       expect(body.limit, query).toBeGreaterThanOrEqual(1);
       expect(body.offset, query).toBeGreaterThanOrEqual(0);
@@ -175,7 +208,10 @@ describe("trace server", () => {
     });
     const r = await fetch(ctx.url + "/api/runs/abc");
     expect(r.status).toBe(200);
-    const body = (await r.json()) as { run_id: string; events: Array<{ kind: string }> };
+    const body = (await r.json()) as {
+      run_id: string;
+      events: Array<{ kind: string }>;
+    };
     expect(body.run_id).toBe("abc");
     expect(body.events).toHaveLength(5);
     expect(body.events[0]?.kind).toBe("run_started");
@@ -209,7 +245,12 @@ describe("trace server", () => {
   );
 
   it("a well-formed escape in /api/runs/:id still decodes (#155 control)", async () => {
-    await ctx.store.writeRun({ run_id: "a/b", pr: PR, events: sampleEvents(), review: review() });
+    await ctx.store.writeRun({
+      run_id: "a/b",
+      pr: PR,
+      events: sampleEvents(),
+      review: review(),
+    });
     const r = await fetch(ctx.url + "/api/runs/a%2Fb");
     expect(r.status).toBe(200);
     expect(((await r.json()) as { run_id: string }).run_id).toBe("a/b");
@@ -220,7 +261,12 @@ describe("trace server", () => {
     const { port } = new URL(ctx.url);
     const status = await new Promise<number>((resolve, reject) => {
       const req = request(
-        { host: "127.0.0.1", port: Number(port), path: "/api/runs", headers: { Host: "a b" } },
+        {
+          host: "127.0.0.1",
+          port: Number(port),
+          path: "/api/runs",
+          headers: { Host: "a b" },
+        },
         (res) => {
           res.resume();
           resolve(res.statusCode ?? 0);
@@ -237,18 +283,32 @@ describe("trace server", () => {
     ["offset", "9".repeat(400), 10_000],
     ["limit", "99999999999999999999", 500],
     ["limit", "9007199254740993", 500],
-  ])("?%s=%s past MAX_SAFE_INTEGER clamps to the cap, not the default (#155)", async (name, raw, cap) => {
-    await ctx.store.writeRun({ run_id: "far-1", pr: PR, events: sampleEvents(), review: review() });
-    const r = await fetch(`${ctx.url}/api/runs?${name}=${raw}`);
-    expect(r.status).toBe(200);
-    const body = (await r.json()) as { runs: unknown[]; limit: number; offset: number };
-    expect(body[name as "limit" | "offset"]).toBe(cap);
-    // A far page is an empty page, never the first one.
-    if (name === "offset") expect(body.runs).toEqual([]);
-  });
+  ])(
+    "?%s=%s past MAX_SAFE_INTEGER clamps to the cap, not the default (#155)",
+    async (name, raw, cap) => {
+      await ctx.store.writeRun({
+        run_id: "far-1",
+        pr: PR,
+        events: sampleEvents(),
+        review: review(),
+      });
+      const r = await fetch(`${ctx.url}/api/runs?${name}=${raw}`);
+      expect(r.status).toBe(200);
+      const body = (await r.json()) as {
+        runs: unknown[];
+        limit: number;
+        offset: number;
+      };
+      expect(body[name as "limit" | "offset"]).toBe(cap);
+      // A far page is an empty page, never the first one.
+      if (name === "offset") expect(body.runs).toEqual([]);
+    },
+  );
 
   it("a huge negative value still takes the default (#155 scope)", async () => {
-    const r = await fetch(`${ctx.url}/api/runs?offset=-99999999999999999999&limit=-99999999999999999999`);
+    const r = await fetch(
+      `${ctx.url}/api/runs?offset=-99999999999999999999&limit=-99999999999999999999`,
+    );
     const body = (await r.json()) as { limit: number; offset: number };
     expect([body.limit, body.offset]).toEqual([50, 0]);
   });
@@ -258,5 +318,59 @@ describe("trace server", () => {
     const body = (await r.json()) as { limit: number; offset: number };
     expect(body.limit).toBeLessThanOrEqual(500);
     expect(body.offset).toBeGreaterThanOrEqual(0);
+  });
+
+  // HEAD must answer with GET's status line and headers but no body (RFC 9110
+  // §9.3.2, #280). `dispatch` matched `=== "GET"` only, so every HEAD was a 404.
+  const getRoutes = [
+    "/",
+    "/index.html",
+    "/app.js",
+    "/api/runs",
+    "/api/runs/r1",
+  ];
+  it.each(getRoutes)("HEAD %s answers like GET with no body", async (route) => {
+    await ctx.store.writeRun({
+      run_id: "r1",
+      pr: PR,
+      events: sampleEvents(),
+      review: review(),
+    });
+    const get = await fetch(ctx.url + route);
+    const getBody = await get.text();
+    const head = await fetch(ctx.url + route, { method: "HEAD" });
+    const headBody = await head.text();
+    expect(head.status).toBe(get.status);
+    expect(head.status).toBe(200);
+    expect(head.headers.get("content-type")).toBe(
+      get.headers.get("content-type"),
+    );
+    expect(head.headers.get("content-length")).toBe(
+      String(Buffer.byteLength(getBody)),
+    );
+    expect(headBody).toBe("");
+    expect(getBody.length).toBeGreaterThan(0);
+  });
+
+  it("HEAD on an unknown path is 404, as GET is", async () => {
+    const head = await fetch(ctx.url + "/nope", { method: "HEAD" });
+    expect(head.status).toBe(404);
+    expect(await head.text()).toBe("");
+  });
+
+  // A known route reached with a method it does not serve is 405 with `Allow`,
+  // not the catch-all 404 (RFC 9110 §15.5.6, #280).
+  it.each(["POST", "PUT", "DELETE", "PATCH"])(
+    "%s /api/runs is 405 with Allow",
+    async (method) => {
+      const r = await fetch(ctx.url + "/api/runs", { method });
+      expect(r.status).toBe(405);
+      expect(r.headers.get("allow")).toBe("GET, HEAD");
+    },
+  );
+
+  it("an unsupported method on an unknown path is still 404, not 405", async () => {
+    const r = await fetch(ctx.url + "/nope", { method: "POST" });
+    expect(r.status).toBe(404);
   });
 });
