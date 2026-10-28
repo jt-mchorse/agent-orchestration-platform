@@ -12,20 +12,25 @@
  * server in this process, and `spawnSync` would block the event loop it
  * needs to answer, which is the case the unfixed script curls.
  */
-import { describe, it, expect } from "vitest";
+import { afterAll, describe, it, expect } from "vitest";
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const SCRIPT = resolve(REPO_ROOT, "scripts", "capture_demo.sh");
+// The script's eval step writes an eval-*.json; keep it out of the checkout (#277).
+const RESULTS = mkdtempSync(join(tmpdir(), "aop-capture-port-"));
+afterAll(() => rmSync(RESULTS, { recursive: true, force: true }));
 
 function runCapture(port: string): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((done, fail) => {
     const child = spawn("bash", [SCRIPT], {
       cwd: REPO_ROOT,
-      env: { ...process.env, CAPTURE_PACE_SECONDS: "0", CAPTURE_TRACE_PORT: port },
+      env: { ...process.env, CAPTURE_PACE_SECONDS: "0", CAPTURE_TRACE_PORT: port, CAPTURE_RESULTS_DIR: RESULTS },
     });
     let stdout = "";
     let stderr = "";

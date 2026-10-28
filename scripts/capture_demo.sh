@@ -43,6 +43,10 @@
 #                         port it names, so a port some other process
 #                         already holds fails the capture instead of
 #                         recording that process's runs (#169).
+#   CAPTURE_RESULTS_DIR   where step 1's eval writes its eval-*.json
+#                         (default: unset, the runner's own results/).
+#                         The tests set a temp dir so a test run leaves
+#                         nothing in the checkout (#277).
 #
 # Exit: 0 on full success; non-zero on any sub-step failure. The
 # background trace server is reaped via EXIT trap.
@@ -52,6 +56,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACE="${CAPTURE_PACE_SECONDS:-2}"
 PORT="${CAPTURE_TRACE_PORT:-8766}"
+EVAL_ARGS=(--dry-run)
+if [ -n "${CAPTURE_RESULTS_DIR:-}" ]; then
+  EVAL_ARGS+=(--results-dir "$CAPTURE_RESULTS_DIR")
+fi
 
 banner() {
   printf '\n'
@@ -91,7 +99,7 @@ banner "1/2 · npm run eval -- --dry-run · rendered sticky-comment markdown + c
 printf 'tsx src/bin/eval-runner.ts --dry-run\n'
 printf '  scores every fixture under fixtures/sample-prs/ against its .golden.json\n'
 printf '  rendered markdown is what the GH Action posts (in-place via sticky marker).\n\n'
-npm run eval --silent -- --dry-run
+npm run eval --silent -- "${EVAL_ARGS[@]}"
 pace
 
 banner "2/2 · npm run trace:server -- --memory · seeded MemoryStore + /api/runs JSON"
