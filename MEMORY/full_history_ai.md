@@ -2891,3 +2891,21 @@ context_for_next_session:
   - "NOT_DONE_dry_run_still_writes_a_results_file_by_documented_contract_Both_modes_write"
 followups: []
 ---
+
+---
+session: Z
+issue: 279
+branch: session/2026-10-28-0841-issue-279
+focus: EVAL_RUNNER_VALUE_GUARD_ACCEPTED_AN_EMPTY_STRING_SO_RESULTS_DIR_EMPTY_WROTE_EVAL_JSON_INTO_THE_REPO_ROOT_AT_EXIT_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1163 passed 14 skipped; typecheck + prettier clean"
+decisions_made: []
+measured: "origin/main f6e6146: --dry-run --results-dir \"\" exit 0, wrote eval-<ts>.json to repo root. After: exit 2, nothing written. value() now also rejects v.trim()===\"\". Revert 5 red / controls green. The no-leak arm uses a before/after set diff (worktree root had my own probe strays). PR #283."
+context_for_next_session:
+  - "CLI_ARG_SEAM_NOW_MATCHES_ENV_124_AND_QUERY_126_SEAMS_present_but_empty_is_missing"
+  - "MANUAL_npx_tsx_PROBES_WITH_RESULTS_DIR_WRITE_INTO_THE_WORKTREE_ROOT_clean_eval_json_and_a_spaces_named_dir_before_commit"
+followups: []
+---
