@@ -17,10 +17,11 @@ import { type Rational, add, rational, scale, toDouble } from "./exact.js";
  *    agent finding (greedy by best similarity, D-011). Reports
  *    precision / recall separately for transparency.
  * 3. **`summary_length_ratio`** — `min(actual, golden) / max(actual, golden)`
- *    on character count. A crude proxy for "the summary is in the same
- *    ballpark". The semantic faithfulness of the summary is deferred to
- *    a future `llm-eval-harness.Judge` wire-up; this layer ships the
- *    structural numbers.
+ *    on character count — code points of the NFC form (#281), the same
+ *    normalization the findings tokenizer applies. A crude proxy for "the
+ *    summary is in the same ballpark". The semantic faithfulness of the
+ *    summary is deferred to a future `llm-eval-harness.Judge` wire-up; this
+ *    layer ships the structural numbers.
  *
  * `composite` is a weighted average: 0.5 × recommendation + 0.4 × findings_f1
  * + 0.1 × summary_length_ratio. The weights reflect the relative
@@ -101,8 +102,8 @@ export function scoreReview(actual: Review, golden: Review): ReviewScore {
       : rational(2 * matched, total_actual + total_golden);
   const f1 = toDouble(f1Exact);
 
-  const actual_len = actual.summary.length;
-  const golden_len = golden.summary.length;
+  const actual_len = summaryChars(actual.summary);
+  const golden_len = summaryChars(golden.summary);
   const len_ratio =
     Math.max(actual_len, golden_len) === 0
       ? 1
@@ -135,6 +136,19 @@ export function scoreReview(actual: Review, golden: Review): ReviewScore {
 
     composite,
   };
+}
+
+/**
+ * A summary's character count: code points of its NFC form (#281).
+ *
+ * `String.length` counts UTF-16 code units of the text as given. The findings
+ * half of the same score NFC-normalizes (`tokenize`, #186), so an NFD-encoded
+ * copy of the golden summary scored findings F1 1 but a length ratio of 0.9444
+ * (72 vs 68 code units), and every astral character (an emoji) counted as 2.
+ * `compositeExactOf` re-derives from these counts, so it follows this unit.
+ */
+export function summaryChars(s: string): number {
+  return [...s.normalize("NFC")].length;
 }
 
 /**
