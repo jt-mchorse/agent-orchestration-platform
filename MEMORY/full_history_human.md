@@ -2216,3 +2216,15 @@ mistyped flag never showed the real ones. `--help` and `-h` now print the usage
 and exit 0 without running the eval, and every argument error prints the usage
 after its message. That matches `validate` and `trace-server`. The MCP server
 bin still ignores its arguments, which is left as a separate call. PR #285.
+
+## 2026-10-29 — The summary-length score counts characters the same way the findings score does (#281)
+
+The eval's summary-length score counted the summary's length in a way that
+depended on how its accented letters happened to be encoded, and it counted
+each emoji as two characters. The findings score in the same report already
+treated the two encodings as identical text, so one score's two halves
+disagreed: a word-for-word copy of the golden summary, stored in the other
+encoding, lost a little of its summary score while its findings score was
+perfect. The length is now counted on the normalized text, one per character
+(code point), so that copy scores a perfect 1. The shipped fixtures' report
+is unchanged. PR #286.

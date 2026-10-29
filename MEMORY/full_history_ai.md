@@ -2944,3 +2944,22 @@ context_for_next_session:
   - "NOT_DONE_mcp_server_portfolio_context_bin_ts_IGNORES_ARGV_with_PORTFOLIO_ROOT_set_help_or_bogus_starts_the_stdio_server_stdio_MCP_client_configs_may_pass_args_so_left_as_a_separate_call"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:17Z
+issue: 281
+branch: session/2026-10-29-0717-issue-281
+focus: SUMMARY_LENGTH_RATIO_COUNTED_UTF16_CODE_UNITS_AS_GIVEN_WHILE_FINDINGS_TOKENIZE_NFC_NORMALIZES_NOW_NFC_CODE_POINTS_VIA_summaryChars
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1180 passed 14 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main da3ca3c, review vs golden with the identical sentence as summary and finding: NFC chars 68/68 ratio 1 composite 1; NFD chars 72/68 ratio 0.9444 f1 1 composite 0.99444; 'ok '+5xU+1F680+' done' 18 for 13 code points. After: NFD 68/68 ratio 1 composite 1, emoji 13. Dry-run eval report identical before/after (golden summaries ASCII NFC). Revert of src/eval/score.ts: 3 red / 3 controls green. PR #286."
+context_for_next_session:
+  - "summaryChars_IS_CODE_POINTS_OF_NFC_NOT_GRAPHEMES_q_PLUS_U0301_COUNTS_2_AND_A_CONTROL_ARM_PINS_IT"
+  - "SWEEP_src_eval_SUMMARY_LENGTH_IS_THE_ONLY_TEXT_LENGTH_METRIC_other_length_sites_count_arrays_backtick_runs_or_ascii_suffix"
+  - "THE_WRITE_TOOL_TURNED_BACKSLASH_u_ESCAPES_IN_TEST_SOURCE_INTO_LITERAL_CHARS_rebuilt_them_with_python_chr_92_check_od_c_before_commit"
+followups: []
+---
