@@ -112,30 +112,40 @@ async function dispatch(
       ? new URL("http://localhost" + req.url)
       : new URL(req.url, "http://localhost");
   } catch {
-    sendJson(res, 400, { error: "bad request", detail: "request target is not a valid URL" });
+    sendJson(res, 400, {
+      error: "bad request",
+      detail: "request target is not a valid URL",
+    });
     return;
   }
 
-  if (
-    req.method === "GET" &&
-    (url.pathname === "/" || url.pathname === "/index.html")
-  ) {
+  // HEAD is served like GET with the body suppressed, and must carry GET's
+  // status line and headers (RFC 9110 §9.3.2): `dispatch` matched `=== "GET"`
+  // only, so `HEAD /` and `curl -I` got a 404 and an uptime check read the
+  // viewer as down (#280). The senders take `req.method` and drop the body for
+  // HEAD while keeping Content-Type/Content-Length. A known route reached with
+  // some other method is a 405 with `Allow`, not the catch-all 404.
+  const getLike = req.method === "GET" || req.method === "HEAD";
+
+  if (getLike && (url.pathname === "/" || url.pathname === "/index.html")) {
     await sendStatic(
       res,
       path.join(staticDir, "index.html"),
       "text/html; charset=utf-8",
+      req.method,
     );
     return;
   }
-  if (req.method === "GET" && url.pathname === "/app.js") {
+  if (getLike && url.pathname === "/app.js") {
     await sendStatic(
       res,
       path.join(staticDir, "app.js"),
       "application/javascript; charset=utf-8",
+      req.method,
     );
     return;
   }
-  if (req.method === "GET" && url.pathname === "/api/runs") {
+  if (getLike && url.pathname === "/api/runs") {
     const limit = resolveIntParam(url.searchParams.get("limit"), 50, 1, 500);
     const offset = resolveIntParam(
       url.searchParams.get("offset"),
@@ -144,11 +154,11 @@ async function dispatch(
       10_000,
     );
     const runs = await store.listRuns({ limit, offset });
-    sendJson(res, 200, { runs, limit, offset });
+    sendJson(res, 200, { runs, limit, offset }, req.method);
     return;
   }
   const detailMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
-  if (req.method === "GET" && detailMatch) {
+  if (getLike && detailMatch) {
     const segment = detailMatch[1] as string;
     let runId: string;
     try {
@@ -166,7 +176,24 @@ async function dispatch(
       sendJson(res, 404, { error: "run not found", run_id: runId });
       return;
     }
-    sendJson(res, 200, detail);
+    sendJson(res, 200, detail, req.method);
+    return;
+  }
+  // A known route reached with a method it does not serve is a 405 (RFC 9110
+  // §15.5.6), not the catch-all 404 below (#280).
+  const known =
+    url.pathname === "/" ||
+    url.pathname === "/index.html" ||
+    url.pathname === "/app.js" ||
+    url.pathname === "/api/runs" ||
+    detailMatch !== null;
+  if (known) {
+    res.setHeader("Allow", "GET, HEAD");
+    sendJson(res, 405, {
+      error: "method not allowed",
+      method: req.method,
+      path: url.pathname,
+    });
     return;
   }
   sendJson(res, 404, { error: "not found", path: url.pathname });
@@ -176,24 +203,32 @@ async function sendStatic(
   res: ServerResponse,
   file: string,
   contentType: string,
+  method?: string,
 ): Promise<void> {
   try {
     const body = await fs.readFile(file);
     res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", String(body.byteLength));
-    res.end(body);
+    // HEAD carries GET's status and headers, including the real Content-Length,
+    // but no body (RFC 9110 §9.3.2, #280).
+    res.end(method === "HEAD" ? undefined : body);
   } catch {
-    sendJson(res, 404, { error: "static asset not found", file });
+    sendJson(res, 404, { error: "static asset not found", file }, method);
   }
 }
 
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
+function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  method?: string,
+): void {
   const payload = JSON.stringify(body, null, 2);
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Content-Length", String(Buffer.byteLength(payload)));
-  res.end(payload);
+  res.end(method === "HEAD" ? undefined : payload);
 }
 
 const DECIMAL_INTEGER = /^[+-]?\d+$/;

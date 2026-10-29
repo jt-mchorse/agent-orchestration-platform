@@ -2909,3 +2909,20 @@ context_for_next_session:
   - "MANUAL_npx_tsx_PROBES_WITH_RESULTS_DIR_WRITE_INTO_THE_WORKTREE_ROOT_clean_eval_json_and_a_spaces_named_dir_before_commit"
 followups: []
 ---
+
+---
+session: Z
+issue: 280
+branch: session/2026-10-28-0847-issue-280
+focus: TRACE_SERVER_DISPATCH_MATCHED_GET_ONLY_SO_EVERY_HEAD_WAS_404_NOW_HEAD_IS_GET_WITH_NO_BODY_AND_A_KNOWN_ROUTE_405S_OTHER_METHODS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "1169 passed 14 skipped; typecheck + prettier clean"
+decisions_made: []
+measured: "origin/main f6e6146 MemoryStore: HEAD on / /app.js /api/runs /api/runs/:id all 404 vs GET 200; after, each matches GET (status, content-type, content-length) with empty body. POST /api/runs 404 -> 405 Allow: GET, HEAD. Revert 9 red / rest green. PR #284."
+context_for_next_session:
+  - "getLike_AND_THE_METHOD_THREADED_INTO_sendJson_sendStatic_is_the_pattern_body_dropped_for_HEAD_headers_kept"
+followups: []
+---
