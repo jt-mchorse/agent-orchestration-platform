@@ -2238,3 +2238,14 @@ refused with a usage error. A folder whose name really starts with a dash can
 still be given as `./-name` or by full path. The `--comment` target errors
 (missing or malformed `--repo`/`--pr`) now print the usage text like every
 other argument error. PR #290.
+
+## 2026-10-29 — The trace viewer shows why a load failed (#289)
+
+When the trace viewer could not load a page it showed only the status, e.g.
+"Failed to load runs: HTTP 500". That hid the reason the server had already
+put in its reply since #153, such as a refused database connection on a fresh
+clone. Both screens now read that reply and show it: "HTTP 500: connect
+ECONNREFUSED 127.0.0.1:1", "HTTP 404: run not found". When the reply is not
+the server's usual error shape, the viewer still shows just the status. The
+reason is displayed as plain text, so markup in it cannot inject HTML.
+PR #291.
