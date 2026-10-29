@@ -2982,3 +2982,21 @@ context_for_next_session:
   - "MISSING_TOKEN_ERROR_STAYS_ONE_LINE_NO_USAGE_it_is_environment_not_argv"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:53Z
+issue: 289
+branch: session/2026-10-29-0753-issue-289
+focus: TRACE_VIEWER_REJECTED_NON_OK_WITH_BARE_HTTP_STATUS_DROPPING_THE_153_ERROR_BODY_NOW_responseError_APPENDS_error_AND_detail
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 16
+  suite: "1202 passed 14 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 3688612, PgStore on 127.0.0.1:1: /api/runs?limit=50 and /api/runs/x both 500 {error: connect ECONNREFUSED 127.0.0.1:1}; main's chain -> 'HTTP 500'. After, same live server: 'HTTP 500: connect ECONNREFUSED 127.0.0.1:1'; 404 'HTTP 404: run not found'; 400 'HTTP 400: bad request: request target is not a valid URL'; non-JSON stays 'HTTP <status>'. Revert of src/ui/app.js: 7 red / 9 green (bare-status fallbacks, OK passthrough, text-render controls). PR #291."
+context_for_next_session:
+  - "TEST_LIFTS_EACH_SCREENS_fetch_then_HANDLER_VERBATIM_PLUS_EVERY_TOP_LEVEL_async_function_SO_A_REVERT_RUNS_MAINS_CHAIN_AND_IS_RED_NOT_A_COLLECTION_ERROR"
+  - "THE_400_IS_SENT_OVER_A_RAW_SOCKET_absolute_form_GET_http_a_PERCENT_zz_fetch_cannot_send_it"
+followups: []
+---

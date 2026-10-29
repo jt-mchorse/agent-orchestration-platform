@@ -103,7 +103,7 @@ function shortJson(v) {
 // render, and with no error boundary that blanked the whole app. #155 fixed the
 // same throw on the server and settled the answer: a malformed id names no run.
 // So the raw capture is kept as the id; `RunDetail` encodes it, the server
-// decodes it back, and the screen shows its ordinary "HTTP 404".
+// decodes it back, and the screen shows its ordinary "HTTP 404: run not found".
 function runIdFromHash(hash) {
   const m = hash.match(/^#run=([^&]+)/);
   if (!m) return null;
@@ -112,6 +112,28 @@ function runIdFromHash(hash) {
   } catch {
     return m[1];
   }
+}
+
+// The error a non-OK API response rejects with (#289). Both screens rejected
+// with just "HTTP " + status and never read the body, so the cause #153 made
+// the server name (`{"error": "connect ECONNREFUSED 127.0.0.1:1"}`) never
+// reached the page: a fresh clone with no database read only "HTTP 500". The
+// server's error bodies are `{error, detail?}`; a body that is not JSON, or has
+// no string `error`, keeps the bare status. The message is rendered as a text
+// child, so a body carrying markup shows as text.
+async function responseError(r) {
+  let body = null;
+  try {
+    body = await r.json();
+  } catch {
+    // Not JSON (a proxy's HTML error page, an empty body): status only.
+  }
+  let msg = "HTTP " + r.status;
+  if (body && typeof body.error === "string" && body.error) {
+    msg += ": " + body.error;
+    if (typeof body.detail === "string" && body.detail) msg += ": " + body.detail;
+  }
+  throw new Error(msg);
 }
 
 function useHashRoute() {
@@ -129,7 +151,7 @@ function RunList({ onPick }) {
   const [err, setErr] = useState(null);
   useEffect(() => {
     fetch("/api/runs?limit=50")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+      .then((r) => (r.ok ? r.json() : responseError(r)))
       .then((data) => setRuns(data.runs))
       .catch((e) => setErr(e.message));
   }, []);
@@ -179,9 +201,7 @@ function RunDetail({ runId, onBack }) {
   useEffect(() => {
     let current = true;
     fetch("/api/runs/" + encodeURIComponent(runId))
-      .then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)),
-      )
+      .then((r) => (r.ok ? r.json() : responseError(r)))
       .then((body) => {
         if (current) setRun(body);
       })
