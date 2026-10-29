@@ -2963,3 +2963,22 @@ context_for_next_session:
   - "THE_WRITE_TOOL_TURNED_BACKSLASH_u_ESCAPES_IN_TEST_SOURCE_INTO_LITERAL_CHARS_rebuilt_them_with_python_chr_92_check_od_c_before_commit"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:52Z
+issue: 288
+branch: session/2026-10-29-0752-issue-288
+focus: EVAL_RUNNER_VALUE_REFUSED_ONLY_A_DOUBLE_DASH_PREFIX_SO_RESULTS_DIR_DASH_H_WROTE_INTO_REPO_DASH_H_AT_EXIT_0_AND_COMMENT_TARGET_ERRORS_PRINTED_NO_USAGE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "1196 passed 14 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main 3688612: --dry-run --results-dir -h rc 0 and ?? -h/ in the checkout; --repo -h --dry-run rc 0; --comment alone one ::error:: line rc 2, no usage. After: all rc 2 with the ::error:: line then usage (14 stderr lines), stdout empty, nothing written. value() now refuses any leading '-'; commentTargetError prints USAGE. Revert 9 red / 1 green (absolute .../-h path control). PR #290."
+context_for_next_session:
+  - "A_DASH_LEADING_DIR_IS_NAMED_dot_slash_dash_dir_OR_ABSOLUTE_the_usage_says_so"
+  - "SIBLINGS_validate_ts_AND_trace_server_ts_HAVE_NO_VALUE_TAKING_FLAGS_so_no_swallow_shape_validate_dash_x_is_file_not_found_rc_2"
+  - "MISSING_TOKEN_ERROR_STAYS_ONE_LINE_NO_USAGE_it_is_environment_not_argv"
+followups: []
+---

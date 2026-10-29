@@ -2228,3 +2228,13 @@ encoding, lost a little of its summary score while its findings score was
 perfect. The length is now counted on the normalized text, one per character
 (code point), so that copy scores a perfect 1. The shipped fixtures' report
 is unchanged. PR #286.
+
+## 2026-10-29 — The eval runner no longer takes -h as a directory name (#288)
+
+After `-h` became a flag, `eval-runner --results-dir -h` still treated `-h` as
+the directory name: it ran the eval and wrote its results into a `-h` folder
+inside the checkout, exiting 0. Flag values that start with a dash are now
+refused with a usage error. A folder whose name really starts with a dash can
+still be given as `./-name` or by full path. The `--comment` target errors
+(missing or malformed `--repo`/`--pr`) now print the usage text like every
+other argument error. PR #290.
