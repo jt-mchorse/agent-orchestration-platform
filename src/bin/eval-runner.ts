@@ -45,6 +45,7 @@ const USAGE =
   "  --fixtures-dir <dir>  Fixture/golden pairs; default fixtures/sample-prs.\n" +
   "  --results-dir <dir>   Where eval-<timestamp>.json is written; default results.\n" +
   "                        Relative dirs resolve against the repo root.\n" +
+  "                        A value may not start with '-'; name such a dir ./-dir.\n" +
   "\n" +
   "Exit codes: 0 ok / 1 crash / 2 usage, input or I/O error.\n";
 
@@ -71,9 +72,15 @@ function parseArgs(argv: string[]): CLIArgs | typeof HELP {
   // -- the CLI-argument sibling of the env seam (#124) and the query seam
   // (#126), which both treat present-but-empty as missing, and of the test leak
   // #277 fixed. A CI step with an unset `--results-dir "$VAR"` lands here.
+  //
+  // So is any value with a leading `-`, not just `--` (#288). #282 added `-h`,
+  // the first flag without a `--` prefix, and `--results-dir -h` ran the eval
+  // and wrote into `<repo>/-h/` at exit 0 -- #161's bug through the new flag.
+  // Refusing every leading `-` covers any later short flag too; a directory
+  // whose name starts with `-` is named `./-dir`.
   const value = (i: number, flag: string): string => {
     const v = argv[i + 1];
-    if (v === undefined || v.startsWith("--") || v.trim() === "") {
+    if (v === undefined || v.startsWith("-") || v.trim() === "") {
       throw new UsageError(`${flag} needs a value`);
     }
     return v;
@@ -131,9 +138,14 @@ async function main(): Promise<number> {
     // otherwise flow into `upsertStickyComment` → a GitHub API URL
     // `.../issues/${pr}/comments` unchecked. `commentTargetError` enforces the
     // positive-integer contract (sibling of RetryPolicy/ExecutorOptions #29/#31).
+    //
+    // A target error is a usage error, so it prints the usage like one from
+    // `parseArgs` (#288); the missing token below is the environment's, not
+    // the command line's, and stays a single line.
     const targetErr = commentTargetError(args.repo, args.pr);
     if (targetErr) {
       console.error(`::error::${targetErr}`);
+      process.stderr.write(USAGE);
       return 2;
     }
     try {
