@@ -160,3 +160,54 @@ describe("eval-runner --help and usage text (#282)", () => {
     30_000,
   );
 });
+
+// #282 made `-h` a flag, but `value()` refused only a `--` prefix, so `-h` was
+// still taken as a flag's value, and the `--comment` target errors were checked
+// in `main()`, after `parseArgs`, where no usage was printed (#288). Measured on
+// main: `--dry-run --results-dir -h` exit 0 and `?? -h/` in the checkout;
+// `--repo -h --dry-run` exit 0; `--comment` alone an `::error::` line and no
+// usage.
+describe("eval-runner -h as a value and --comment target usage (#288)", () => {
+  it.each([
+    [["--results-dir", "-h"], "--results-dir needs a value"],
+    [["--fixtures-dir", "-h"], "--fixtures-dir needs a value"],
+    [["--repo", "-h"], "--repo needs a value"],
+    [["--pr", "-h"], "--pr needs a value"],
+    // Any leading `-`, not only `-h`: a later short flag is covered too.
+    [["--results-dir", "-x"], "--results-dir needs a value"],
+    [["--comment"], "--comment requires --repo owner/name and --pr <n>"],
+    [["--comment", "--repo", "badformat", "--pr", "1"], "--repo must match 'owner/name'"],
+    [["--comment", "--repo", "o/r", "--pr", "3000000000"], "--pr must be at most"],
+  ])(
+    "%j prints the error then the usage on stderr, exit 2, stdout empty",
+    async (args, message) => {
+      const results = path.join(work, "results");
+      const r = await runCLI(work, ...args, "--results-dir", results);
+      expect(r.code).toBe(2);
+      expect(r.stdout).toBe("");
+      const [first, ...rest] = r.stderr.split("\n");
+      expect(first).toContain(`::error::${message}`);
+      expect(rest.join("\n").startsWith("usage: eval-runner")).toBe(true);
+      expect(existsSync(results)).toBe(false);
+    },
+    30_000,
+  );
+
+  it("--dry-run --results-dir -h writes no -h/ directory into the repo root", async () => {
+    const leak = path.join(REPO_ROOT, "-h");
+    const r = await runCLI(work, "--dry-run", "--results-dir", "-h");
+    const leaked = existsSync(leak);
+    // Remove a leak before asserting, so a red run does not dirty the checkout.
+    if (leaked) await rm(leak, { recursive: true, force: true });
+    expect(r.code).toBe(2);
+    expect(leaked).toBe(false);
+  }, 30_000);
+
+  it("a dir whose name starts with - is still reachable by a path that does not", async () => {
+    const r = await runCLI(work, "--dry-run", "--results-dir", path.join(work, "-h"));
+    expect(r.code).toBe(0);
+    expect((await readdir(path.join(work, "-h"))).some((f) => /^eval-.*\.json$/.test(f))).toBe(
+      true,
+    );
+  }, 30_000);
+});
