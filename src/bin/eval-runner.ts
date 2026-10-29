@@ -34,7 +34,24 @@ interface CLIArgs {
   pr: number | null;
 }
 
-function parseArgs(argv: string[]): CLIArgs {
+const USAGE =
+  "usage: eval-runner [--dry-run | --comment --repo <owner/name> --pr <n>]\n" +
+  "                   [--fixtures-dir <dir>] [--results-dir <dir>]\n" +
+  "\n" +
+  "  --dry-run             Print the rendered markdown; post nothing.\n" +
+  "  --comment             Upsert the sticky comment on --repo/--pr (needs GITHUB_TOKEN or GH_TOKEN).\n" +
+  "  --repo <owner/name>   The repository to comment on.\n" +
+  "  --pr <n>              The pull request number, a positive integer.\n" +
+  "  --fixtures-dir <dir>  Fixture/golden pairs; default fixtures/sample-prs.\n" +
+  "  --results-dir <dir>   Where eval-<timestamp>.json is written; default results.\n" +
+  "                        Relative dirs resolve against the repo root.\n" +
+  "\n" +
+  "Exit codes: 0 ok / 1 crash / 2 usage, input or I/O error.\n";
+
+/** `--help`/`-h` was the one argument with no path out of `parseArgs` (#282). */
+const HELP = Symbol("help");
+
+function parseArgs(argv: string[]): CLIArgs | typeof HELP {
   const args: CLIArgs = {
     fixturesDir: "fixtures/sample-prs",
     resultsDir: "results",
@@ -63,7 +80,8 @@ function parseArgs(argv: string[]): CLIArgs {
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]!;
-    if (a === "--fixtures-dir") args.fixturesDir = value(i++, a);
+    if (a === "--help" || a === "-h") return HELP;
+    else if (a === "--fixtures-dir") args.fixturesDir = value(i++, a);
     else if (a === "--results-dir") args.resultsDir = value(i++, a);
     else if (a === "--comment") args.comment = true;
     else if (a === "--dry-run") args.dryRun = true;
@@ -83,14 +101,26 @@ function parseArgs(argv: string[]): CLIArgs {
 class UsageError extends Error {}
 
 async function main(): Promise<number> {
-  let args: CLIArgs;
+  // `--help` exits 0 with the usage on stdout, before any fixture is read or
+  // results file written, and a usage error prints the usage after its
+  // `::error::` line (#282). Until then `--help` was an unknown argument at
+  // exit 2 and no error showed the flags. Same contract as `validate.ts`
+  // (#188) and `trace-server.ts` (#217); the stdout/stderr split is
+  // trace-server's.
+  let parsed: CLIArgs | typeof HELP;
   try {
-    args = parseArgs(process.argv.slice(2));
+    parsed = parseArgs(process.argv.slice(2));
   } catch (err) {
     if (!(err instanceof UsageError)) throw err;
     console.error(`::error::${err.message}`);
+    process.stderr.write(USAGE);
     return 2;
   }
+  if (parsed === HELP) {
+    process.stdout.write(USAGE);
+    return 0;
+  }
+  const args = parsed;
   // `--comment`'s own inputs before any fixture runs (#173). The target was
   // checked only after the whole eval and the results write, and a missing
   // token surfaced from inside `upsertStickyComment` as a stack trace at
