@@ -2926,3 +2926,21 @@ context_for_next_session:
   - "getLike_AND_THE_METHOD_THREADED_INTO_sendJson_sendStatic_is_the_pattern_body_dropped_for_HEAD_headers_kept"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:17Z
+issue: 282
+branch: session/2026-10-29-0717-issue-282
+focus: EVAL_RUNNER_HELP_WAS_AN_UNKNOWN_ARGUMENT_AT_EXIT_2_WITH_NO_USAGE_NOW_HELP_IS_USAGE_ON_STDOUT_EXIT_0_AND_USAGE_ERRORS_PRINT_USAGE_ON_STDERR
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1180 passed 14 skipped; typecheck clean"
+decisions_made: []
+measured: "origin/main da3ca3c: --help and -h each '::error::unknown argument: --help' rc 2; --bogus rc 2 with no usage. After: --help/-h 12 usage lines on stdout, stderr empty, rc 0, nothing run; --bogus ::error:: line + usage on stderr, stdout empty, rc 2. Revert 6 red / 11 green (the #161/#279 controls). PR #285."
+context_for_next_session:
+  - "parseArgs_RETURNS_A_HELP_SYMBOL_help_is_first_come_in_argv_order_like_trace_server_so_pr_abc_then_help_is_still_exit_2"
+  - "NOT_DONE_mcp_server_portfolio_context_bin_ts_IGNORES_ARGV_with_PORTFOLIO_ROOT_set_help_or_bogus_starts_the_stdio_server_stdio_MCP_client_configs_may_pass_args_so_left_as_a_separate_call"
+followups: []
+---

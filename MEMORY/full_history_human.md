@@ -2208,3 +2208,11 @@ uptime checks saw the viewer as down. It now answers HEAD exactly as GET but
 with no body, and a known address reached with an unsupported method (POST and
 the like) returns "method not allowed" with an `Allow` header instead of "not
 found". PR #284.
+
+## 2026-10-29 — The eval runner answers --help (#282)
+
+`eval-runner --help` used to be an error: exit 2 and no usage text, and a
+mistyped flag never showed the real ones. `--help` and `-h` now print the usage
+and exit 0 without running the eval, and every argument error prints the usage
+after its message. That matches `validate` and `trace-server`. The MCP server
+bin still ignores its arguments, which is left as a separate call. PR #285.
