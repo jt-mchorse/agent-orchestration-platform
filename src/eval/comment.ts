@@ -1,5 +1,6 @@
 import { MAX_TIMER_MS } from "../agent/retry.js";
 import { firstNonBlank } from "../io/env.js";
+import { codeSpan } from "../markdown.js";
 import type { EvalRun } from "./runner.js";
 
 /**
@@ -167,18 +168,14 @@ function escape(s: string): string {
 // (#244). `escape()` is wrong here: CommonMark does not decode entity
 // references inside a code span, so `a&b` rendered as the literal text
 // `a&amp;b`, and `escape()` leaves backticks alone, so a backtick in the id
-// closed the span early. Instead the fence is a backtick run one longer than
-// the longest run in the value, which no run inside it can close (CommonMark
-// §6.1). A
-// value that starts or ends with a backtick, or both starts and ends with a
-// space, is padded with one space each side; the renderer strips exactly that
-// pair back off. The `|` -> `\|` escape from #89 stays: GitHub splits cells
-// before it parses code spans, and it removes the backslash inside one.
+// closed the span early. The fence and padding come from `codeSpan` (shared
+// with the review comment's finding anchor since #295). The `|` -> `\|` escape
+// from #89 stays: GitHub splits cells before it parses code spans, and it
+// removes the backslash inside one. The escape adds no backtick and does not
+// change the value's first or last character class, so it cannot change the
+// fence or the padding.
 function codeSpanCell(s: string): string {
-  const longestRun = Math.max(0, ...(s.match(/`+/g) ?? []).map((r) => r.length));
-  const fence = "`".repeat(longestRun + 1);
-  const pad = /^`|`$/.test(s) || (/^ /.test(s) && / $/.test(s)) ? " " : "";
-  return `${fence}${pad}${s.replace(/\|/g, "\\|")}${pad}${fence}`;
+  return codeSpan(s.replace(/\|/g, "\\|"));
 }
 
 // ---------- GitHub API plumbing (stdlib-only) ----------

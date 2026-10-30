@@ -2273,3 +2273,14 @@ review-posting tool uses, so a golden that passes validation can be posted.
 The README also stopped calling the approval checkpoint a "no-op" in replay
 mode. As the use-case doc has said since #250, nothing is posted in replay
 mode, but the operator is still asked to approve. PR #296.
+
+## 2026-10-30 — A filename can no longer break or forge a posted finding (#295)
+
+The review comment marked each finding's location by putting the file name
+between single backticks. A pull request's author picks its file names. A
+backtick in a name ended that marker early, and a line break in a name started
+a fake extra finding in the posted comment, such as a "PRAISE" the agent never
+wrote. Locations now use the same backtick handling the eval comment has used
+since #244, moved into one shared helper, so any file name shows exactly as
+written. File names containing a line break are refused, and the golden-file
+validator refuses them too. PR #297, built on #296.

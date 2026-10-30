@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { codeSpan } from "../markdown.js";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
 // The canonical `Finding` (src/agent/types.ts) as-is: the anchor is optional
@@ -13,7 +14,15 @@ import { ToolError, type Tool, type ToolContext } from "./types.js";
 export const findingSchema = z
   .object({
     severity: z.enum(["blocker", "concern", "nit", "praise"]),
-    file: z.string().min(1).optional(),
+    // No CR or LF: the anchor is rendered as a code span, which cannot hold a
+    // line ending, and a newline followed by `- **PRAISE** ...` started a
+    // second, forged list item in the posted comment (#295). Such a git path
+    // is pathological; other characters (backticks included) are fenced.
+    file: z
+      .string()
+      .min(1)
+      .refine((s) => !/[\r\n]/.test(s), { message: "file must not contain CR or LF" })
+      .optional(),
     lineRange: z
       .tuple([z.number().int().min(1), z.number().int().min(1)])
       .refine(([start, end]) => start <= end, { message: "lineRange start must be <= end" })
@@ -65,7 +74,9 @@ export function renderPreview(input: z.infer<typeof inputSchema>): string {
     lines.push("## Findings");
     for (const f of input.findings) {
       const anchor = findingAnchor(f);
-      const where = anchor ? ` \`${anchor}\`` : "";
+      // Fenced by `codeSpan`: a PR author controls filenames, and a backtick in
+      // one closed a fixed single-backtick span early (#295).
+      const where = anchor ? ` ${codeSpan(anchor)}` : "";
       lines.push(`- **${f.severity.toUpperCase()}**${where} — ${f.message}`);
     }
   }
