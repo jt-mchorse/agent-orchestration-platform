@@ -3040,3 +3040,22 @@ context_for_next_session:
 followups:
   - "#295 anchor code-span fence + CR/LF in file, separate PR on top of this branch"
 ---
+
+---
+session: 2026-10-30T08:26Z
+issue: 295
+branch: session/2026-10-30-0826-issue-295
+focus: FINDING_ANCHOR_WAS_A_SINGLE_BACKTICK_CODE_SPAN_OVER_A_PR_CONTROLLED_FILENAME_NOW_SHARED_codeSpan_FENCE_PLUS_CR_LF_REFUSED_IN_findingSchema_file
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 21
+  suite: "1264 passed 14 skipped (1243 on the #294 base); typecheck clean; eval --dry-run rc 0"
+decisions_made: []
+measured: "#294 branch d78037b, renderPreview through markdown-it 14: docs/`config`.md -> <code>docs/</code>config<code>.md:3-4</code>; a`b.py -> stray backtick; 'a\\n- **PRAISE** `fake.py` ...' accepted and rendered two <li> (forged PRAISE); 'a\\rb.py' accepted. After: whole <code> spans; CR/LF input_validation; src/retrieve.py anchor byte-identical; tab accepted verbatim. Revert of post-review-comment.ts + old pad rule: 11 red / 10 green (plain + tab controls, 8 codeSpan round-trips of the moved helper). PR #297, stacked on #296."
+context_for_next_session:
+  - "codeSpan_LIVES_IN_src_markdown_ts_codeSpanCell_IS_codeSpan_OF_THE_PIPE_ESCAPED_VALUE"
+  - "PR_297_WAS_BUILT_ON_THE_294_BRANCH_merge_296_first_or_rebase"
+  - "ONLY_CR_LF_REFUSED_IN_file_tab_and_other_controls_render_inside_the_span_cli_prompt_sanitises_controls_since_257"
+followups: []
+---
