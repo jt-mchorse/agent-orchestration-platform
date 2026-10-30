@@ -3020,3 +3020,23 @@ context_for_next_session:
   - "NOT_DONE_validateGolden_CHECKS_ONLY_severity_AND_message_ON_A_FINDING_file_AND_lineRange_TYPES_ARE_UNCHECKED"
 followups: []
 ---
+
+---
+session: 2026-10-30T08:21Z
+issue: 294
+branch: session/2026-10-30-0821-issue-294
+focus: VALIDATE_GOLDEN_CHECKED_ONLY_severity_AND_message_ON_A_FINDING_NOW_RUNS_THE_EXPORTED_post_review_comment_findingSchema_PLUS_README_REPLAY_CHECKPOINT_NO_OP_SENTENCE
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 16
+  suite: "1243 passed 14 skipped (was 1227); typecheck clean; eval --dry-run rc 0"
+decisions_made: []
+measured: "origin/main 711eae9: validate --golden with findings[0] file 5, lineRange 'x', [22,14], line_start 3, file '' all 'ok findings=0' rc 0. After: each rc 1 with one finding at its jsonPath; message '' also caught; severity 'bad' still one severity_wrong_value finding (no double report). Revert of validate.ts + README (findingSchema export kept so tests import): 11 red / 5 green (4 accepted-shape controls + no-double-report control). PR #296."
+context_for_next_session:
+  - "findingSchema_IS_EXPORTED_FROM_post_review_comment_AND_IS_THE_ONE_GOLDEN_FINDING_CONTRACT_a_narrowing_there_reaches_validateGolden_and_the_differential_test"
+  - "ZOD_ISSUES_ON_A_FIELD_THE_HAND_CHECKS_ALREADY_REPORTED_ARE_SKIPPED_BY_jsonPath"
+  - "README_REPLAY_SENTENCE_LOCKED_IN_test_cli_approval_rendered_comment_NEXT_TO_THE_250_USE_CASE_LOCK"
+followups:
+  - "#295 anchor code-span fence + CR/LF in file, separate PR on top of this branch"
+---

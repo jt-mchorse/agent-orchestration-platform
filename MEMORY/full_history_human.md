@@ -2261,3 +2261,15 @@ findings in that shape. A finding with a location is shown as
 The old `line_start`/`line_end` keys are refused outright, not quietly
 dropped. The README example and the use-case doc were updated to match.
 Posting to GitHub for real is still not wired. PR #293.
+
+## 2026-10-30 — The golden validator checks findings the way the poster does (#294)
+
+`npm run validate -- --golden` only checked each golden finding's severity
+and message. A golden whose finding had a numeric `file`, a `lineRange` that
+was a string or ran backwards, an empty file or message, or the old
+`line_start` key passed validation. It then failed when the review was
+posted. The validator now checks each finding with the same rules the
+review-posting tool uses, so a golden that passes validation can be posted.
+The README also stopped calling the approval checkpoint a "no-op" in replay
+mode. As the use-case doc has said since #250, nothing is posted in replay
+mode, but the operator is still asked to approve. PR #296.
