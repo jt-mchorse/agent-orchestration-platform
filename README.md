@@ -12,9 +12,10 @@ code via repo search, CI status, the target repo's recorded core decisions
 via a custom MCP server), pauses for explicit operator approval before
 posting anything publicly, and on approval emits a single structured review
 comment: a plain-English summary, a list of findings tagged by severity
-(`blocker` / `concern` / `nit` / `praise`) and anchored to file + line, and
-a final recommendation. In replay mode (against committed fixtures), the
-checkpoint is a no-op and the output goes to stdout.
+(`blocker` / `concern` / `nit` / `praise`) and anchored to file + line when
+the finding has a location, and a final recommendation. In replay mode
+(against committed fixtures), the checkpoint is a no-op and the output goes
+to stdout.
 
 The agent is one agent, deliberately. The point of this repo isn't
 multi-agent orchestration; it's *single-agent depth* — visible planning,
@@ -155,7 +156,7 @@ await registry.invoke(
     number: 9,
     summary: "Adds hybrid retrieval with reasonable defaults.",
     findings: [
-      { severity: "concern", file: "src/retrieve.py", line_start: 14, line_end: 22,
+      { severity: "concern", file: "src/retrieve.py", lineRange: [14, 22],
         message: "RRF k constant deserves a comment." },
     ],
     recommendation: "approve_with_comments",

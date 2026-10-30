@@ -132,8 +132,7 @@ describe("post_review_comment destructive flow end-to-end", () => {
       {
         severity: "concern" as const,
         file: "src/retrieve.py",
-        line_start: 14,
-        line_end: 22,
+        lineRange: [14, 22] as [number, number],
         message: "RRF k constant deserves a comment.",
       },
     ],
