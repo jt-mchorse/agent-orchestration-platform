@@ -11,7 +11,8 @@ or written to stdout (replay mode), containing:
 1. A **summary paragraph** in plain English: what the PR does, why, and the
    reviewer's overall confidence.
 2. A list of **findings**, each tagged with severity (`blocker`, `concern`,
-   `nit`, `praise`) and anchored to a file + line range.
+   `nit`, `praise`) and anchored to a file + line range when it has one (a
+   finding about the PR as a whole is posted without an anchor).
 3. A **final recommendation**: one of `request_changes`,
    `approve_with_comments`, `approve`.
 

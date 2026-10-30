@@ -1,13 +1,34 @@
 import { z } from "zod";
 import { ToolError, type Tool, type ToolContext } from "./types.js";
 
-const findingSchema = z.object({
-  severity: z.enum(["blocker", "concern", "nit", "praise"]),
-  file: z.string().min(1),
-  line_start: z.number().int().nonnegative(),
-  line_end: z.number().int().nonnegative(),
-  message: z.string().min(1),
-});
+// The canonical `Finding` (src/agent/types.ts) as-is: the anchor is optional
+// and the line range is a `[start, end]` pair. The schema used to demand
+// `file` plus `line_start`/`line_end`, a shape nothing in the pipeline
+// produces, so every Review with a finding -- including both committed
+// goldens -- failed input validation and only an empty Review could be posted
+// (#292, the other half of #63). Strict, so a caller still passing the old
+// `line_start`/`line_end` keys is refused instead of having its anchor
+// silently stripped.
+const findingSchema = z
+  .object({
+    severity: z.enum(["blocker", "concern", "nit", "praise"]),
+    file: z.string().min(1).optional(),
+    lineRange: z
+      .tuple([z.number().int().min(1), z.number().int().min(1)])
+      .refine(([start, end]) => start <= end, { message: "lineRange start must be <= end" })
+      .optional(),
+    message: z.string().min(1),
+  })
+  .strict();
+
+type PostedFinding = z.infer<typeof findingSchema>;
+
+/** `file:start-end`, `file`, `lines start-end`, or "" for an unanchored finding. */
+function findingAnchor(f: PostedFinding): string {
+  const range = f.lineRange ? `${f.lineRange[0]}-${f.lineRange[1]}` : undefined;
+  if (f.file !== undefined) return range ? `${f.file}:${range}` : f.file;
+  return range ? `lines ${range}` : "";
+}
 
 const inputSchema = z.object({
   owner: z.string().min(1),
@@ -42,9 +63,9 @@ export function renderPreview(input: z.infer<typeof inputSchema>): string {
     lines.push("");
     lines.push("## Findings");
     for (const f of input.findings) {
-      lines.push(
-        `- **${f.severity.toUpperCase()}** \`${f.file}:${f.line_start}-${f.line_end}\` — ${f.message}`,
-      );
+      const anchor = findingAnchor(f);
+      const where = anchor ? ` \`${anchor}\`` : "";
+      lines.push(`- **${f.severity.toUpperCase()}**${where} — ${f.message}`);
     }
   }
   lines.push("");
