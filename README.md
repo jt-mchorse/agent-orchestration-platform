@@ -14,8 +14,10 @@ posting anything publicly, and on approval emits a single structured review
 comment: a plain-English summary, a list of findings tagged by severity
 (`blocker` / `concern` / `nit` / `praise`) and anchored to file + line when
 the finding has a location, and a final recommendation. In replay mode
-(against committed fixtures), the checkpoint is a no-op and the output goes
-to stdout.
+(against committed fixtures), nothing is posted and the output goes to
+stdout, but the checkpoint still fires there, so the approval gate is
+exercised while live posting is stubbed; a replay run that should not
+prompt wires `autoApproveProvider`.
 
 The agent is one agent, deliberately. The point of this repo isn't
 multi-agent orchestration; it's *single-agent depth* — visible planning,

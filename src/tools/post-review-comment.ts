@@ -8,8 +8,9 @@ import { ToolError, type Tool, type ToolContext } from "./types.js";
 // goldens -- failed input validation and only an empty Review could be posted
 // (#292, the other half of #63). Strict, so a caller still passing the old
 // `line_start`/`line_end` keys is refused instead of having its anchor
-// silently stripped.
-const findingSchema = z
+// silently stripped. Exported so `validateGolden` (src/eval/validate.ts)
+// checks each golden finding against this same schema (#294).
+export const findingSchema = z
   .object({
     severity: z.enum(["blocker", "concern", "nit", "praise"]),
     file: z.string().min(1).optional(),
