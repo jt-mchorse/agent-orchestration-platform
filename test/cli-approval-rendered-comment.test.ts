@@ -122,6 +122,20 @@ describe("docs/use-case.md describes the replay-mode checkpoint (#250)", () => {
   });
 });
 
+// #250 corrected the use-case doc; the README's "What this is" paragraph kept
+// the old "the checkpoint is a no-op" sentence (#294).
+describe("README describes the replay-mode checkpoint the same way (#294)", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").replace(/\s+/g, " ");
+
+  it("does not claim the checkpoint is a no-op in replay mode", () => {
+    expect(readme).not.toMatch(/checkpoint is a no-op/);
+  });
+
+  it("says the checkpoint still fires in replay mode", () => {
+    expect(readme).toMatch(/In replay mode[^.]*checkpoint still fires there/);
+  });
+});
+
 /**
  * The rendered comment reaches the operator's terminal, and its text comes from
  * the planner's review of the PR, so a PR author can steer it (#257). Before

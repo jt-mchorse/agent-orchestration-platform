@@ -24,6 +24,8 @@
 
 import { promises as fs } from "node:fs";
 
+import { findingSchema } from "../tools/post-review-comment.js";
+
 /** One row-level (single-JSON-document, single-finding) issue. */
 export interface ValidationFinding {
   readonly code: string;
@@ -399,6 +401,26 @@ function _validateFindingEntry(entry: unknown, index: number, findings: Validati
     });
   }
   _requireString(entry, "message", findings, here);
+  // Everything else about a finding is checked by `post_review_comment`'s own
+  // schema, so a golden that validates clean is one the tool can post. The
+  // checks above only covered severity and message: `"file": 5`,
+  // `"lineRange": "x"`, `[22, 14]`, an empty `file`, an empty `message` or the
+  // legacy `line_start` key validated clean, then failed input_validation the
+  // moment the Review was posted (#294). Issues on a field the checks above
+  // already reported are skipped so it is not reported twice.
+  const result = findingSchema.safeParse(entry);
+  if (result.success) return;
+  const reported = new Set(findings.map((f) => f.jsonPath));
+  for (const issue of result.error.issues) {
+    const field = issue.path.length > 0 ? String(issue.path[0]) : undefined;
+    const at = field === undefined ? here : `${here}.${field}`;
+    if (field !== undefined && reported.has(at)) continue;
+    findings.push({
+      code: field === undefined ? `${here}.${issue.code}` : `${here}.${field}_invalid`,
+      reason: `${at}: ${issue.message}`,
+      jsonPath: at,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
