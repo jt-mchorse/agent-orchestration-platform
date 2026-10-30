@@ -2249,3 +2249,15 @@ ECONNREFUSED 127.0.0.1:1", "HTTP 404: run not found". When the reply is not
 the server's usual error shape, the viewer still shows just the status. The
 reason is displayed as plain text, so markup in it cannot inject HTML.
 PR #291.
+
+## 2026-10-30 — The review-posting tool accepts reviews that have findings (#292)
+
+The tool that posts a review comment only accepted a review with no findings.
+It expected each finding to carry a file plus `line_start`/`line_end`, while
+the reviews the pipeline produces (including both committed answer keys) use
+an optional file and an optional `lineRange: [start, end]`. The tool now takes
+findings in that shape. A finding with a location is shown as
+`file:start-end`, and a finding about the PR as a whole is shown without one.
+The old `line_start`/`line_end` keys are refused outright, not quietly
+dropped. The README example and the use-case doc were updated to match.
+Posting to GitHub for real is still not wired. PR #293.

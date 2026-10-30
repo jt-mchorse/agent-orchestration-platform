@@ -3000,3 +3000,23 @@ context_for_next_session:
   - "THE_400_IS_SENT_OVER_A_RAW_SOCKET_absolute_form_GET_http_a_PERCENT_zz_fetch_cannot_send_it"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:51Z
+issue: 292
+branch: session/2026-10-30-0751-issue-292
+focus: POST_REVIEW_COMMENT_FINDING_SCHEMA_WANTED_file_PLUS_line_start_line_end_THE_CANONICAL_FINDING_IS_file_OPTIONAL_lineRange_OPTIONAL_SO_ONLY_ZERO_FINDING_REVIEWS_POSTED_NOW_SCHEMA_IS_THE_FINDING_AS_IS_STRICT
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 15
+  suite: "1227 passed 14 skipped (was 1212); typecheck clean; eval --dry-run rc 0"
+decisions_made: []
+measured: "origin/main 51270fc via registry.invoke replay autoApprove: file+lineRange, file only, lineRange only, no anchor, both goldens all REJECTED input_validation; zero findings ACCEPTED. After: all accepted; rendered `a.py:14-22`, `a.py`, `lines 3-3`, no anchor; goldens 3+3 findings. Revert of src + README: 8 red / 7 green (golden-count guard, zero-findings, 5 malformed refusals main refuses anyway). Loose neighbour (no refine, nonnegative, non-strict): start>end, line 0, legacy keys red. PR #293."
+context_for_next_session:
+  - "FINDING_SCHEMA_IS_STRICT_line_start_line_end_ARE_REFUSED_NOT_STRIPPED_zod_default_strip_would_have_posted_them_unanchored"
+  - "LIVE_MODE_STILL_STUBBED_whoever_wires_GitHub_maps_lineRange_to_start_line_and_line_and_must_post_unanchored_findings_in_the_body"
+  - "README_HITL_EXAMPLE_FINDINGS_LITERAL_IS_EVALUATED_AND_POSTED_BY_test_tools_post_review_comment_finding_shape"
+  - "NOT_DONE_validateGolden_CHECKS_ONLY_severity_AND_message_ON_A_FINDING_file_AND_lineRange_TYPES_ARE_UNCHECKED"
+followups: []
+---
